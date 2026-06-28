@@ -1,0 +1,216 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>深海世界·联机 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#0a1a3a;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}.lobby{background:var(--mc-panel-dark);border:4px solid var(--mc-black);padding:20px;max-width:420px;margin:14px auto;text-align:center;box-shadow:inset 4px 4px 0 0 #2a3f5f,inset -4px -4px 0 0 #000,8px 8px 0 0 rgba(0,0,0,0.4)}.lobby input{font-family:'Press Start 2P',monospace;font-size:12px;padding:10px;background:#0d1b2a;color:#4dd0e1;border:2px solid #000;width:200px;text-align:center;margin:6px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="pf-ocean.html">深海联机</a><a href="pf-ice.html">冰雪联机</a><a href="pf-sky.html">天空联机</a><a href="mario.html">冒险</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:28px;color:#4caf50">🌴 深海世界·联机</h1>
+<p class="subtitle">和网友一起跳跃闯关！</p>
+<div class="hud" style="margin-top:14px"><div class="hud-item"><span class="label">你</span><span id="myScore">0</span></div><div class="hud-item"><span class="label">对手</span><span id="opScore">0</span></div><div class="hud-item" style="color:#4dd0e1"><span class="label">状态</span><span id="connStatus">未连接</span></div></div>
+<div class="lobby" id="lobby">
+<h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;margin-bottom:12px">🌐 联机大厅</h3>
+<button class="mc-btn green" id="hostBtn">🏠 创建房间</button>
+<p style="color:#888;font-size:13px;margin:10px 0">或</p>
+<input type="text" id="roomId" placeholder="输入房间号"><br>
+<button class="mc-btn gold" id="joinBtn">🚪 加入房间</button>
+<p style="color:#888;font-size:13px;margin:10px 0">没人一起玩？</p>
+<button class="mc-btn" id="aiBtn" style="background:#9c27b0;color:#fff">🤖 和 AI 对战</button>
+<div style="margin-top:14px;color:#4dd0e1;font-size:13px" id="roomInfo"></div>
+</div>
+<div class="game-stage" style="margin-top:14px;display:none" id="gameStage"><canvas id="gameCanvas" width="560" height="380"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px" id="gameHint"><span class="key">←→</span>移动 <span class="key">空格</span>跳 · 收集金币到达终点</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="index.html" class="mc-btn">← 返回</a></div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+// ===== 主题配置 =====
+var THEME={bgTop:'#0a1a3a',bgBot:'#050a20',ground:'#1565c0',groundDark:'#0d47a1',brick:'#4dd0e1',sky:'#0a2a5a',pColor:'#e53935',oColor:'#2196f3',coin:'#ffd700',cloud:'#fff',title:'🌴 深海世界'};
+// ===== 关卡平台 =====
+var LEVEL=[
+{x:0,y:300,w:300,h:60,t:'ground'},{x:360,y:300,w:200,h:60,t:'ground'},
+{x:640,y:280,w:150,h:60,t:'ground'},{x:860,y:260,w:180,h:60,t:'ground'},
+{x:1120,y:300,w:280,h:60,t:'ground'},
+{x:200,y:230,w:80,h:16,t:'brick'},{x:420,y:200,w:80,h:16,t:'brick'},
+{x:680,y:200,w:100,h:16,t:'brick'},{x:920,y:180,w:80,h:16,t:'brick'},
+{x:1180,y:220,w:100,h:16,t:'brick'},
+{x:1320,y:280,w:200,h:80,t:'ground'}
+];
+var COINS=[[210,190],[470,160],[650,160],[900,140],[1170,180],[380,270],[720,250],[1080,270],[580,270],[1300,250]];
+var WORLD_W=1520;var FLAG={x:1450,y:200};
+var GRAVITY=0.5,JUMP=-11,MOVE=3;
+var peer,conn,myId,opponent=null,isHost=false,aiMode=false,aiTick=0;
+var state=null,p1=null,p2={x:0,y:0,w:22,h:30,dir:1,anim:0},coins=[],cam={x:0},keys={},particles=[],tick=0,score1=0,score2=0,won=0;
+document.getElementById('hostBtn').addEventListener('click',createRoom);
+document.getElementById('joinBtn').addEventListener('click',joinRoom);
+document.getElementById('aiBtn').addEventListener('click',startAI);
+function startAI(){
+  AOXSound.ensure();SFX.select();
+  aiMode=true;opponent='AI 机器人';
+  document.getElementById('lobby').style.display='none';
+  document.getElementById('gameStage').style.display='inline-block';
+  document.getElementById('connStatus').textContent='vs AI 🤖';
+  document.getElementById('connStatus').style.color='#9c27b0';
+  toast('🤖 和 AI 对战开始！');
+  startGame();
+}
+function createRoom(){
+  AOXSound.ensure();SFX.select();
+  document.getElementById('connStatus').textContent='创建中...';
+  peer=new Peer();isHost=true;
+  peer.on('open',function(id){
+    myId=id;var code=id.slice(-6).toUpperCase();
+    document.getElementById('roomInfo').innerHTML='房间号：<b style="color:#ffd700;font-size:16px">'+code+'</b><br>把房间号发给朋友！<br>等待加入...';
+    document.getElementById('connStatus').textContent='等待对手...';
+  });
+  peer.on('connection',function(c){conn=c;setupConn();});
+  peer.on('error',function(){toast('连接失败，重试');document.getElementById('connStatus').textContent='失败';});
+}
+function joinRoom(){
+  AOXSound.ensure();SFX.select();
+  var rid=document.getElementById('roomId').value.trim().toLowerCase();
+  if(!rid){toast('输入房间号！');return;}
+  document.getElementById('connStatus').textContent='连接中...';
+  peer=new Peer();
+  peer.on('open',function(id){
+    myId=id;
+    // 尝试用完整ID或后6位匹配
+    conn=peer.connect(rid,{reliable:true});
+    if(!conn){conn=peer.connect(rid.length>6?rid:'aoxuan'+rid);}
+    setupConn();
+  });
+  peer.on('error',function(e){toast('连接失败：房间号错误');document.getElementById('connStatus').textContent='失败';});
+}
+function setupConn(){
+  conn.on('open',function(){
+    document.getElementById('lobby').style.display='none';
+    document.getElementById('gameStage').style.display='inline-block';
+    document.getElementById('connStatus').textContent='已连接 ✓';
+    document.getElementById('connStatus').style.color='#4caf50';
+    SFX.win();toast('🎉 已连接！开始闯关！');
+    startGame();
+    // 发送初始信息
+    conn.send({type:'hello',name:'对手'});
+  });
+  conn.on('data',function(data){
+    if(data.type==='hello'){opponent=data.name;document.getElementById('connStatus').textContent='已连接: '+opponent;}
+    else if(data.type==='state'){p2.x=data.x;p2.y=data.y;p2.dir=data.dir;score2=data.score;p2.anim=data.anim;}
+    else if(data.type==='coin'){if(coins[data.idx])coins[data.idx].got=true;}
+    else if(data.type==='win'){won=2;}
+  });
+  conn.on('close',function(){document.getElementById('connStatus').textContent='对手离开';document.getElementById('connStatus').style.color='#e53935';});
+}
+function startGame(){
+  state={running:true,over:false};
+  p1={x:50,y:250,w:22,h:30,vx:0,vy:0,onG:false,dir:1,anim:0};
+  p2={x:80,y:250,w:22,h:30,vx:0,vy:0,onG:false,dir:1,anim:0};
+  coins=COINS.map(function(c){return{x:c[0],y:c[1],got:false,t:Math.random()*6};});
+  cam={x:0};keys={};particles=[];tick=0;score1=0;score2=0;won=0;
+  if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'⏏',key:' ',color:'rgba(229,57,53,0.85)',big:true}]});
+}
+function rectCollide(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+function update(){
+  if(!state||!p1||!state.running||state.over)return;
+  tick++;
+  if(keys['arrowleft']||keys['a']){p1.vx=-MOVE;p1.dir=-1;}
+  else if(keys['arrowright']||keys['d']){p1.vx=MOVE;p1.dir=1;}
+  else p1.vx*=0.8;
+  if((keys[' ']||keys['arrowup']||keys['w'])&&p1.onG){p1.vy=JUMP;p1.onG=false;SFX.jump();}
+  p1.vy+=GRAVITY;if(p1.vy>14)p1.vy=14;
+  p1.x+=p1.vx;
+  if(p1.x<0)p1.x=0;if(p1.x>WORLD_W-p1.w)p1.x=WORLD_W-p1.w;
+  for(var i=0;i<LEVEL.length;i++){var p=LEVEL[i];if(rectCollide(p1,p)){if(p1.vx>0)p1.x=p.x-p1.w;else if(p1.vx<0)p1.x=p.x+p.w;p1.vx=0;}}
+  p1.y+=p1.vy;p1.onG=false;
+  for(var j=0;j<LEVEL.length;j++){var pl=LEVEL[j];if(rectCollide(p1,pl)){if(p1.vy>0){p1.y=pl.y-p1.h;p1.vy=0;p1.onG=true;}else if(p1.vy<0){p1.y=pl.y+pl.h;p1.vy=0;}}}
+  p1.anim+=Math.abs(p1.vx)*0.2;
+  // 金币
+  coins.forEach(function(c,i){c.t+=0.15;if(!c.got&&Math.abs(p1.x+p1.w/2-c.x)<16&&Math.abs(p1.y+p1.h/2-c.y)<16){c.got=true;score1++;SFX.coin();ex(c.x,c.y,'#ffd700');if(conn)conn.send({type:'coin',idx:i});}});
+  // 终点
+  if(p1.x+p1.w>FLAG.x&&Math.abs(p1.y-FLAG.y)<60){won=1;state.over=true;SFX.win();if(conn)conn.send({type:'win'});}
+  // 摄像机
+  var tc=p1.x-200;if(tc<0)tc=0;if(tc>WORLD_W-560)tc=WORLD_W-560;cam.x+=(tc-cam.x)*0.1;
+  document.getElementById('myScore').textContent=score1;
+  document.getElementById('opScore').textContent=score2;
+  // 同步
+  if(conn&&conn.open&&tick%3===0){conn.send({type:'state',x:p1.x,y:p1.y,dir:p1.dir,score:score1,anim:p1.anim});}
+  if(aiMode){updateAI();}
+  particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});
+}
+function updateAI(){
+  aiTick++;
+  p2.vy+=GRAVITY;if(p2.vy>14)p2.vy=14;p2.y+=p2.vy;p2.onG=false;
+  for(var j=0;j<LEVEL.length;j++){var pl=LEVEL[j];if(rectCollide(p2,pl)){if(p2.vy>0){p2.y=pl.y-p2.h;p2.vy=0;p2.onG=true;}else if(p2.vy<0){p2.y=pl.y+pl.h;p2.vy=0;}}}
+  var target=FLAG;var bestD=99999;
+  coins.forEach(function(c){if(!c.got){var d=Math.hypot(c.x-p2.x,c.y-p2.y);if(d<bestD){bestD=d;target=c;}}});
+  var remaining=coins.filter(function(c){return !c.got;}).length;
+  if(remaining<=2||Math.abs(p2.x-FLAG.x)<200)target=FLAG;
+  var dx=target.x-p2.x;var dy=target.y-p2.y;
+  if(Math.abs(dx)>5){p2.x+=dx>0?2.5:-2.5;p2.dir=dx>0?1:-1;}
+  if(p2.onG&&aiTick%8===0){
+    var ahead=false;
+    for(var i=0;i<LEVEL.length;i++){var lp=LEVEL[i];
+      if(p2.dir>0&&lp.x>p2.x+p2.w&&lp.x<p2.x+p2.w+30&&lp.y<p2.y+10){ahead=true;break;}
+      if(p2.dir<0&&lp.x+lp.w<p2.x&&lp.x+lp.w>p2.x-30&&lp.y<p2.y+10){ahead=true;break;}
+    }
+    if(ahead||(dy<-20&&p2.onG)){p2.vy=JUMP;p2.onG=false;}
+  }
+  if(p2.y>H+50){p2.x=80;p2.y=250;p2.vy=0;}
+  if(p2.x<0)p2.x=0;if(p2.x>WORLD_W-p2.w)p2.x=WORLD_W-p2.w;
+  p2.anim+=Math.abs(dx)>5?0.2:0;
+  coins.forEach(function(c,i){if(!c.got&&Math.abs(p2.x+p2.w/2-c.x)<16&&Math.abs(p2.y+p2.h/2-c.y)<16){c.got=true;score2++;}});
+  if(p2.x+p2.w>FLAG.x&&Math.abs(p2.y-FLAG.y)<60&&won===0){won=2;state.over=true;SFX.lose();}
+  document.getElementById('opScore').textContent=score2;
+}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3});}}
+var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d'),W=560,H=380;
+function draw(){
+  if(!state||!p1){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);return;}
+  var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,THEME.bgTop);g.addColorStop(1,THEME.bgBot);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // 云
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  for(var c=0;c<4;c++){var cx=((c*300-cam.x*0.3)%900+900)%900-100;ctx.fillRect(cx,30+c*15,70,16);}
+  // 平台
+  LEVEL.forEach(function(p){var sx=p.x-cam.x;if(sx+p.w<0||sx>W)return;
+    if(p.t==='ground'){ctx.fillStyle=THEME.ground;ctx.fillRect(sx,p.y,p.w,p.h);ctx.fillStyle=THEME.groundDark;ctx.fillRect(sx,p.y+8,p.w,p.h-8);ctx.fillStyle='#1976d2';ctx.fillRect(sx,p.y,p.w,6);for(var d=0;d<p.w;d+=16)ctx.fillRect(sx+d+6,p.y+2,2,4);}
+    else{ctx.fillStyle=THEME.brick;ctx.fillRect(sx,p.y,p.w,p.h);ctx.strokeStyle='#00838f';ctx.lineWidth=2;ctx.strokeRect(sx,p.y,p.w,p.h);ctx.beginPath();ctx.moveTo(sx+p.w/2,p.y);ctx.lineTo(sx+p.w/2,p.y+p.h);ctx.stroke();}
+  });
+  // 金币
+  coins.forEach(function(c){if(c.got)return;var sx=c.x-cam.x;if(sx<-10||sx>W+10)return;var b=Math.sin(c.t)*3;ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=6;ctx.fillRect(sx-5,c.y-5+b,10,10);ctx.shadowBlur=0;});
+  // 旗
+  var fx=FLAG.x-cam.x;if(fx>-20&&fx<W+20){ctx.fillStyle='#7f7f7f';ctx.fillRect(fx,FLAG.y,4,100);ctx.fillStyle='#e53935';var wv=Math.sin(Date.now()/200)*4;ctx.beginPath();ctx.moveTo(fx+4,FLAG.y+10);ctx.lineTo(fx+30+wv,FLAG.y+18);ctx.lineTo(fx+4,FLAG.y+30);ctx.fill();}
+  // 玩家1
+  drawPlayer(p1,THEME.pColor,'#fff');
+  // 玩家2
+  if(p2)drawPlayer(p2,THEME.oColor,'#fff');
+  // 粒子
+  particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.c;ctx.fillRect(p.x-cam.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+  // 结算
+  if(state&&state.over){
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+    if(won===1){ctx.fillStyle='#4caf50';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('🎉 你赢了！',W/2,H/2-20);ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('金币:'+score1,W/2,H/2+15);}
+    else if(won===2){ctx.fillStyle='#e53935';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('对手赢了！',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('再试一次！',W/2,H/2+20);}
+  }
+}
+function drawPlayer(p,col,eyeCol){
+  var sx=p.x-cam.x;if(sx<-30||sx>W+30)return;
+  var bob=p.onG?Math.sin(p.anim)*1.5:0;
+  ctx.fillStyle=col;ctx.fillRect(sx+2,p.y+8+bob,18,16);
+  ctx.fillStyle='#f0c8a0';ctx.fillRect(sx+4,p.y-2+bob,14,12);ctx.fillStyle='#4a2c12';ctx.fillRect(sx+4,p.y-2+bob,14,3);
+  ctx.fillStyle=eyeCol;ctx.fillRect(sx+(p.dir>0?11:6),p.y+3+bob,3,3);ctx.fillStyle='#000';ctx.fillRect(sx+(p.dir>0?12:7),p.y+4+bob,1,2);
+  ctx.fillStyle='#1565c0';ctx.fillRect(sx+3,p.y+24,6,6);ctx.fillRect(sx+13,p.y+24,6,6);
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+loop();
+})();
+</script></body></html>

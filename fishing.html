@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钓鱼大师 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1565c0; touch-action:none; cursor:pointer; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎣 钓鱼大师</h1>
+  <p class="subtitle">鱼漂下沉瞬间收杆！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">钓到</span><span id="catches">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="480" height="380"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">点击/空格</span> 抛竿 · 漂下沉时再 <span class="key">点击/空格</span> 收杆
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,bobber,tick,particles,phase,waitTime,biteTime;
+  var FISH=[{i:'🐟',v:10,c:'#2196f3'},{i:'🐠',v:20,c:'#ff9800'},{i:'🐡',v:30,c:'#ffd700'},{i:'👢',v:-5,c:'#8b5a2b'},{i:'💎',v:50,c:'#4dd0e1'},{i:'🪣',v:5,c:'#7f7f7f'}];
+  function init(){state={running:false,over:false,score:0,catches:0,combo:0,best:getBest(),time:60,timeTick:0};bobber={x:W/2,y:120,sinking:false};phase='idle';particles=[];tick=0;updateHud();}
+  function getBest(){return parseInt(localStorage.getItem('fishing_best')||'0',10);}
+  function setBest(v){localStorage.setItem('fishing_best',v);}
+  function updateHud(){document.getElementById('score').textContent=state.score;document.getElementById('catches').textContent=state.catches;document.getElementById('combo').textContent=state.combo;document.getElementById('best').textContent=state.best;}
+  function cast(){
+    AOXSound.ensure();
+    if(phase==='idle'){phase='flying';bobber.y=120;SFX.shoot();}
+    else if(phase==='waiting'){toast('太早！');state.combo=0;SFX.error();phase='idle';updateHud();}
+    else if(phase==='bite'){var f=FISH[Math.floor(Math.random()*FISH.length)];state.score+=f.v;state.catches++;if(f.v>0){state.combo++;SFX.coin();}else{state.combo=0;SFX.error();}explode(bobber.x,bobber.y,f.c);phase='catching';bobber.catchFish=f;updateHud();if(state.score>state.best){setBest(state.score);state.best=state.score;}setTimeout(function(){phase='idle';bobber.catchFish=null;},800);}
+  }
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;state.timeTick++;if(state.timeTick>=60){state.timeTick=0;state.time--;updateHud();if(state.time<=0){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}}
+    if(phase==='flying'){bobber.y+=6;if(bobber.y>=220){bobber.y=220;phase='waiting';waitTime=60+Math.random()*120;SFX.move();}}
+    else if(phase==='waiting'){waitTime--;if(waitTime<=0){phase='bite';biteTime=40;SFX.bubble();}}
+    else if(phase==='bite'){biteTime--;if(biteTime<=0){phase='idle';state.combo=0;toast('跑了！');SFX.error();updateHud();}}
+    particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});
+  }
+  function explode(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25,c:c,size:2+Math.random()*3});}}
+  function draw(){
+    // 天空+水
+    ctx.fillStyle='#87ceeb';ctx.fillRect(0,0,W,200);
+    var g=ctx.createLinearGradient(0,200,0,H);g.addColorStop(0,'#1565c0');g.addColorStop(1,'#0d47a1');ctx.fillStyle=g;ctx.fillRect(0,200,W,H-200);
+    // 水波
+    ctx.fillStyle='rgba(255,255,255,0.2)';for(var i=0;i<W;i+=20){ctx.fillRect(i+((tick*1)%20),200,12,2);}
+    // 钓鱼者
+    var px=60,py=150;
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(px,py,16,20);ctx.fillStyle='#f0c8a0';ctx.fillRect(px+2,py-12,12,12);ctx.fillStyle='#4a2c12';ctx.fillRect(px+2,py-12,12,3);
+    ctx.fillStyle='#8b5a2b';ctx.fillRect(px+12,py-8,30,3); // 鱼竿
+    // 鱼线
+    ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px+42,py-8);ctx.lineTo(bobber.x,bobber.y);ctx.stroke();
+    // 鱼漂
+    var by=bobber.y;
+    if(phase==='bite')by=220+Math.sin(tick*0.8)*4; // 下沉抖动
+    ctx.fillStyle=phase==='bite'?'#e53935':'#ff9800';ctx.fillRect(bobber.x-4,by-6,8,12);
+    ctx.fillStyle='#fff';ctx.fillRect(bobber.x-4,by-6,8,4);
+    if(phase==='bite'){ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('!!',bobber.x,by-12);}
+    if(bobber.catchFish){ctx.font='30px serif';ctx.textAlign='center';ctx.fillText(bobber.catchFish.i,bobber.x,by-20);}
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/25;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    if(!state.running){ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#ffd700';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('时间到！',W/2,H/2-25);ctx.fillStyle='#fff';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score+' 最高:'+state.best,W/2,H/2+10);}
+      else{ctx.fillStyle='#4dd0e1';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备钓鱼',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始',W/2,H/2+25);}}
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){if(e.key===' '){e.preventDefault();cast();}});
+  canvas.addEventListener('click',cast);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();cast();},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('抛竿钓鱼！');});
+  init();loop();
+})();
+</script>
+</body>
+</html>

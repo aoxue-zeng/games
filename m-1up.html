@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>1-Up挑战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a2a1a;touch-action:none;cursor:pointer}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;color:#4caf50">🍄 1-Up挑战</h1>
+<p class="subtitle">连续顶砖块，别顶到炸弹！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div><div class="hud-item"><span class="label">生命</span><span id="lives">3</span>🍄</div><div class="hud-item"><span class="label">得分</span><span id="score">0</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="460" height="380"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">点击</span>顶对应砖块 · 绿蘑菇+1Up · 炸弹-1命 · 限时</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,bricks,pts,tick;
+function init(){s={running:false,over:false,combo:0,lives:3,score:0,best:getBest(),time:30,timeT:0};bricks=[];pts=[];tick=0;for(var i=0;i<5;i++)bricks.push(makeBrick(i));updateHud();}
+function getBest(){return parseInt(localStorage.getItem('m1up_best')||'0',10)}
+function setBest(v){localStorage.setItem('m1up_best',v)}
+function makeBrick(i){var r=Math.random();var type=r<0.6?'mushroom':(r<0.85?'coin':'bomb');return{x:60+i*80,y:100,state:'idle',type:type,t:i*8,flash:0}}
+function updateHud(){document.getElementById('combo').textContent=s.combo;document.getElementById('lives').textContent=s.lives;document.getElementById('score').textContent=s.score;document.getElementById('best').textContent=s.best;}
+function update(){if(!s.running||s.over)return;tick++;s.timeT++;if(s.timeT>=60){s.timeT=0;s.time--;}
+bricks.forEach(function(b){b.t++;if(b.state==='idle'&&b.t>40+Math.random()*60){b.state='up';b.flash=20;b.t=0;SFX.bubble()}if(b.state==='up'){b.flash--;if(b.flash<0&&b.t>50){b.state='idle';b.t=0;}}});
+if(s.time<=0){over();}
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0});}
+function hit(i){if(s.over)return;AOXSound.ensure();var b=bricks[i];if(b.state!=='up'){SFX.error();s.combo=0;updateHud();return;}
+b.state='idle';b.t=0;if(b.type==='bomb'){s.lives--;s.combo=0;SFX.hurt();ex(b.x,b.y,'#e53935');if(s.lives<=0)over();}else if(b.type==='mushroom'){s.lives++;s.combo++;s.score+=50*(1+Math.floor(s.combo/5));SFX.gem();ex(b.x,b.y,'#4caf50');toast('+1 🍄');}else{s.combo++;s.score+=10*(1+Math.floor(s.combo/5));SFX.coin();ex(b.x,b.y,'#ffd700');}updateHud();}
+function ex(x,y,c){for(var i=0;i<10;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();if(s.score>s.best){setBest(s.score);s.best=s.score}updateHud();}
+function draw(){
+x.fillStyle='#1a2a1a';x.fillRect(0,0,W,H);x.fillStyle='#5fb53f';x.fillRect(0,H-40,W,40);x.fillStyle='#3d8b2a';x.fillRect(0,H-40,W,6);
+// 砖块
+bricks.forEach(function(b){var bx=b.x,by=180;if(b.state==='up'){by=140;}x.fillStyle='#b5651d';x.fillRect(bx-30,by-20,60,40);x.strokeStyle='#5d3a1a';x.lineWidth=2;x.strokeRect(bx-30,by-20,60,40);x.strokeStyle='rgba(0,0,0,0.3)';x.beginPath();x.moveTo(bx,by-20);x.lineTo(bx,by+20);x.moveTo(bx-30,by);x.lineTo(bx+30,by);x.stroke();
+if(b.state==='up'){var ic=b.type==='bomb'?'💣':(b.type==='mushroom'?'🍄':'💰');x.font='28px serif';x.textAlign='center';x.fillText(ic,bx,by+10);if(b.flash>0&&b.flash%4<2){x.fillStyle='rgba(255,255,255,0.4)';x.fillRect(bx-30,by-20,60,40)}}});
+// mario
+var px=W/2,py=H-60;x.fillStyle='#e53935';x.fillRect(px-10,py-6,20,16);x.fillStyle='#ff9800';x.fillRect(px-8,py-14,16,10);x.fillStyle='#e53935';x.fillRect(px-8,py-14,16,3);
+pts.forEach(function(p){x.globalAlpha=p.life/25;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1});
+// 时间
+x.fillStyle='#ffd700';x.font='16px "Press Start 2P",monospace';x.textAlign='center';x.fillText(s.time+'s',W/2,30);
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText(s.time<=0?'时间到！':'没命了！',W/2,H/2-25);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('得分:'+s.score+' 最高:'+s.best,W/2,H/2+8);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+34);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+function handle(e){if(!s.running)return;var r=c.getBoundingClientRect();var cx=(e.clientX!==undefined?e.clientX-r.left:e.touches[0].clientX-r.left)*(W/r.width);var i=Math.floor((cx-20)/80);if(i>=0&&i<5)hit(i);}
+c.addEventListener('click',handle);c.addEventListener('touchstart',function(e){e.preventDefault();handle(e)},{passive:false});
+document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('顶绿蘑菇！')});
+init();loop();
+})();
+</script></body></html>

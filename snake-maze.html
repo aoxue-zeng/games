@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>障碍贪吃蛇 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a1208; }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight);
+    padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+  .level-btn {
+    font-family:'Press Start 2P',monospace; font-size:10px; padding:8px 12px;
+    background:var(--mc-panel); border:3px solid var(--mc-black);
+    box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);
+    cursor:pointer; color:#1a1a1a;
+  }
+  .level-btn.active { background:var(--mc-dirt); color:#fff; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="snake-neon.html">霓虹蛇</a>
+    <a href="snake-maze.html">障碍蛇</a>
+    <a href="2048.html">2048</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="practice.html">练打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="match3.html">三消</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧱 障碍贪吃蛇</h1>
+  <p class="subtitle">在迷宫里穿梭，别撞墙！</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">目标</span><span id="goal">5</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+
+  <div class="game-stage" style="margin-top:14px;">
+    <canvas id="gameCanvas" width="480" height="480"></canvas>
+  </div>
+
+  <div style="margin-top:14px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+    <button class="level-btn active" data-lvl="1">关卡1</button>
+    <button class="level-btn" data-lvl="2">关卡2</button>
+    <button class="level-btn" data-lvl="3">关卡3</button>
+    <button class="level-btn" data-lvl="4">关卡4</button>
+    <button class="level-btn" data-lvl="5">关卡5</button>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px;">
+    <span class="key">←↑→↓</span> 移动 · 吃够目标数解锁下一关 · <span class="key">R</span> 重开
+  </p>
+
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var COLS = 20, ROWS = 20, CELL = W/COLS;
+
+  // 关卡墙体（坐标列表）
+  var LEVELS = {
+    1: { walls:[], goal:5, start:{x:10,y:10}, dir:{x:1,y:0} },
+    2: { walls:[[5,5],[6,5],[7,5],[12,14],[13,14],[14,14],[5,14],[6,14],[7,14],[12,5],[13,5],[14,5]], goal:8, start:{x:10,y:10}, dir:{x:1,y:0} },
+    3: { walls:(function(){ var w=[]; for(var i=4;i<16;i++){ w.push([i,4]); w.push([i,15]); } for(var j=5;j<15;j++){ w.push([4,j]); w.push([15,j]); } // 留口
+        return w.filter(function(c){ return !((c[0]===9||c[0]===10)&&(c[1]===4||c[1]===15)) && !((c[1]===9||c[1]===10)&&(c[0]===4||c[0]===15)); }); })(), goal:10, start:{x:10,y:10}, dir:{x:1,y:0} },
+    4: { walls:(function(){ var w=[]; // 十字形
+        for(var i=3;i<17;i++){ w.push([i,10]); } for(var j=3;j<17;j++){ w.push([10,j]); }
+        return w.filter(function(c){ return !((c[0]===9||c[0]===11)&&c[1]===10) && !((c[1]===9||c[1]===11)&&c[0]===10); }); })(), goal:12, start:{x:5,y:5}, dir:{x:1,y:0} },
+    5: { walls:(function(){ var w=[]; // 棋盘格
+        for(var r=3;r<18;r+=3) for(var c=3;c<18;c+=3){ w.push([c,r]); w.push([c+1,r]); }
+        return w; })(), goal:15, start:{x:10,y:1}, dir:{x:0,y:1} }
+  };
+
+  var state, snake, dir, nextDir, food, tick, walls, level, eaten;
+
+  function loadLevel(lvl){
+    level = lvl;
+    var L = LEVELS[lvl];
+    walls = L.walls.map(function(c){return {x:c[0],y:c[1]};});
+    snake = [{x:L.start.x,y:L.start.y},{x:L.start.x-L.dir.x,y:L.start.y-L.dir.y},{x:L.start.x-2*L.dir.x,y:L.start.y-2*L.dir.y}];
+    dir = {x:L.dir.x,y:L.dir.y}; nextDir={x:L.dir.x,y:L.dir.y};
+    food=null; eaten=0; tick=0; placeFood();
+    state.goal = L.goal; state.level = lvl;
+    updateHud();
+  }
+  function init(lvl){
+    lvl = lvl||1;
+    state = { running:false, over:false, won:false, paused:false, score:0, best:getBest(), goal:5, level:lvl };
+    loadLevel(lvl); updateHud();
+  }
+  function getBest(){ return parseInt(localStorage.getItem('maze_snake_best')||'0',10); }
+  function setBest(v){ localStorage.setItem('maze_snake_best', v); }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('goal').textContent=(LEVELS[state.level].goal-eaten);
+    document.getElementById('best').textContent=state.best;
+  }
+
+  function isWall(x,y){
+    return walls.some(function(w){return w.x===x&&w.y===y;});
+  }
+  function placeFood(){
+    while(true){
+      var x=Math.floor(Math.random()*COLS), y=Math.floor(Math.random()*ROWS);
+      if(isWall(x,y)) continue;
+      if(snake.some(function(s){return s.x===x&&s.y===y;})) continue;
+      food={x:x,y:y,t:0}; return;
+    }
+  }
+
+  function step(){
+    dir=nextDir;
+    var head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+    if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS){ gameOver(); return; }
+    if(isWall(head.x,head.y)){ gameOver(); return; }
+    for(var i=0;i<snake.length;i++){ if(snake[i].x===head.x&&snake[i].y===head.y){ gameOver(); return; } }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){
+      state.score+=15; eaten++; SFX.coin();
+      if(eaten>=LEVELS[level].goal){
+        // 通关
+        if(level<5){ SFX.levelUp(); toast('关卡 '+level+' 通关！'); loadLevel(level+1); }
+        else { winGame(); }
+      } else { placeFood(); }
+      updateHud();
+    } else { snake.pop(); }
+  }
+  function winGame(){ state.won=true; state.over=true; state.running=false; AOXSound.stopBGM(); SFX.win(); if(state.score>state.best){setBest(state.score);state.best=state.score;} }
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); if(state.score>state.best){setBest(state.score);state.best=state.score;} updateHud(); }
+
+  var interval=8;
+  function update(){
+    if(!state.running||state.over||state.paused) return;
+    tick++;
+    if(tick>=interval){ tick=0; step(); }
+    if(food) food.t+=0.15;
+  }
+
+  function draw(){
+    ctx.fillStyle='#1a1208'; ctx.fillRect(0,0,W,H);
+    // 网格
+    ctx.strokeStyle='rgba(139,90,43,0.15)'; ctx.lineWidth=1;
+    for(var i=0;i<=COLS;i++){ ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(W,i*CELL); ctx.stroke(); }
+    // 墙（石头方块）
+    walls.forEach(function(w){
+      var x=w.x*CELL, y=w.y*CELL;
+      ctx.fillStyle='#7f7f7f'; ctx.fillRect(x,y,CELL,CELL);
+      ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(x,y,CELL,3); ctx.fillRect(x,y,3,CELL);
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x,y+CELL-3,CELL,3); ctx.fillRect(x+CELL-3,y,3,CELL);
+      ctx.fillStyle='#555'; ctx.fillRect(x+CELL/2-2,y+CELL/2-2,4,4);
+    });
+    // 食物（钻石）
+    if(food){
+      var fx=food.x*CELL, fy=food.y*CELL, bob=Math.sin(food.t)*2;
+      ctx.fillStyle='#4dd0e1'; ctx.shadowColor='#4dd0e1'; ctx.shadowBlur=10;
+      ctx.beginPath(); ctx.moveTo(fx+CELL/2,fy+4+bob); ctx.lineTo(fx+CELL-4,fy+CELL/2+bob); ctx.lineTo(fx+CELL/2,fy+CELL-4+bob); ctx.lineTo(fx+4,fy+CELL/2+bob); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.fillRect(fx+CELL/2-2,fy+8+bob,4,3);
+    }
+    // 蛇（橙色沙漠蛇）
+    for(var s=snake.length-1;s>=0;s--){
+      var seg=snake[s], sx=seg.x*CELL, sy=seg.y*CELL;
+      if(s===0){
+        ctx.fillStyle='#ff9800'; ctx.fillRect(sx+1,sy+1,CELL-2,CELL-2);
+        ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx+1,sy+1,CELL-2,3);
+        ctx.fillStyle='#fff';
+        if(dir.x!==0){ var ex2=dir.x>0?sx+CELL-8:sx+3; ctx.fillRect(ex2,sy+5,4,4); ctx.fillRect(ex2,sy+CELL-9,4,4); }
+        else { var ey2=dir.y>0?sy+CELL-8:sy+3; ctx.fillRect(sx+5,ey2,4,4); ctx.fillRect(sx+CELL-9,ey2,4,4); }
+        ctx.fillStyle='#000';
+        if(dir.x!==0){ ctx.fillRect(ex2+1,sy+6,2,2); ctx.fillRect(ex2+1,sy+CELL-8,2,2); }
+        else { ctx.fillRect(sx+6,ey2+1,2,2); ctx.fillRect(sx+CELL-8,ey2+1,2,2); }
+      } else {
+        ctx.fillStyle=s%2===0?'#e65100':'#ff7a00'; ctx.fillRect(sx+2,sy+2,CELL-4,CELL-4);
+      }
+    }
+
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.won){
+        ctx.fillStyle='#4dd0e1'; ctx.font='26px "Press Start 2P", monospace'; ctx.fillText('🏆 全部通关！', W/2, H/2-20);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P", monospace'; ctx.fillText('得分:'+state.score, W/2, H/2+15);
+      } else if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P", monospace'; ctx.fillText('撞墙了！', W/2, H/2-25);
+        ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P", monospace'; ctx.fillText('得分:'+state.score+' 关卡:'+level, W/2, H/2+10);
+        ctx.font='11px "Press Start 2P", monospace'; ctx.fillText('按 R 重玩', W/2, H/2+40);
+      } else if(state.paused){
+        ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace'; ctx.fillText('已暂停', W/2, H/2);
+      } else {
+        ctx.fillStyle='#ff9800'; ctx.font='22px "Press Start 2P", monospace'; ctx.fillText('准备就绪', W/2, H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace'; ctx.fillText('选关卡后点开始', W/2, H/2+25);
+      }
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  document.addEventListener('keydown', function(e){
+    var k=e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0) e.preventDefault();
+    if(k==='arrowup'||k==='w'){ if(dir.y!==1)nextDir={x:0,y:-1}; }
+    else if(k==='arrowdown'||k==='s'){ if(dir.y!==-1)nextDir={x:0,y:1}; }
+    else if(k==='arrowleft'||k==='a'){ if(dir.x!==1)nextDir={x:-1,y:0}; }
+    else if(k==='arrowright'||k=='d'){ if(dir.x!==-1)nextDir={x:1,y:0}; }
+    else if(k===' '){ if(state.running&&!state.over)state.paused=!state.paused; }
+    else if(k==='r'){ init(state.level); state.running=true; AOXSound.ensure(); }
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(state?state.level:1); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    if(AOXMobile.isTouch) AOXMobile.virtualKeys({dpad:true, keys:[{label:'⏸',key:' ',color:'rgba(229,57,53,0.85)'}]});
+    toast('吃钻石过关！');
+  });
+  document.querySelectorAll('.level-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.level-btn').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); SFX.click();
+      init(parseInt(b.dataset.lvl,10));
+    });
+  });
+
+  init(1); loop();
+})();
+</script>
+</body>
+</html>

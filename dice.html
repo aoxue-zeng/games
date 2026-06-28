@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>骰子猜大小 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .dice-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:30px;max-width:440px;margin:20px auto;text-align:center }
+  .dice { display:inline-block;width:80px;height:80px;background:#fff;border:3px solid #000;box-shadow: inset 3px 3px 0 0 #ccc, 4px 4px 0 0 rgba(0,0,0,0.4);margin:0 8px;font-size:48px;line-height:80px;border-radius:8px;transition:transform 0.3s }
+  .dice.rolling{animation:roll 0.1s linear infinite}
+  @keyframes roll{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+  .bet-btn{font-family:'Press Start 2P',monospace;font-size:14px;padding:16px 24px;border:3px solid #000;cursor:pointer;margin:8px;box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.3), inset -3px -3px 0 0 rgba(0,0,0,0.3), 4px 4px 0 0 rgba(0,0,0,0.3);color:#fff;text-shadow:2px 2px 0 #000;user-select:none }
+  .bet-btn.big{background:#e53935}.bet-btn.small{background:#2196f3}.bet-btn.seven{background:#ffd700;color:#000;text-shadow:none}
+  .bet-btn:disabled{opacity:0.4;cursor:not-allowed}
+  .amount-box{font-family:'Press Start 2P',monospace;font-size:12px;color:#4dd0e1;margin:8px 0}
+  .amount-box input{font-family:'Press Start 2P',monospace;font-size:14px;width:80px;text-align:center;background:#0d1b2a;color:#ffd700;border:2px solid var(--mc-gold);padding:6px}
+  .hist{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .hist span{background:#0d1b2a;border:2px solid #000;padding:4px 8px;font-family:'Press Start 2P',monospace;font-size:10px}
+  .hist span.win{color:#4caf50}.hist span.lose{color:#e53935}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="penguin.html">企鹅</a>
+    <a href="dice.html">骰子</a>
+    <a href="ladder.html">爬梯</a>
+    <a href="jigsaw.html">拼图</a>
+    <a href="goldmine.html">金矿</a>
+    <a href="catch.html">接贝壳</a>
+    <a href="darts.html">飞镖</a>
+    <a href="castle.html">城堡</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎲 骰子猜大小</h1>
+  <p class="subtitle">押注猜三骰总和！小(4-10) 大(11-17) 豹子(7)</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">金币</span><span id="coins">1000</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">1000</span></div>
+    <div class="hud-item"><span class="label">胜率</span><span id="wr">—</span></div>
+  </div>
+  <div class="dice-stage">
+    <div><span class="dice" id="d1">?</span><span class="dice" id="d2">?</span><span class="dice" id="d3">?</span></div>
+    <div style="margin-top:14px;font-family:'Press Start 2P',monospace;font-size:18px;color:#ffd700;text-shadow:2px 2px 0 #000" id="result">下注后摇骰</div>
+    <div class="amount-box">押注 <input type="number" id="bet" value="100" min="10" step="10"></div>
+    <div>
+      <button class="bet-btn small" data-bet="small">小 (4-10)<br>2x</button>
+      <button class="bet-btn seven" data-bet="seven">豹子7<br>5x</button>
+      <button class="bet-btn big" data-bet="big">大 (11-17)<br>2x</button>
+    </div>
+    <div class="hist" id="hist"></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="resetBtn">🔄 重置金币</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">选大小或豹子，摇出对应区域赢！豹子（三个相同）通杀</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var state={coins:1000,best:1000,wins:0,total:0,rolling:false,history:[]};
+  var diceFaces=['⚀','⚁','⚂','⚃','⚄','⚅'];
+  var d1=document.getElementById('d1'),d2=document.getElementById('d2'),d3=document.getElementById('d3');
+  function load(){try{var s=JSON.parse(localStorage.getItem('dice_state'));if(s){state.coins=s.coins;state.best=s.best;state.wins=s.wins;state.total=s.total;state.history=s.history||[];}}catch(e){}}
+  function save(){localStorage.setItem('dice_state',JSON.stringify(state));}
+  function updateHud(){
+    document.getElementById('coins').textContent=state.coins;
+    document.getElementById('best').textContent=state.best;
+    document.getElementById('wr').textContent=state.total>0?Math.round(state.wins/state.total*100)+'%':'—';
+    var h=document.getElementById('hist');h.innerHTML='';
+    state.history.slice(-10).forEach(function(r){var s=document.createElement('span');s.className=r.win?'win':'lose';s.textContent=r.text;s.appendChild(document.createElement('br'));h.appendChild(s);});
+  }
+  function roll(betType){
+    if(state.rolling)return;
+    var bet=parseInt(document.getElementById('bet').value,10)||0;
+    if(bet<10){toast('最少押 10');return;}
+    if(bet>state.coins){toast('金币不够！');return;}
+    AOXSound.ensure();state.rolling=true;SFX.click();
+    d1.classList.add('rolling');d2.classList.add('rolling');d3.classList.add('rolling');
+    document.getElementById('result').textContent='摇骰中...';
+    var ticks=0;
+    var iv=setInterval(function(){
+      d1.textContent=diceFaces[Math.floor(Math.random()*6)];
+      d2.textContent=diceFaces[Math.floor(Math.random()*6)];
+      d3.textContent=diceFaces[Math.floor(Math.random()*6)];
+      ticks++;SFX.move();
+      if(ticks>=15){clearInterval(iv);finish(betType,bet);}
+    },80);
+  }
+  function finish(betType,bet){
+    state.rolling=false;
+    d1.classList.remove('rolling');d2.classList.remove('rolling');d3.classList.remove('rolling');
+    var v1=Math.floor(Math.random()*6)+1,v2=Math.floor(Math.random()*6)+1,v3=Math.floor(Math.random()*6)+1;
+    var sum=v1+v2+v3;
+    d1.textContent=diceFaces[v1-1];d2.textContent=diceFaces[v2-1];d3.textContent=diceFaces[v3-1];
+    var triple=(v1===v2&&v2===v3);
+    var isBig=sum>=11&&!triple;
+    var isSmall=sum<=10&&!triple;
+    var win=false,mult=0;
+    if(triple&&betType==='seven'){win=true;mult=5;}
+    else if(!triple&&betType==='big'&&isBig){win=true;mult=2;}
+    else if(!triple&&betType==='small'&&isSmall){win=true;mult=2;}
+    state.total++;
+    var resText=sum+(triple?' 豹子':'')+' '+(isBig?'大':isSmall?'小':'');
+    if(win){state.wins++;state.coins+=bet*(mult-1);SFX.win();document.getElementById('result').textContent='🎉 赢！+'+(bet*(mult-1));state.history.push({win:true,text:resText});}
+    else{state.coins-=bet;SFX.lose();document.getElementById('result').textContent='输 -'+bet;state.history.push({win:false,text:resText});if(state.coins<=0)toast('破产了！点重置');}
+    if(state.coins>state.best)state.best=state.coins;
+    updateHud();save();
+  }
+  document.querySelectorAll('.bet-btn').forEach(function(b){b.addEventListener('click',function(){roll(b.dataset.bet);});});
+  document.getElementById('resetBtn').addEventListener('click',function(){state.coins=1000;state.wins=0;state.total=0;state.history=[];updateHud();save();SFX.click();toast('金币重置为 1000');});
+  load();updateHud();
+})();
+</script>
+</body>
+</html>

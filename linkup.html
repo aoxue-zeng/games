@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>连连看 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .link-board { display:grid; gap:3px; width:fit-content; margin:16px auto 0; background:var(--mc-night); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, 8px 8px 0 0 rgba(0,0,0,0.4); padding:6px; }
+  .ltile { width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer; background:linear-gradient(135deg,#8b8b8b,#6a6a6a); border:2px solid #000; box-shadow: inset 2px 2px 0 0 #aaa, inset -2px -2px 0 0 #555; user-select:none; }
+  .ltile:hover { transform:scale(0.95); }
+  .ltile.selected { background:linear-gradient(135deg,#ffd700,#ff9800); box-shadow: inset 2px 2px 0 0 #fff, 0 0 12px #ffd700; }
+  .ltile.empty { background:rgba(255,255,255,0.03); border-color:rgba(255,255,255,0.05); cursor:default; box-shadow:none; }
+  .ltile.empty:hover { transform:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🀄 连连看</h1>
+  <p class="subtitle">连接相同图案，路径不超过2个拐弯！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">剩余</span><span id="left">0</span></div>
+    <div class="hud-item"><span class="label">提示</span><span id="hints">3</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+    <div class="hud-item"><span class="label">洗牌</span><span id="shufs">2</span></div>
+  </div>
+  <div class="link-board" id="board"></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点两个相同图案配对 · 连线最多2个拐弯</p>
+  <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="newBtn">▶ 新游戏</button>
+    <button class="mc-btn gold" id="hintBtn">💡 提示</button>
+    <button class="mc-btn diamond" id="shufBtn">🔀 洗牌</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var COLS=10,ROWS=7, ICONS=['⛏','💎','🌳','🔥','💧','☀️','🌙','⭐','🍄','💀','🧨','🟦','🌹','🍀','⚡','🎲','🎯','🎨','🎵','🍓'];
+  var grid, selected, state, timerInt, startTime;
+  function init(){
+    grid=[]; var pairs=COLS*ROWS/2; var deck=[]; for(var i=0;i<pairs;i++){deck.push(ICONS[i%ICONS.length]);deck.push(ICONS[i%ICONS.length]);}
+    for(var j=deck.length-1;j>0;j--){var k=Math.floor(Math.random()*(j+1));var t=deck[j];deck[j]=deck[k];deck[k]=t;}
+    for(var r=0;r<ROWS;r++){var row=[];for(var c=0;c<COLS;c++)row.push(deck[r*COLS+c]);grid.push(row);}
+    selected=null; state={left:COLS*ROWS,hints:3,shufs:2,over:false,won:false}; clearInterval(timerInt); startTime=0; document.getElementById('timer').textContent='0';
+    updateHud(); render();
+  }
+  function updateHud(){ document.getElementById('left').textContent=state.left; document.getElementById('hints').textContent=state.hints; document.getElementById('shufs').textContent=state.shufs; }
+  function startTimer(){ if(startTime)return; startTime=Date.now(); timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500); }
+  function render(){
+    var board=document.getElementById('board'); board.innerHTML=''; board.style.gridTemplateColumns='repeat('+COLS+',44px)';
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){ (function(rr,cc){ var d=document.createElement('div'); d.className='ltile';
+      if(grid[rr][cc]===null)d.classList.add('empty'); else { d.textContent=grid[rr][cc]; if(selected&&selected.r===rr&&selected.c===cc)d.classList.add('selected');
+        d.addEventListener('click',function(){ click(rr,cc); }); }
+      board.appendChild(d); })(r,c); }
+  }
+  function click(r,c){ if(state.over||grid[r][c]===null)return; AOXSound.ensure(); SFX.select(); startTimer();
+    if(!selected){ selected={r:r,c:c}; render(); return; }
+    if(selected.r===r&&selected.c===c){ selected=null; render(); return; }
+    if(grid[selected.r][selected.c]===grid[r][c]){ // 检查路径
+      if(canConnect(selected.r,selected.c,r,c)){ grid[selected.r][selected.c]=null; grid[r][c]=null; state.left-=2; SFX.clear(); selected=null; updateHud(); render(); if(state.left<=0)win(); return; } }
+    SFX.error(); selected={r:r,c:c}; render();
+  }
+  // 路径检查：0/1/2拐弯可达
+  function canConnect(r1,c1,r2,c2){ if(straight(r1,c1,r2,c2))return true; if(oneCorner(r1,c1,r2,c2))return true; if(twoCorner(r1,c1,r2,c2))return true; return false; }
+  function straight(r1,c1,r2,c2){ if(r1===r2){ var a=Math.min(c1,c2),b=Math.max(c1,c2); for(var c=a+1;c<b;c++)if(grid[r1][c]!==null)return false; return true; } if(c1===c2){ var d=Math.min(r1,r2),e=Math.max(r1,r2); for(var r=d+1;r<e;r++)if(grid[r][c1]!==null)return false; return true; } return false; }
+  function oneCorner(r1,c1,r2,c2){ if(r1!==r2&&c1!==c2){ if(grid[r1][c2]===null&&straight(r1,c1,r1,c2)&&straight(r1,c2,r2,c2))return true; if(grid[r2][c1]===null&&straight(r1,c1,r2,c1)&&straight(r2,c1,r2,c2))return true; } return false; }
+  function twoCorner(r1,c1,r2,c2){ // 水平方向找中间列
+    for(var c=-1;c<=COLS;c++){ if(c===c1||c===c2)continue; if(isClear(r1,c1,r1,c)&&isClear(r2,c2,r2,c)&&isClear(r1,c,r2,c)){ var mc=c<0?0:c; if(c<0||c>=COLS){ if(isClearV(r1,r2,c))return true; } else { if(grid[r1][c]===null&&grid[r2][c]===null&&straight(r1,c1,r1,c)&&straight(r2,c2,r2,c)&&straightCol(r1,r2,c))return true; } } }
+    for(var r=-1;r<=ROWS;r++){ if(r===r1||r===r2)continue; if(r<0||r>=ROWS){ if(isClearH(c1,c2,r))return true; } else { if(grid[r][c1]===null&&grid[r][c2]===null&&straight(r1,c1,r,c1)&&straight(r2,c2,r,c2)&&straightRow(c1,c2,r))return true; } }
+    return false; }
+  function isClear(r1,c1,r2,c2){ return straight(r1,c1,r2,c2); } function isClearV(r1,r2,c){ return straightCol(r1,r2,c); } function isClearH(c1,c2,r){ return straightRow(c1,c2,r); }
+  function straightCol(r1,r2,c){ if(c<0||c>=COLS)return true; var d=Math.min(r1,r2),e=Math.max(r1,r2); for(var r=d+1;r<e;r++)if(grid[r][c]!==null)return false; return true; }
+  function straightRow(c1,c2,r){ if(r<0||r>=ROWS)return true; var a=Math.min(c1,c2),b=Math.max(c1,c2); for(var c=a+1;c<b;c++)if(grid[r][c]!==null)return false; return true; }
+  function findHint(){ for(var r1=0;r1<ROWS;r1++)for(var c1=0;c1<COLS;c1++){ if(grid[r1][c1]===null)continue; for(var r2=0;r2<ROWS;r2++)for(var c2=0;c2<COLS;c2++){ if(r1===r2&&c1===c2)continue; if(grid[r2][c2]===grid[r1][c1]&&canConnect(r1,c1,r2,c2))return {r1:r1,c1:c1,r2:r2,c2:c2}; } } return null; }
+  function win(){ state.won=true; state.over=true; clearInterval(timerInt); AOXSound.stopBGM(); SFX.win(); var t=Math.floor((Date.now()-startTime)/1000); toast('🎉 全部消除！用时'+t+'秒'); }
+  document.getElementById('newBtn').addEventListener('click',function(){ AOXSound.ensure(); SFX.select(); init(); });
+  document.getElementById('hintBtn').addEventListener('click',function(){ if(state.hints<=0||state.over){toast('没有提示了');return;} var h=findHint(); if(h){ state.hints--; updateHud(); selected={r:h.r1,c:h.c1}; render(); SFX.unlock(); toast('看高亮的和('+h.r2+','+h.c2+')'); } else toast('没有可消除的了！'); });
+  document.getElementById('shufBtn').addEventListener('click',function(){ if(state.shufs<=0||state.over){toast('没有洗牌了');return;} var tiles=[]; for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++)if(grid[r][c]!==null)tiles.push(grid[r][c]); for(var i=tiles.length-1;i>0;i--){var k=Math.floor(Math.random()*(i+1));var t=tiles[i];tiles[i]=tiles[k];tiles[k]=t;} var idx=0; for(var r2=0;r2<ROWS;r2++)for(var c2=0;c2<COLS;c2++)if(grid[r2][c2]!==null)grid[r2][c2]=tiles[idx++]; state.shufs--; selected=null; updateHud(); render(); SFX.rotate(); });
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算24点 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .p24-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:24px;max-width:480px;margin:18px auto;text-align:center }
+  .p24-cards { display:flex;gap:12px;justify-content:center;margin:16px 0 }
+  .p24-card { width:70px;height:100px;background:#fff;border:3px solid #000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:28px;color:#1a1a1a;cursor:pointer;user-select:none;box-shadow:3px 3px 0 0 rgba(0,0,0,0.3);transition:transform 0.1s;position:relative }
+  .p24-card:hover{transform:translateY(-4px)}
+  .p24-card.used{opacity:0.3;cursor:not-allowed}
+  .p24-card.sel{background:#ffd700;transform:translateY(-8px)}
+  .p24-expr { font-family:'Press Start 2P',monospace;font-size:20px;color:#4dd0e1;min-height:30px;margin:12px 0;text-shadow:1px 1px 0 #000 }
+  .op-btn{font-family:'Press Start 2P',monospace;font-size:18px;padding:12px 16px;background:var(--mc-panel);border:3px solid #000;box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a;margin:3px;user-select:none }
+  .op-btn:active{transform:translate(1px,1px)}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🃏 算24点</h1>
+  <p class="subtitle">用四张牌加减乘除算出 24！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">通关</span><span id="solved">0</span></div>
+    <div class="hud-item"><span class="label">跳过</span><span id="skipped">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+  </div>
+  <div class="p24-stage">
+    <div class="p24-cards" id="cards"></div>
+    <div class="p24-expr" id="expr">点牌和运算符开始</div>
+    <div>
+      <button class="op-btn" data-op="+">+</button>
+      <button class="op-btn" data-op="-">−</button>
+      <button class="op-btn" data-op="*">×</button>
+      <button class="op-btn" data-op="/">÷</button>
+      <button class="op-btn" data-op="(">(</button>
+      <button class="op-btn" data-op=")">)</button>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="mc-btn green" id="calcBtn">✓ 计算</button>
+      <button class="mc-btn gold" id="clearBtn">🗑 清除</button>
+      <button class="mc-btn" id="skipBtn">⏭ 跳过</button>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 新一题</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点牌选中，点运算符，凑出 24。每张牌用一次</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var state,cards,expr,used,selIdx,timerInt,startTime;
+  function genSolvable(){
+    // 随机4数，验证有解
+    for(var t=0;t<200;t++){
+      var nums=[];for(var i=0;i<4;i++)nums.push(1+Math.floor(Math.random()*13));
+      if(hasSolution(nums))return nums;
+    }
+    return [3,3,8,8]; // 保底
+  }
+  function hasSolution(nums){
+    if(nums.length===1)return Math.abs(nums[0]-24)<0.001;
+    for(var i=0;i<nums.length;i++)for(var j=0;j<nums.length;j++){
+      if(i===j)continue;
+      var rest=nums.filter(function(_,k){return k!==i&&k!==j;});
+      var a=nums[i],b=nums[j];
+      var ops=[a+b,a-b,a*b];
+      if(Math.abs(b)>0.001)ops.push(a/b);
+      for(var k=0;k<ops.length;k++){if(hasSolution(rest.concat(ops[k])))return true;}
+    }
+    return false;
+  }
+  function init(){
+    state={score:0,solved:0,skipped:0};startTime=Date.now();
+    clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+    updateHud();newRound();
+  }
+  function updateHud(){document.getElementById('score').textContent=state.score;document.getElementById('solved').textContent=state.solved;document.getElementById('skipped').textContent=state.skipped;}
+  function newRound(){
+    cards=genSolvable();expr='';used=[false,false,false,false];selIdx=-1;renderCards();renderExpr();
+  }
+  function renderCards(){
+    var g=document.getElementById('cards');g.innerHTML='';
+    cards.forEach(function(v,i){
+      var d=document.createElement('div');d.className='p24-card';
+      if(used[i])d.classList.add('used');
+      d.textContent=v;
+      d.addEventListener('click',function(){if(used[i])return;expr+=v;used[i]=true;SFX.move();renderCards();renderExpr();});
+      g.appendChild(d);
+    });
+  }
+  function renderExpr(){document.getElementById('expr').textContent=expr||'点牌和运算符开始';}
+  function calc(){
+    if(!expr){toast('先输入表达式');return;}
+    try{
+      // 检查4个数都用了
+      if(used.some(function(u){return !u;})){toast('四张牌都要用！');SFX.error();return;}
+      var r=Function('return ('+expr+')')();
+      if(Math.abs(r-24)<0.001){state.score+=100;state.solved++;SFX.win();toast('🎉 正确！+100');updateHud();setTimeout(newRound,800);}
+      else{SFX.error();toast('='+r+'，不是 24');}
+    }catch(e){SFX.error();toast('表达式错误');}
+  }
+  document.querySelectorAll('.op-btn').forEach(function(b){b.addEventListener('click',function(){AOXSound.ensure();expr+=b.dataset.op;SFX.click();renderExpr();});});
+  document.getElementById('calcBtn').addEventListener('click',calc);
+  document.getElementById('clearBtn').addEventListener('click',function(){expr='';used=[false,false,false,false];SFX.click();renderCards();renderExpr();});
+  document.getElementById('skipBtn').addEventListener('click',function(){state.skipped++;SFX.error();updateHud();newRound();});
+  document.getElementById('newBtn').addEventListener('click',function(){AOXSound.ensure();SFX.click();init();});
+  init();
+})();
+</script>
+</body>
+</html>

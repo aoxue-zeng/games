@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>末影龙 Boss 战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background: #05000f; cursor: crosshair; }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -3px -3px 0 0 var(--mc-shadow), inset 3px 3px 0 0 var(--mc-highlight);
+    padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+  .help-text { color:white; text-shadow:2px 2px 0 #000; font-size:16px; line-height:1.8; }
+  .boss-bar {
+    width:90%; max-width:560px; height:18px; background:#1a0030;
+    border:2px solid #000; box-shadow: inset 2px 2px 0 0 #000;
+    margin:6px auto 0; position:relative; overflow:hidden;
+  }
+  .boss-bar-fill {
+    height:100%; background:linear-gradient(90deg,#e53935,#ff6b6b);
+    box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.3);
+    transition:width 0.2s;
+  }
+  .boss-bar-label {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P',monospace; font-size:9px; color:#fff; text-shadow:1px 1px 0 #000;
+  }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="sweeper.html">扫雷</a>
+    <a href="match3.html">三消</a>
+    <a href="dragon.html">末影龙</a>
+    <a href="potion.html">炼药</a>
+    <a href="tnt.html">打靶</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐲 末影龙 Boss 战</h1>
+  <p class="subtitle">击败末影龙，拯救末地！</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">龙血量</span><span id="hp">100</span></div>
+    <div class="hud-item"><span class="label">玩家血量</span><span id="php">♥♥♥♥♥</span></div>
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">阶段</span><span id="phase">1</span></div>
+  </div>
+
+  <div class="boss-bar">
+    <div class="boss-bar-fill" id="bossBar" style="width:100%"></div>
+    <div class="boss-bar-label" id="bossLabel">末影龙 100%</div>
+  </div>
+
+  <div class="game-stage" style="margin-top:14px;">
+    <canvas id="gameCanvas" width="720" height="480"></canvas>
+  </div>
+
+  <p class="help-text" style="margin-top:12px;">
+    <span class="key">鼠标</span> 移动瞄准 ·
+    <span class="key">点击/空格</span> 射箭 ·
+    <span class="key">R</span> 重开
+  </p>
+
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始战斗</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  var state, player, dragon, arrows, bullets, particles, stars, keys, mouse;
+
+  function init(){
+    state = { running:false, over:false, won:false, score:0, phase:1, timer:0, fireTimer:0, moveTimer:0 };
+    player = { x:W/2, y:H-60, w:22, h:32, hp:5, invuln:0, anim:0 };
+    dragon = { x:W/2, y:90, w:120, h:80, hp:100, maxhp:100, tx:W/2, ty:90, anim:0, hit:0 };
+    arrows = []; bullets = []; particles = [];
+    keys = {}; mouse = {x:W/2, y:H/2, down:false};
+    // 星空（末地黑）
+    stars = [];
+    for(var i=0;i<80;i++){ stars.push({x:Math.random()*W, y:Math.random()*H, s:Math.random()*2+0.5, tw:Math.random()*6}); }
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('hp').textContent = Math.max(0,dragon.hp);
+    document.getElementById('php').textContent = '♥'.repeat(Math.max(0,player.hp))||'—';
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('phase').textContent = state.phase;
+    var pct = Math.max(0, dragon.hp/dragon.maxhp*100);
+    document.getElementById('bossBar').style.width = pct+'%';
+    document.getElementById('bossLabel').textContent = '末影龙 '+Math.ceil(pct)+'%';
+  }
+
+  // ===== 输入 =====
+  canvas.addEventListener('mousemove', function(e){
+    var r=canvas.getBoundingClientRect();
+    mouse.x=(e.clientX-r.left)*(W/r.width);
+    mouse.y=(e.clientY-r.top)*(H/r.height);
+    if(state.running){ player.x = mouse.x; if(player.x<15)player.x=15; if(player.x>W-15)player.x=W-15; }
+  });
+  canvas.addEventListener('mousedown', function(e){ mouse.down=true; shoot(); });
+  canvas.addEventListener('mouseup', function(){ mouse.down=false; });
+  document.addEventListener('keydown', function(e){
+    keys[e.key.toLowerCase()]=true;
+    if(e.key===' ') { e.preventDefault(); shoot(); }
+    if(e.key.toLowerCase()==='r'){ init(); state.running=true; }
+  });
+  document.addEventListener('keyup', function(e){ keys[e.key.toLowerCase()]=false; });
+
+  var lastShot=0;
+  function shoot(){
+    if(!state.running||state.over) return;
+    var now=Date.now();
+    if(now-lastShot<180) return;
+    lastShot=now;
+    arrows.push({x:player.x, y:player.y-10, vx:0, vy:-9, life:80});
+    // 朝龙方向微调
+    var dx = (dragon.x) - player.x;
+    arrows[arrows.length-1].vx = dx*0.04;
+    SFX.arrow();
+  }
+
+  // ===== 龙行为 =====
+  function updateDragon(){
+    state.moveTimer++;
+    if(state.moveTimer>60){
+      state.moveTimer=0;
+      dragon.tx = 120 + Math.random()*(W-240);
+      dragon.ty = 50 + Math.random()*80;
+    }
+    dragon.x += (dragon.tx-dragon.x)*0.03;
+    dragon.y += (dragon.ty-dragon.y)*0.03;
+    dragon.anim += 0.08;
+    if(dragon.hit>0) dragon.hit--;
+
+    // 阶段
+    var newPhase = dragon.hp>66?1:(dragon.hp>33?2:3);
+    if(newPhase!==state.phase){
+      state.phase=newPhase;
+      SFX.roar(); SFX.levelUp();
+      toast('阶段 '+state.phase+'！龙更狂暴了');
+      explode(dragon.x, dragon.y, '#9c27b0', 24);
+    }
+
+    // 喷火球
+    state.fireTimer++;
+    var interval = state.phase===1?90:(state.phase===2?60:40);
+    if(state.fireTimer>=interval){
+      state.fireTimer=0;
+      SFX.shoot();
+      var n = state.phase===3?3:1;
+      for(var i=0;i<n;i++){
+        var ang = Math.atan2(player.y-dragon.y, player.x-dragon.x) + (i-1)*0.3;
+        bullets.push({
+          x:dragon.x, y:dragon.y+30,
+          vx:Math.cos(ang)*3.5, vy:Math.sin(ang)*3.5,
+          r:8, life:200, type:'fire'
+        });
+      }
+      // 末影珍珠散射（阶段3）
+      if(state.phase===3 && Math.random()<0.5){
+        for(var k=0;k<6;k++){
+          var a=k/6*Math.PI*2;
+          bullets.push({x:dragon.x,y:dragon.y,vx:Math.cos(a)*2.5,vy:Math.sin(a)*2.5,r:6,life:160,type:'pearl'});
+        }
+      }
+    }
+  }
+
+  // ===== 更新 =====
+  function update(){
+    if(!state.running||state.over) return;
+    state.timer++;
+    player.anim += 0.1;
+    if(player.invuln>0) player.invuln--;
+
+    // 触屏：摇杆控制玩家水平移动
+    if(AOXMobile.isTouch && AOXMobile.state.joyActive){
+      player.x += AOXMobile.state.joyX * 5;
+      if(player.x<15) player.x=15; if(player.x>W-15) player.x=W-15;
+    }
+    // 触屏：按住 A 自动连射
+    if(AOXMobile.isTouch && AOXMobile.state.a){
+      shoot();
+    }
+
+    updateDragon();
+
+    // 箭
+    for(var i=arrows.length-1;i>=0;i--){
+      var a=arrows[i];
+      a.x+=a.vx; a.y+=a.vy; a.life--;
+      // 命中龙
+      if(Math.abs(a.x-dragon.x)<dragon.w/2 && Math.abs(a.y-dragon.y)<dragon.h/2){
+        dragon.hp -= 2; dragon.hit=8; state.score+=10;
+        SFX.hit();
+        explode(a.x, a.y, '#4dd0e1', 6);
+        arrows.splice(i,1); updateHud();
+        if(dragon.hp<=0){ win(); }
+        continue;
+      }
+      if(a.y<-10||a.life<=0) arrows.splice(i,1);
+    }
+
+    // 火球
+    for(var j=bullets.length-1;j>=0;j--){
+      var b=bullets[j];
+      b.x+=b.vx; b.y+=b.vy; b.life--;
+      // 拖尾粒子
+      if(Math.random()<0.6){
+        particles.push({x:b.x,y:b.y,vx:0,vy:0,life:15,color:b.type==='fire'?'#ff9800':'#9c27b0',size:3});
+      }
+      // 命中玩家
+      if(player.invuln<=0 && Math.abs(b.x-player.x)<14 && Math.abs(b.y-player.y)<16){
+        player.hp--; player.invuln=60;
+        SFX.hurt();
+        explode(player.x, player.y, '#e53935', 12);
+        bullets.splice(j,1); updateHud();
+        toast('被击中！-1');
+        if(player.hp<=0) lose();
+        continue;
+      }
+      if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20||b.life<=0) bullets.splice(j,1);
+    }
+
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){
+      var pt=particles[p];
+      pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.1; pt.life--;
+      if(pt.life<=0) particles.splice(p,1);
+    }
+  }
+
+  function explode(x,y,color,n){
+    n=n||10;
+    for(var i=0;i<n;i++){ var a=Math.random()*Math.PI*2, s=1+Math.random()*4;
+      particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:30,color:color,size:2+Math.random()*3}); }
+  }
+
+  function win(){ state.won=true; state.over=true; state.running=false; state.score+=500; AOXSound.stopBGM(); SFX.win(); explode(dragon.x,dragon.y,'#4dd0e1',40); updateHud(); }
+  function lose(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); SFX.roar(); }
+
+  // ===== 渲染 =====
+  function drawDragon(){
+    var dx=dragon.x, dy=dragon.y;
+    var flap = Math.sin(dragon.anim)*12;
+    var flash = dragon.hit>0 && Math.floor(dragon.hit/2)%2===0;
+    var bodyColor = flash?'#fff':'#1a1a2e';
+    var wingColor = flash?'#ccc':'#0d0d1a';
+    // 翅膀
+    ctx.fillStyle=wingColor;
+    ctx.beginPath();
+    ctx.moveTo(dx, dy);
+    ctx.lineTo(dx-70, dy-30+flap);
+    ctx.lineTo(dx-50, dy+10);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(dx, dy);
+    ctx.lineTo(dx+70, dy-30+flap);
+    ctx.lineTo(dx+50, dy+10);
+    ctx.closePath(); ctx.fill();
+    // 身体
+    ctx.fillStyle=bodyColor;
+    ctx.fillRect(dx-25, dy-10, 50, 35);
+    // 头
+    ctx.fillRect(dx-12, dy-28, 30, 24);
+    // 角
+    ctx.fillStyle=wingColor;
+    ctx.beginPath(); ctx.moveTo(dx-12,dy-28); ctx.lineTo(dx-18,dy-42); ctx.lineTo(dx-8,dy-30); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(dx+18,dy-28); ctx.lineTo(dx+24,dy-42); ctx.lineTo(dx+14,dy-30); ctx.fill();
+    // 眼睛（紫色发光）
+    ctx.fillStyle='#b388ff';
+    ctx.fillRect(dx-8, dy-22, 5, 5);
+    ctx.fillRect(dx+6, dy-22, 5, 5);
+    ctx.fillStyle='#fff';
+    ctx.fillRect(dx-7, dy-21, 2, 2);
+    ctx.fillRect(dx+7, dy-21, 2, 2);
+    // 尾巴
+    ctx.fillStyle=bodyColor;
+    var ty = dy+20+Math.sin(dragon.anim*1.5)*8;
+    ctx.beginPath();
+    ctx.moveTo(dx-5,dy+20); ctx.lineTo(dx-40,ty); ctx.lineTo(dx+5,dy+25); ctx.fill();
+    // 嘴吐息
+    if(state.fireTimer>interval()-15){
+      ctx.fillStyle='rgba(255,150,0,0.5)';
+      ctx.fillRect(dx-2, dy-12, 4, 14);
+    }
+  }
+  function interval(){ return state.phase===1?90:(state.phase===2?60:40); }
+
+  function drawPlayer(){
+    if(player.invuln>0 && Math.floor(player.invuln/4)%2===0) return;
+    var x=player.x, y=player.y;
+    // 弓箭手史蒂夫
+    ctx.fillStyle='#1565c0'; ctx.fillRect(x-8, y, 6, 5); ctx.fillRect(x+2, y, 6, 5); // 腿
+    ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-8, y-12, 16, 14); // 身体
+    ctx.fillStyle='#f0c8a0'; ctx.fillRect(x-6, y-24, 12, 12); // 头
+    ctx.fillStyle='#4a2c12'; ctx.fillRect(x-6, y-24, 12, 3); // 头发
+    ctx.fillStyle='#fff'; ctx.fillRect(x-3, y-20, 3, 3); // 眼
+    ctx.fillStyle='#000'; ctx.fillRect(x-2, y-19, 1, 2);
+    // 弓
+    ctx.strokeStyle='#8b5a2b'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(x+10, y-5, 10, -Math.PI/2, Math.PI/2); ctx.stroke();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x+10, y-15); ctx.lineTo(x+10, y+5); ctx.stroke();
+  }
+
+  function draw(){
+    // 末地黑背景
+    ctx.fillStyle='#05000f'; ctx.fillRect(0,0,W,H);
+    // 星空
+    stars.forEach(function(s){
+      var a = 0.4+Math.sin(Date.now()/500+s.tw)*0.4;
+      ctx.globalAlpha=a; ctx.fillStyle='#fff'; ctx.fillRect(s.x, s.y, s.s, s.s);
+    });
+    ctx.globalAlpha=1;
+    // 末地柱（背景装饰）
+    for(var i=0;i<5;i++){
+      var px=i*150+50, ph=80+Math.sin(i)*30;
+      ctx.fillStyle='#1a0a2a'; ctx.fillRect(px, H-ph, 30, ph);
+      ctx.fillStyle='#2a1a3a'; ctx.fillRect(px, H-ph, 30, 4);
+    }
+
+    drawDragon();
+    drawPlayer();
+
+    // 箭
+    arrows.forEach(function(a){
+      ctx.fillStyle='#8b5a2b'; ctx.fillRect(a.x-1, a.y, 2, 12);
+      ctx.fillStyle='#fff'; ctx.fillRect(a.x-2, a.y-2, 4, 4);
+    });
+    // 火球/珍珠
+    bullets.forEach(function(b){
+      if(b.type==='fire'){
+        ctx.fillStyle='rgba(255,100,0,0.4)'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r+3,0,7); ctx.fill();
+        ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+        ctx.fillStyle='#ffeb3b'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r/2,0,7); ctx.fill();
+      } else {
+        ctx.fillStyle='#1a1a2e'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+        ctx.fillStyle='#9c27b0'; ctx.beginPath(); ctx.arc(b.x-1,b.y-1,b.r/2,0,7); ctx.fill();
+      }
+    });
+    // 粒子
+    particles.forEach(function(p){
+      ctx.globalAlpha=p.life/30; ctx.fillStyle=p.color;
+      ctx.fillRect(p.x,p.y,p.size,p.size); ctx.globalAlpha=1;
+    });
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.won){
+        ctx.fillStyle='#4dd0e1'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillText('🐉 末影龙被击败！', W/2, H/2-30);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P", monospace';
+        ctx.fillText('最终得分: '+state.score, W/2, H/2+5);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('按 R 或点击开始再战', W/2, H/2+40);
+      } else if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillText('你失败了', W/2, H/2-20);
+        ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P", monospace';
+        ctx.fillText('龙剩余血量: '+Math.max(0,dragon.hp), W/2, H/2+15);
+        ctx.fillText('按 R 或点击开始再战', W/2, H/2+45);
+      } else {
+        ctx.fillStyle='#b388ff'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('准备战斗', W/2, H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('鼠标移动，点击/空格射箭', W/2, H/2+25);
+      }
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); state.running=true;
+    AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); SFX.roar();
+    if(AOXMobile.isTouch) AOXMobile.init({ joystick:function(){}, actions:[{key:'a',label:'🏹',color:'rgba(229,57,53,0.85)'}] });
+    toast('战斗开始！击败末影龙！');
+  });
+
+  init();
+  loop();
+})();
+</script>
+</body>
+</html>

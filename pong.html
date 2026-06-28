@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>乒乓 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0d1b2a; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🏓 乒乓</h1>
+  <p class="subtitle">对战 AI，先得 7 分获胜！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">玩家</span><span id="pscore">0</span></div>
+    <div class="hud-item"><span class="label">AI</span><span id="ascore">0</span></div>
+    <div class="hud-item"><span class="label">回合</span><span id="rally">0</span></div>
+    <div class="hud-item"><span class="label">最高连击</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;">
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px;">
+    <span class="key">鼠标</span> 或 <span class="key">↑↓</span> 控制左板 · 先到7分获胜 · 球速会随回合加快
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height; var state,ball,p1,p2,keys,mouse,trail;
+  function init(){ state={running:false,over:false,pscore:0,ascore:0,rally:0,bestRally:getBest(),winner:''}; ball={x:W/2,y:H/2,vx:0,vy:0,r:8}; p1={x:20,y:H/2-40,w:12,h:80}; p2={x:W-32,y:H/2-40,w:12,h:80}; keys={}; mouse={y:H/2}; trail=[]; updateHud(); }
+  function getBest(){return parseInt(localStorage.getItem('pong_best')||'0',10);}
+  function setBest(v){localStorage.setItem('pong_best',v);}
+  function updateHud(){ document.getElementById('pscore').textContent=state.pscore; document.getElementById('ascore').textContent=state.ascore; document.getElementById('rally').textContent=state.rally; document.getElementById('best').textContent=state.bestRally; }
+  function serve(dir){ ball.x=W/2; ball.y=H/2; ball.vx=dir*4; ball.vy=(Math.random()-0.5)*4; state.rally=0; trail=[]; }
+  function update(){
+    if(!state.running||state.over)return;
+    // 玩家板
+    if(mouse.y>=0) p1.y+=(mouse.y-p1.y-40)*0.25;
+    if(keys['arrowup']||keys['w'])p1.y-=6; if(keys['arrowdown']||keys['s'])p1.y+=6;
+    if(p1.y<0)p1.y=0; if(p1.y>H-p1.h)p1.y=H-p1.h;
+    // AI板（带反应延迟和误差）
+    var aiTarget=ball.y-p2.h/2; var aiSpeed=4.5+state.ascore*0.2; var err=Math.sin(Date.now()/300)*30*(1-Math.min(0.8,state.pscore*0.1));
+    if(ball.vx>0){ if(p2.y+aiErrOffset()<aiTarget-5)p2.y+=aiSpeed; else if(p2.y+aiErrOffset()>aiTarget+5)p2.y-=aiSpeed; }
+    if(p2.y<0)p2.y=0; if(p2.y>H-p2.h)p2.y=H-p2.h;
+    // 球
+    trail.push({x:ball.x,y:ball.y,life:10}); trail.forEach(function(t){t.life--;}); trail=trail.filter(function(t){return t.life>0;});
+    ball.x+=ball.vx; ball.y+=ball.vy;
+    if(ball.y<ball.r){ball.y=ball.r;ball.vy*=-1;SFX.hit();} if(ball.y>H-ball.r){ball.y=H-ball.r;ball.vy*=-1;SFX.hit();}
+    // 碰板
+    if(ball.vx<0&&ball.x-ball.r<p1.x+p1.w&&ball.x>p1.x&&ball.y>p1.y&&ball.y<p1.y+p1.h){ ball.x=p1.x+p1.w+ball.r; var rel=(ball.y-(p1.y+p1.h/2))/(p1.h/2); ball.vx=Math.abs(ball.vx)*1.05; ball.vy=rel*6; state.rally++; SFX.hit(); spawnParticles(ball.x,ball.y,'#4dd0e1',6); if(state.rally>state.bestRally){setBest(state.rally);state.bestRally=state.rally;} }
+    if(ball.vx>0&&ball.x+ball.r>p2.x&&ball.x<p2.x+p2.w&&ball.y>p2.y&&ball.y<p2.y+p2.h){ ball.x=p2.x-ball.r; var rel2=(ball.y-(p2.y+p2.h/2))/(p2.h/2); ball.vx=-Math.abs(ball.vx)*1.05; ball.vy=rel2*6; state.rally++; SFX.hit(); spawnParticles(ball.x,ball.y,'#e53935',6); if(state.rally>state.bestRally){setBest(state.rally);state.bestRally=state.rally;} }
+    // 限速
+    if(Math.abs(ball.vx)>12)ball.vx=ball.vx>0?12:-12;
+    // 得分
+    if(ball.x<-10){ state.ascore++; SFX.lose(); updateHud(); if(state.ascore>=7){win('AI');} else serve(1); }
+    if(ball.x>W+10){ state.pscore++; SFX.coin(); updateHud(); if(state.pscore>=7){win('玩家');} else serve(-1); }
+    // 粒子
+    for(var i=particles.length-1;i>=0;i--){var p=particles[i];p.x+=p.vx;p.y+=p.vy;p.life--;if(p.life<=0)particles.splice(i,1);}
+  }
+  function aiErrOffset(){ return Math.sin(Date.now()/500)*40; }
+  var particles=[];
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:20,color:color,size:2+Math.random()*2});} }
+  function win(who){ state.over=true; state.running=false; state.winner=who; AOXSound.stopBGM(); if(who==='玩家')SFX.win(); else SFX.lose(); toast(who+'获胜！'); }
+  function draw(){
+    ctx.fillStyle='#0d1b2a'; ctx.fillRect(0,0,W,H);
+    // 中线
+    ctx.setLineDash([8,8]); ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke(); ctx.setLineDash([]);
+    // 拖尾
+    trail.forEach(function(t){ctx.globalAlpha=t.life/10*0.4;ctx.fillStyle='#fff';ctx.fillRect(t.x-2,t.y-2,4,4);ctx.globalAlpha=1;});
+    // 板
+    ctx.fillStyle='#4dd0e1'; ctx.shadowColor='#4dd0e1'; ctx.shadowBlur=10; ctx.fillRect(p1.x,p1.y,p1.w,p1.h);
+    ctx.fillStyle='#e53935'; ctx.shadowColor='#e53935'; ctx.fillRect(p2.x,p2.y,p2.w,p2.h); ctx.shadowBlur=0;
+    // 球
+    ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=15; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,7); ctx.fill(); ctx.shadowBlur=0;
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 分数
+    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.font='60px "Press Start 2P",monospace'; ctx.textAlign='center'; ctx.fillText(state.pscore,W/4,80); ctx.fillText(state.ascore,W*3/4,80);
+    if(!state.running){ ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle=state.winner==='玩家'?'#4caf50':'#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText(state.winner+' 胜！',W/2,H/2-15); ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P",monospace'; ctx.fillText(state.pscore+' : '+state.ascore,W/2,H/2+15); ctx.fillText('按R重玩',W/2,H/2+42); }
+      else { ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('准备就绪',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('鼠标控制左板',W/2,H/2+25); } }
+  }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  canvas.addEventListener('mousemove',function(e){ var r=canvas.getBoundingClientRect(); mouse.y=(e.clientY-r.top)*(H/r.height); });
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); var r=canvas.getBoundingClientRect(); mouse.y=(e.touches[0].clientY-r.top)*(H/r.height); },{passive:false});
+  document.addEventListener('keydown',function(e){ keys[e.key.toLowerCase()]=true; if(['arrowup','arrowdown'].indexOf(e.key.toLowerCase())>=0)e.preventDefault(); if(e.key.toLowerCase()==='r'){init();state.running=true;serve(Math.random()<0.5?1:-1);AOXSound.ensure();} });
+  document.addEventListener('keyup',function(e){ keys[e.key.toLowerCase()]=false; });
+  document.getElementById('startBtn').addEventListener('click',function(){ init(); state.running=true; serve(Math.random()<0.5?1:-1); AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); toast('开球！'); });
+  init(); loop();
+})();
+</script>
+</body>
+</html>

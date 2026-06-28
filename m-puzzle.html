@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>马里奥拼图 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.mp-board{display:grid;gap:2px;margin:18px auto;width:fit-content;background:#5d3a1a;padding:6px;border:4px solid var(--mc-black);box-shadow:inset 4px 4px 0 0 #3d2817,8px 8px 0 0 rgba(0,0,0,0.4)}
+.mp-tile{width:80px;height:80px;cursor:pointer;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:36px;user-select:none;transition:transform 0.1s;box-shadow:inset 2px 2px 0 0 rgba(255,255,255,0.1)}
+.mp-tile:hover{transform:scale(0.95)}.mp-tile.empty{background:rgba(0,0,0,0.3);border-color:rgba(255,255,255,0.1);cursor:default;box-shadow:none}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🧩 马里奥拼图</h1>
+<p class="subtitle">滑动方块还原马里奥图案！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div><div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div><div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div></div>
+<div class="mp-board" id="board"></div>
+<div style="margin-top:14px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="shuffleBtn">🔀 打乱</button><a href="index.html" class="mc-btn">← 返回</a></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px">点空格旁方块滑动，还原🍄→⭐→🏁→🏰顺序</p>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var SIZE=3,tiles,icons=['🍄','🍄','🍄','⭐','⭐','⭐','🏁','🏁',null],state,timerInt,startTime;
+function init(){tiles=icons.slice();state={moves:0,over:false,won:false};clearInterval(timerInt);document.getElementById('timer').textContent='0';updateHud();render();}
+function updateHud(){document.getElementById('moves').textContent=state.moves;var b=localStorage.getItem('mpuzzle_best');document.getElementById('best').textContent=b?b+'步':'—';}
+function shuffle(){for(var i=0;i<SIZE*SIZE*30;i++){var ei=tiles.indexOf(null);var er=Math.floor(ei/SIZE),ec=ei%SIZE;var nbrs=[];if(er>0)nbrs.push(ei-SIZE);if(er<SIZE-1)nbrs.push(ei+SIZE);if(ec>0)nbrs.push(ei-1);if(ec<SIZE-1)nbrs.push(ei+1);var ni=nbrs[Math.floor(Math.random()*nbrs.length)];var t=tiles[ei];tiles[ei]=tiles[ni];tiles[ni]=t;}state.moves=0;startTime=Date.now();clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000)},500);updateHud();render();SFX.rotate();}
+function move(idx){if(state.over)return;var ei=tiles.indexOf(null);var er=Math.floor(ei/SIZE),ec=ei%SIZE,ir=Math.floor(idx/SIZE),ic=idx%SIZE;if((Math.abs(er-ir)===1&&ec===ic)||(Math.abs(ec-ic)===1&&er===ir)){var t=tiles[ei];tiles[ei]=tiles[idx];tiles[idx]=t;state.moves++;SFX.move();updateHud();render();checkWin();}}
+function checkWin(){for(var i=0;i<8;i++)if(tiles[i]!==icons[i])return;state.won=true;state.over=true;clearInterval(timerInt);SFX.win();var b=localStorage.getItem('mpuzzle_best');if(!b||state.moves<parseInt(b,10))localStorage.setItem('mpuzzle_best',state.moves);toast('🎉 还原！'+state.moves+'步');updateHud();}
+function render(){var b=document.getElementById('board');b.innerHTML='';b.style.gridTemplateColumns='repeat('+SIZE+',80px)';tiles.forEach(function(v,i){var d=document.createElement('div');d.className='mp-tile';if(v===null)d.classList.add('empty');else{d.textContent=v;d.style.background=['#e53935','#ff9800','#4caf50'][Math.floor(i/3)];d.addEventListener('click',function(){move(i)})}b.appendChild(d);});}
+document.getElementById('shuffleBtn').addEventListener('click',function(){AOXSound.ensure();SFX.select();shuffle();toast('开始拼图！')});
+init();
+})();
+</script></body></html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏仓库 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin: 18px 0; }
+  .gv-card {
+    background: #0d1b2a; border: 3px solid #000; padding: 14px; cursor: pointer;
+    box-shadow: inset 2px 2px 0 0 #2a3f5f; transition: all 0.1s;
+  }
+  .gv-card:hover { transform: translate(-2px,-2px); border-color: #4dd0e1; }
+  .gv-card .gv-icon { font-size: 40px; text-align: center; margin-bottom: 8px; }
+  .gv-card .gv-name { font-family: 'Press Start 2P', monospace; font-size: 10px; color: #ffd700; text-shadow: 1px 1px 0 #000; text-align: center; margin-bottom: 6px; }
+  .gv-card .gv-meta { font-size: 13px; color: #888; text-align: center; line-height: 1.4; }
+  .gv-card .gv-actions { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+  .gv-btn { font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 6px 8px; border: 2px solid #000; cursor: pointer; color: #fff; text-shadow: 1px 1px 0 #000; }
+  .gv-btn.play { background: #4caf50; } .gv-btn.del { background: #e53935; }
+  .gv-empty { text-align: center; padding: 50px 20px; color: #666; font-family: 'Press Start 2P', monospace; font-size: 12px; line-height: 2; }
+  #playModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 400; align-items: center; justify-content: center; }
+  #playModal.open { display: flex; }
+  .modal-box { background: var(--mc-night); border: 4px solid var(--mc-black); padding: 16px; box-shadow: 8px 8px 0 0 rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="game-maker.html">🏭 制作工坊</a>
+    <a href="game-vault.html">📦 游戏仓库</a>
+    <a href="music.html">🎵 音乐</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">📦 游戏仓库</h1>
+  <p class="subtitle">你制作的所有游戏都在这里！</p>
+
+  <div style="background:var(--mc-panel-dark);border:4px solid var(--mc-black);padding:20px;max-width:820px;margin:14px auto;box-shadow:inset 4px 4px 0 0 #2a3f5f,inset -4px -4px 0 0 #000,8px 8px 0 0 rgba(0,0,0,0.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4dd0e1">
+        📦 仓库共 <span id="vaultCount" style="color:#ffd700">0</span> 个游戏
+      </div>
+      <a href="game-maker.html" class="mc-btn green" style="font-size:11px;padding:10px">🏭 去制作新游戏</a>
+    </div>
+    <div class="vault-grid" id="vaultGrid"></div>
+  </div>
+
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="game-maker.html" class="mc-btn green">🏭 制作工坊</a>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<!-- 试玩弹窗 -->
+<div id="playModal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span id="modalTitle" style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700"></span>
+      <span id="modalClose" style="cursor:pointer;color:#fff;font-size:20px;padding:2px 8px">✕</span>
+    </div>
+    <canvas id="modalCanvas" width="400" height="400" style="background:#000;border:3px solid #000"></canvas>
+    <div style="text-align:center;margin-top:8px"><button class="mc-btn green" id="modalPlay">▶ 开始</button></div>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var TYPE_ICONS = { collect:'🐍', dodge:'🧱', shoot:'🎯', fall:'🟦', run:'🏃' };
+
+  function getVault(){ try { return JSON.parse(localStorage.getItem('game_vault') || '[]'); } catch(e) { return []; } }
+  function setVault(v){ localStorage.setItem('game_vault', JSON.stringify(v)); }
+
+  function render(){
+    var vault = getVault();
+    document.getElementById('vaultCount').textContent = vault.length;
+    var grid = document.getElementById('vaultGrid');
+    if (vault.length === 0) {
+      grid.innerHTML = '<div class="gv-empty" style="grid-column:1/-1">📦 仓库是空的<br><br>去制作工坊做一个游戏<br>做完点"存入仓库"就能在这里找到</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    vault.forEach(function(g, i){
+      var card = document.createElement('div'); card.className = 'gv-card';
+      card.innerHTML =
+        '<div class="gv-icon">' + (TYPE_ICONS[g.type] || '🎮') + '</div>' +
+        '<div class="gv-name">' + (g.name || '未命名') + '</div>' +
+        '<div class="gv-meta">' + (g.typeName || g.type) + ' · ' + (g.difficulty||'普通') + '<br>' + (g.date||'') + '</div>' +
+        '<div class="gv-actions">' +
+          '<button class="gv-btn play" data-idx="'+i+'">▶ 玩</button>' +
+          '<button class="gv-btn del" data-idx="'+i+'">🗑 删</button>' +
+        '</div>';
+      grid.appendChild(card);
+    });
+    grid.querySelectorAll('.gv-btn.play').forEach(function(b){
+      b.addEventListener('click', function(e){ e.stopPropagation(); playGame(parseInt(b.dataset.idx,10)); });
+    });
+    grid.querySelectorAll('.gv-btn.del').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var v = getVault(); var g = v[parseInt(b.dataset.idx,10)];
+        if (confirm('删除「'+(g.name||'未命名')+'」？')) {
+          v.splice(parseInt(b.dataset.idx,10), 1); setVault(v); SFX.error(); render();
+        }
+      });
+    });
+  }
+
+  // 试玩弹窗（复用 maker 的游戏引擎）
+  function playGame(idx){
+    var vault = getVault();
+    if (idx < 0 || idx >= vault.length) return;
+    var cfg = vault[idx];
+    document.getElementById('modalTitle').textContent = '🎮 ' + (cfg.name || '未命名');
+    document.getElementById('playModal').classList.add('open');
+    AOXSound.ensure(); SFX.select();
+
+    var canvas = document.getElementById('modalCanvas');
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    var speed = cfg.speed || 3;
+    var diffMul = cfg.difficulty === 'easy' ? 0.7 : (cfg.difficulty === 'hard' ? 1.5 : 1);
+    var keys = {}, running = false, over = false, score = 0;
+    var player = {x: W/2, y: H-50, w: 20, h: 20, vx: 0, vy: 0};
+    var items = [], obstacles = [], bullets = [], particles = [];
+    var tick = 0, spawnT = 0, onGround = false;
+    var GRAVITY = 0.4, JUMP = -9;
+
+    document.onkeydown = function(e){
+      keys[e.key.toLowerCase()] = true;
+      if ([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase()) >= 0) e.preventDefault();
+      if (cfg.type === 'shoot' && e.key === ' ') { bullets.push({x:player.x, y:player.y-10, vy:-7}); SFX.shoot(); }
+      if (cfg.type === 'run' && (e.key === ' ' || e.key === 'ArrowUp') && onGround) { player.vy = JUMP; onGround = false; SFX.jump(); }
+    };
+    document.onkeyup = function(e){ keys[e.key.toLowerCase()] = false; };
+    canvas.ontouchstart = function(e){
+      e.preventDefault();
+      if (cfg.type === 'run') { if (onGround) { player.vy = JUMP; onGround = false; SFX.jump(); } return; }
+      if (cfg.type === 'shoot') { bullets.push({x:player.x, y:player.y-10, vy:-7}); SFX.shoot(); return; }
+      var r = canvas.getBoundingClientRect(); var x = (e.touches[0].clientX-r.left)*(W/r.width);
+      keys['arrowleft'] = x < W/2; keys['arrowright'] = x >= W/2;
+    };
+    canvas.ontouchmove = function(e){ e.preventDefault(); var r = canvas.getBoundingClientRect(); var x = (e.touches[0].clientX-r.left)*(W/r.width); keys['arrowleft'] = x < W/2; keys['arrowright'] = x >= W/2; };
+    canvas.ontouchend = function(e){ e.preventDefault(); keys['arrowleft'] = false; keys['arrowright'] = false; };
+
+    function spawn(){
+      var sp = speed * diffMul;
+      if (cfg.type === 'collect' || cfg.type === 'fall') items.push({x:20+Math.random()*(W-40), y:-20, vy:1+sp, r:12, t:Math.random()*6});
+      if (cfg.type === 'dodge') { var bomb = Math.random()<0.3; obstacles.push({x:20+Math.random()*(W-40), y:-20, vy:1.5+sp, r:14, bomb:bomb, t:0}); }
+      if (cfg.type === 'shoot') items.push({x:Math.random()<0.5?-20:W+20, y:50+Math.random()*(H-200), vx:(Math.random()<0.5?1:-1)*(1.5+sp), r:12, t:0});
+      if (cfg.type === 'run') obstacles.push({x:W+20, y:H-40, w:20, h:40, vx:2+sp});
+    }
+    function ex(x,y,c){ for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3});} }
+    function update(){
+      if(!running||over)return; tick++; spawnT++;
+      if(spawnT>=Math.max(20,60-speed*5)){spawnT=0;spawn();}
+      if(cfg.type!=='run'){if(keys['arrowleft']||keys['a'])player.x-=4;if(keys['arrowright']||keys['d'])player.x+=4;player.x=Math.max(15,Math.min(W-15,player.x));}
+      else{player.vy+=GRAVITY;player.y+=player.vy;if(player.y>H-50){player.y=H-50;player.vy=0;onGround=true;}}
+      items.forEach(function(it){it.t+=0.15;if(cfg.type==='shoot')it.x+=it.vx;else it.y+=it.vy;if(cfg.type==='shoot'){for(var i=bullets.length-1;i>=0;i--){if(Math.hypot(bullets[i].x-it.x,bullets[i].y-it.y)<it.r+6){score+=20;SFX.coin();ex(it.x,it.y,'#ffd700');bullets.splice(i,1);it.dead=true;}}}else{if(Math.abs(it.x-player.x)<20&&Math.abs(it.y-player.y)<20){score+=10;SFX.coin();ex(it.x,it.y,cfg.playerColor);it.dead=true;}}});
+      items=items.filter(function(it){return !it.dead&&it.y<H+30&&it.x>-30&&it.x<W+30;});
+      obstacles.forEach(function(o){if(cfg.type==='run')o.x-=o.vx;else o.y+=o.vy;o.t+=0.15;if(cfg.type==='run'){if(player.x+10>o.x&&player.x-10<o.x+o.w&&player.y+10>o.y){over=true;SFX.lose();}}else{if(Math.abs(o.x-player.x)<20&&Math.abs(o.y-player.y)<20){if(o.bomb){over=true;SFX.lose();ex(player.x,player.y,'#e53935');}else{score+=5;SFX.coin();o.dead=true;}}}});
+      obstacles=obstacles.filter(function(o){return !o.dead&&o.y<H+30&&o.x>-50;});
+      bullets.forEach(function(b){b.y+=b.vy;});bullets=bullets.filter(function(b){return b.y>-10;});
+      particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});
+      if(cfg.type==='run'){obstacles=obstacles.filter(function(o){return o.x>-50;});if(tick%10===0)score++;}
+    }
+    function draw(){
+      ctx.fillStyle=cfg.themeColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#3d8b2a';ctx.fillRect(0,H-30,W,30);
+      ctx.fillStyle=cfg.playerColor||'#e53935';ctx.fillRect(player.x-10,player.y-10,20,20);
+      ctx.fillStyle='#fff';ctx.fillRect(player.x-5,player.y-6,3,3);ctx.fillRect(player.x+2,player.y-6,3,3);
+      ctx.fillStyle='#000';ctx.fillRect(player.x-4,player.y-5,1,2);ctx.fillRect(player.x+3,player.y-5,1,2);
+      items.forEach(function(it){ctx.font='20px serif';ctx.textAlign='center';ctx.fillText(cfg.item||'💰',it.x,it.y+8);});
+      obstacles.forEach(function(o){if(cfg.type==='run'){ctx.fillStyle='#7f7f7f';ctx.fillRect(o.x,o.y,o.w,o.h);}else{ctx.font='20px serif';ctx.textAlign='center';ctx.fillText(o.bomb?'💣':(cfg.item||'💰'),o.x,o.y+8);}});
+      bullets.forEach(function(b){ctx.fillStyle='#ffd700';ctx.fillRect(b.x-2,b.y-6,4,8);});
+      particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+      ctx.fillStyle='#fff';ctx.font='16px "Press Start 2P",monospace';ctx.textAlign='left';ctx.fillText('得分:'+score,10,28);
+      if(over){ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e53935';ctx.font='22px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('游戏结束',W/2,H/2-20);ctx.fillStyle='#ffd700';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('得分:'+score,W/2,H/2+15);ctx.fillStyle='#fff';ctx.font='10px "Press Start 2P",monospace';ctx.fillText('点开始重玩',W/2,H/2+45);}
+      else if(!running){ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#4caf50';ctx.font='18px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('准备',W/2,H/2-8);ctx.fillStyle='#fff';ctx.font='10px "Press Start 2P",monospace';ctx.fillText('点开始',W/2,H/2+20);}
+    }
+    function loop(){update();draw();requestAnimationFrame(loop);}
+    document.getElementById('modalPlay').onclick = function(){
+      running=true;over=false;score=0;player.x=W/2;player.y=H-50;player.vy=0;
+      items=[];obstacles=[];bullets=[];particles=[];tick=0;spawnT=0;
+      AOXSound.ensure();AOXSound.startBGM('game');SFX.select();
+    };
+    loop();
+  }
+
+  document.getElementById('modalClose').addEventListener('click', function(){
+    document.getElementById('playModal').classList.remove('open');
+    document.onkeydown = null;
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

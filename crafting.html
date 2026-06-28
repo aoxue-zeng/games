@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合成台 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .craft-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:20px;max-width:480px;margin:18px auto;text-align:center }
+  .craft-grid { display:grid;grid-template-columns:repeat(3,48px);gap:4px;justify-content:center;margin:10px auto;width:fit-content;background:#8b5a2b;padding:8px;border:3px solid #000 }
+  .craft-cell { width:48px;height:48px;background:#6b4220;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;user-select:none }
+  .craft-cell:hover{background:#7d5230}
+  .craft-cell.sel{background:#ffd700}
+  .craft-cell.target{background:#4dd0e1}
+  .mat-row { display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 }
+  .mat-btn { width:48px;height:48px;background:var(--mc-panel);border:3px solid #000;box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);font-size:28px;cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:center }
+  .mat-btn.sel{background:#ffd700}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">📗 合成台</h1>
+  <p class="subtitle">记住合成配方，正确摆放材料！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+  </div>
+  <div class="craft-stage">
+    <div style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;margin-bottom:8px" id="prompt">点击开始</div>
+    <div style="font-size:14px;color:#ccc;margin-bottom:6px">配方目标：<span id="target" style="font-size:32px">?</span></div>
+    <div class="craft-grid" id="grid"></div>
+    <div style="font-size:12px;color:#888;margin:6px 0">先观察配方闪烁，再用下方材料摆出来</div>
+    <div class="mat-row" id="materials"></div>
+    <button class="mc-btn green" id="checkBtn">✓ 合成</button>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var MATS=[{i:'🪵',n:'wood'},{i:'🪨',n:'stone'},{i:'🟫',n:'plank'},{i:'⬛',n:'coal'},{i:'🟧',n:'iron'},{i:'💎',n:'diamond'},{i:'🧶',n:'string'},{i:'🔻',n:'redstone'}];
+  var RECIPES=[
+    {out:'⛏️',name:'镐子',grid:['','','','🪵','','','🟫🟫🟫']},
+    {out:'⚔️',name:'剑',grid:['','🪵','','','🪵','','','🟫','']},
+    {out:'🛡️',name:'盾牌',grid:['🪵🟫🪵','🪵🟫🪵','🪵','','🪵']},
+    {out:'🏹',name:'弓',grid:['🧶','','🪵','🧶','🪵','','🧶','','🪵']},
+    {out:'🏮',name:'火把',grid:['⬛','','','🪵','','','','','']},
+    {out:'🧱',name:'砖块',grid:['🟫🟫🟫','🟫🟫🟫','🟫🟫🟫']},
+    {out:'🔔',name:'钟',grid:['🟧','','','🟧','','','🪵🪵🪵']},
+    {out:'🔴',name:'红石块',grid:['🔻🔻🔻','🔻🔻🔻','🔻🔻🔻']}
+  ];
+  var state,curRecipe,playerGrid,selMat,showIdx,phase;
+  function init(){state={score:0,level:1,lives:3,running:false,over:false};buildGrid();buildMats();updateHud();}
+  function updateHud(){document.getElementById('score').textContent=state.score;document.getElementById('level').textContent=state.level;document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';}
+  function buildGrid(){var g=document.getElementById('grid');g.innerHTML='';for(var i=0;i<9;i++){(function(i){var c=document.createElement('div');c.className='craft-cell';c.dataset.idx=i;c.addEventListener('click',function(){place(i);});g.appendChild(c);})(i);}}
+  function buildMats(){var m=document.getElementById('materials');m.innerHTML='';MATS.forEach(function(mt){var b=document.createElement('div');b.className='mat-btn';b.textContent=mt.i;b.dataset.icon=mt.i;b.addEventListener('click',function(){selMat=mt.i;document.querySelectorAll('.mat-btn').forEach(function(x){x.classList.remove('sel');});b.classList.add('sel');SFX.click();});m.appendChild(b);});}
+  function startLevel(){
+    curRecipe=RECIPES[Math.floor(Math.random()*Math.min(RECIPES.length,2+state.level))%RECIPES.length];
+    playerGrid=['','','','','','','','',''];
+    selMat=null;phase='show';showIdx=0;
+    document.getElementById('target').textContent=curRecipe.out;
+    document.getElementById('prompt').textContent='记住配方...';
+    document.querySelectorAll('.craft-cell').forEach(function(c){c.classList.remove('sel','target');c.textContent='';});
+    showRecipe();
+  }
+  function showRecipe(){
+    if(showIdx>=9){phase='input';document.getElementById('prompt').textContent='用材料摆出配方！';document.querySelectorAll('.craft-cell').forEach(function(c){c.classList.remove('target');c.textContent='';});return;}
+    var cell=document.querySelector('.craft-cell[data-idx="'+showIdx+'"]');
+    var icon=curRecipe.grid[Math.floor(showIdx/3)][showIdx%3];
+    if(icon){cell.textContent=icon;cell.classList.add('target');SFX.bubble();}
+    showIdx++;setTimeout(showRecipe,400);
+  }
+  function place(idx){
+    if(phase!=='input')return;
+    var cell=document.querySelector('.craft-cell[data-idx="'+idx+'"]');
+    if(!selMat){playerGrid[idx]='';cell.textContent='';cell.classList.remove('sel');return;}
+    playerGrid[idx]=selMat;cell.textContent=selMat;cell.classList.add('sel');SFX.place();
+  }
+  function check(){
+    if(phase!=='input')return;
+    var ok=true;
+    for(var i=0;i<9;i++){var exp=curRecipe.grid[Math.floor(i/3)][i%3];if(exp!==playerGrid[i]){ok=false;break;}}
+    if(ok){state.score+=50;state.level++;SFX.win();toast('🎉 合成成功 '+curRecipe.name+'！');updateHud();setTimeout(startLevel,1000);}
+    else{state.lives--;SFX.error();toast('❌ 配方不对！');updateHud();if(state.lives<=0){state.over=true;state.running=false;document.getElementById('prompt').textContent='失败！得分:'+state.score;}else{setTimeout(startLevel,800);}}
+  }
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();SFX.select();setTimeout(startLevel,500);});
+  document.getElementById('checkBtn').addEventListener('click',check);
+  init();
+})();
+</script>
+</body>
+</html>

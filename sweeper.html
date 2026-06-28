@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>苦力怕扫雷 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #board {
+    display:grid; gap:2px; background:var(--mc-night);
+    border:4px solid var(--mc-black); padding:6px;
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);
+    margin:0 auto; width:fit-content;
+  }
+  .cell {
+    width:34px; height:34px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P',monospace; font-size:14px;
+    user-select:none; position:relative;
+    background:linear-gradient(135deg,#8b8b8b,#6a6a6a);
+    border:2px solid #000;
+    box-shadow: inset 2px 2px 0 0 #aaa, inset -2px -2px 0 0 #555;
+    transition:transform 0.05s;
+  }
+  .cell:hover { transform:scale(0.95); }
+  .cell.revealed {
+    background:linear-gradient(135deg,#5a5a5a,#4a4a4a);
+    box-shadow: inset 2px 2px 0 0 #2a2a2a;
+    cursor:default;
+  }
+  .cell.revealed.bomb { background:#e53935; }
+  .cell.flag { background:linear-gradient(135deg,#b5651d,#8b4513); }
+  .cell .num1{color:#2196f3} .cell .num2{color:#4caf50} .cell .num3{color:#e53935}
+  .cell .num4{color:#9c27b0} .cell .num5{color:#ff9800} .cell .num6{color:#00bcd4}
+  .cell .num7{color:#fff} .cell .num8{color:#aaa}
+  .diff-btn { font-size:11px; padding:10px 16px; }
+  .legend { color:#fff; text-shadow:2px 2px 0 #000; font-size:16px; line-height:1.8; }
+  .legend span { display:inline-block; width:24px; text-align:center; }
+  /* 移动端格子小一点 + 可横向滚动 */
+  @media (max-width: 600px) {
+    #board { overflow-x:auto; max-width:95vw; }
+    .cell { width:28px; height:28px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="sweeper.html">扫雷</a>
+    <a href="match3.html">三消</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:36px;">💣 苦力怕扫雷</h1>
+  <p class="subtitle">挖开方块找钻石，别踩到苦力怕！</p>
+
+  <div class="hud" style="margin-top:24px;">
+    <div class="hud-item"><span class="label">苦力怕</span><span id="bombs">0</span></div>
+    <div class="hud-item"><span class="label">火把</span><span id="flags">0</span></div>
+    <div class="hud-item"><span class="label">钻石</span><span id="gems">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span></div>
+  </div>
+
+  <div id="board"></div>
+
+  <div style="margin-top:14px;">
+    <span class="legend">
+      <span style="background:#8b8b8b;border:2px solid #000;">⬜</span>未挖 ·
+      <span>💣</span>苦力怕 ·
+      <span style="color:#ffd700;">💎</span>钻石 ·
+      <span style="color:#ff9800;">🔥</span>火把标记
+    </span>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:8px;">
+    左键挖开 · 右键插火把 · 找出所有钻石获胜
+  </p>
+
+  <div style="margin-top:16px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green diff-btn" data-diff="easy">🟢 简单 9×9</button>
+    <button class="mc-btn gold diff-btn" data-diff="medium">🟡 中等 12×12</button>
+    <button class="mc-btn redstone diff-btn" data-diff="hard">🔴 困难 16×16</button>
+    <a href="index.html" class="mc-btn diff-btn">← 返回</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var DIFFS = {
+    easy:{rows:9,cols:9,bombs:10},
+    medium:{rows:12,cols:12,bombs:25},
+    hard:{rows:16,cols:16,bombs:50}
+  };
+  // 数字对应矿物（1煤2铁3金4红石5青金6绿宝7钻石8钻石簇）
+  var NUM_MINERAL = ['','⚫','🟤','🟨','🔴','🔵','💚','💎','💎'];
+  var NUM_COLOR = ['','num1','num2','num3','num4','num5','num6','num7','num8'];
+
+  var cfg, grid, revealed, flagged, state, timerInt, startTime;
+
+  function start(diff){
+    cfg = DIFFS[diff];
+    var R=cfg.rows, C=cfg.cols, B=cfg.bombs;
+    grid=[]; revealed=[]; flagged=[];
+    for(var r=0;r<R;r++){
+      grid.push(new Array(C).fill(0));
+      revealed.push(new Array(C).fill(false));
+      flagged.push(new Array(C).fill(false));
+    }
+    state = { over:false, won:false, started:false, gems:0, flagsLeft:B, totalSafe:R*C-B };
+    // 放雷
+    var placed=0;
+    while(placed<B){
+      var rr=Math.floor(Math.random()*R), cc=Math.floor(Math.random()*C);
+      if(grid[rr][cc]!==-1){ grid[rr][cc]=-1; placed++; }
+    }
+    // 计数
+    for(var r2=0;r2<R;r2++){
+      for(var c2=0;c2<C;c2++){
+        if(grid[r2][c2]===-1) continue;
+        var n=0;
+        for(var dr=-1;dr<=1;dr++) for(var dc=-1;dc<=1;dc++){
+          if(dr===0&&dc===0) continue;
+          var nr=r2+dr,nc=c2+dc;
+          if(nr>=0&&nr<R&&nc>=0&&nc<C&&grid[nr][nc]===-1) n++;
+        }
+        grid[r2][c2]=n;
+      }
+    }
+    clearInterval(timerInt);
+    document.getElementById('timer').textContent='0';
+    updateHud();
+    render();
+  }
+
+  function updateHud(){
+    document.getElementById('bombs').textContent = cfg.bombs;
+    document.getElementById('flags').textContent = state.flagsLeft;
+    document.getElementById('gems').textContent = state.gems;
+  }
+
+  function startTimer(){
+    if(state.started) return;
+    state.started=true;
+    startTime=Date.now();
+    timerInt=setInterval(function(){
+      document.getElementById('timer').textContent = Math.floor((Date.now()-startTime)/1000);
+    },500);
+  }
+
+  function render(){
+    var board=document.getElementById('board');
+    board.innerHTML='';
+    board.style.gridTemplateColumns = 'repeat('+cfg.cols+', 34px)';
+    for(var r=0;r<cfg.rows;r++){
+      for(var c=0;c<cfg.cols;c++){
+        (function(r,c){
+          var d=document.createElement('div');
+          d.className='cell';
+          if(revealed[r][c]){
+            d.classList.add('revealed');
+            if(grid[r][c]===-1){
+              d.classList.add('bomb');
+              d.textContent='💣';
+            } else if(grid[r][c]===0){
+              d.textContent='';
+            } else {
+              d.innerHTML='<span class="'+NUM_COLOR[grid[r][c]]+'">'+NUM_MINERAL[grid[r][c]]+'</span>';
+            }
+          } else if(flagged[r][c]){
+            d.classList.add('flag');
+            d.textContent='🔥';
+          }
+          d.addEventListener('click', function(){ reveal(r,c); });
+          d.addEventListener('contextmenu', function(e){ e.preventDefault(); toggleFlag(r,c); });
+          // 触屏长按插旗
+          (function(cell, rr, cc){
+            var pressTimer=null;
+            cell.addEventListener('touchstart', function(){ pressTimer=setTimeout(function(){ toggleFlag(rr,cc); pressTimer=null; }, 450); }, {passive:true});
+            cell.addEventListener('touchend', function(){ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } });
+            cell.addEventListener('touchmove', function(){ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } });
+          })(d, r, c);
+          board.appendChild(d);
+        })(r,c);
+      }
+    }
+  }
+
+  function reveal(r,c){
+    if(state.over) return;
+    if(revealed[r][c]||flagged[r][c]) return;
+    AOXSound.ensure();
+    startTimer();
+    if(grid[r][c]===-1){
+      // 踩雷
+      revealed[r][c]=true;
+      SFX.boom();
+      gameOver(false);
+      return;
+    }
+    flood(r,c);
+    if(grid[r][c]===7||grid[r][c]===8) SFX.gem();
+    else SFX.dig();
+    checkWin();
+    updateHud();
+    render();
+  }
+
+  function flood(r,c){
+    if(r<0||r>=cfg.rows||c<0||c>=cfg.cols) return;
+    if(revealed[r][c]||flagged[r][c]) return;
+    revealed[r][c]=true;
+    if(grid[r][c]===0){
+      for(var dr=-1;dr<=1;dr++) for(var dc=-1;dc<=1;dc++){
+        if(dr===0&&dc===0) continue;
+        flood(r+dr,c+dc);
+      }
+    }
+    // 钻石计数
+    if(grid[r][c]===7||grid[r][c]===8) state.gems++;
+  }
+
+  function toggleFlag(r,c){
+    if(state.over||revealed[r][c]) return;
+    AOXSound.ensure();
+    if(flagged[r][c]){ flagged[r][c]=false; state.flagsLeft++; SFX.back(); }
+    else { if(state.flagsLeft<=0) return; flagged[r][c]=true; state.flagsLeft--; SFX.flag(); }
+    updateHud(); render();
+  }
+
+  function checkWin(){
+    var safe=0;
+    for(var r=0;r<cfg.rows;r++) for(var c=0;c<cfg.cols;c++){
+      if(revealed[r][c]&&grid[r][c]!==-1) safe++;
+    }
+    if(safe>=state.totalSafe){ gameOver(true); }
+  }
+
+  function gameOver(win){
+    state.over=true; state.won=win;
+    clearInterval(timerInt);
+    // 揭示所有雷
+    for(var r=0;r<cfg.rows;r++) for(var c=0;c<cfg.cols;c++){
+      if(grid[r][c]===-1) revealed[r][c]=true;
+    }
+    render();
+    setTimeout(function(){
+      if(win){ SFX.win(); toast('🎉 胜利！挖到 '+state.gems+' 颗钻石！'); }
+      else { SFX.lose(); toast('💥 被苦力怕炸飞了！'); }
+    },100);
+  }
+
+  document.querySelectorAll('.diff-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      AOXSound.ensure(); SFX.click();
+      if(btn.dataset.diff) start(btn.dataset.diff);
+    });
+  });
+
+  // 阻止整个棋盘的右键菜单
+  document.getElementById('board').addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+  start('easy');
+})();
+</script>
+</body>
+</html>

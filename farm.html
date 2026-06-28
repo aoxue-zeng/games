@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>农场丰收 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .farm-grid { display:grid;gap:4px;margin:18px auto;width:fit-content;background:#5d3a1a;padding:8px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #3d2817, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .farm-cell { width:60px;height:60px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:30px;border:2px solid #000;user-select:none;position:relative;background:#8b5a2b }
+  .farm-cell:hover{background:#9c6b3b}
+  .farm-cell.water{background:#2196f3}
+  .farm-cell.ready{background:#4caf50}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🌾 农场丰收</h1>
+  <p class="subtitle">种麦子，浇水，收获！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">麦子</span><span id="wheat">0</span>🌾</div>
+    <div class="hud-item"><span class="label">金币</span><span id="coins">0</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">60</span>s</div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn" id="seedBtn" style="background:#8b5a2b;color:#fff">🌱 播种</button>
+    <button class="mc-btn" id="waterBtn" style="background:#2196f3;color:#fff">💧 浇水</button>
+    <button class="mc-btn green" id="harvestBtn">🌾 收获</button>
+  </div>
+  <div class="farm-grid" id="grid"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">选工具→点格子。播种→浇水→等成熟→收获。60秒尽量多收</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var COLS=6,ROWS=5,cells,state,tool,timerInt,startTime;
+  // stage: 0空 1种子 2浇水 3成长 4成熟
+  function init(){
+    cells=[];for(var r=0;r<ROWS;r++){cells.push([]);for(var c=0;c<COLS;c++)cells[r].push({stage:0,t:0});}
+    state={wheat:0,coins:0,time:60,over:false,best:getBest(),running:false};tool='seed';
+    clearInterval(timerInt);updateHud();render();
+  }
+  function getBest(){return parseInt(localStorage.getItem('farm_best')||'0',10);}
+  function setBest(v){localStorage.setItem('farm_best',v);}
+  function updateHud(){document.getElementById('wheat').textContent=state.wheat;document.getElementById('coins').textContent=state.coins;document.getElementById('time').textContent=state.time;document.getElementById('best').textContent=state.best;}
+  function render(){
+    var g=document.getElementById('grid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+COLS+',60px)';
+    cells.forEach(function(row,r){row.forEach(function(cell,c){
+      var d=document.createElement('div');d.className='farm-cell';
+      var icon='';
+      if(cell.stage===0)icon='';
+      else if(cell.stage===1){icon='🌱';d.style.background='#8b5a2b';}
+      else if(cell.stage===2){icon='🌱';d.style.background='#4dd0e1';}
+      else if(cell.stage===3){icon='🌿';d.style.background='#4caf50';}
+      else if(cell.stage===4){icon='🌾';d.classList.add('ready');}
+      d.textContent=icon;
+      d.addEventListener('click',function(){act(r,c);});
+      g.appendChild(d);
+    });});
+  }
+  function act(r,c){
+    if(state.over)return;AOXSound.ensure();var cell=cells[r][c];
+    if(tool==='seed'){if(cell.stage===0){cell.stage=1;cell.t=0;SFX.place();}}
+    else if(tool==='water'){if(cell.stage===1){cell.stage=2;cell.t=0;SFX.bubble();}}
+    else if(tool==='harvest'){if(cell.stage===4){cell.stage=0;state.wheat++;state.coins+=10;SFX.coin();updateHud();}}
+    render();
+  }
+  function tick(){
+    // 成长
+    cells.forEach(function(row){row.forEach(function(cell){
+      if(cell.stage===2||cell.stage===3){cell.t++;if(cell.t>=20){cell.stage++;cell.t=0;}}
+    });});
+    if(state.running&&!state.over)render();
+  }
+  function startTimer(){
+    startTime=Date.now();
+    timerInt=setInterval(function(){
+      state.time--;updateHud();
+      if(state.time<=0){state.over=true;state.running=false;clearInterval(timerInt);if(state.coins>state.best){setBest(state.coins);state.best=state.coins;}updateHud();SFX.win();toast('🎉 收获 '+state.coins+' 金币！');}
+    },1000);
+    setInterval(tick,500);
+  }
+  document.getElementById('seedBtn').addEventListener('click',function(){tool='seed';SFX.click();});
+  document.getElementById('waterBtn').addEventListener('click',function(){tool='water';SFX.click();});
+  document.getElementById('harvestBtn').addEventListener('click',function(){tool='harvest';SFX.click();});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();startTimer();toast('种麦子！');});
+  init();
+})();
+</script>
+</body>
+</html>

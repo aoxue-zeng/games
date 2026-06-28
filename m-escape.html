@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>城堡逃脱 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a0a0a;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🏰 城堡逃脱</h1>
+<p class="subtitle">跳过岩浆和火球，逃出城堡！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">距离</span><span id="dist">0</span>m</div><div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span>m</div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="560" height="360"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">空格/↑</span>跳 · 平台滚动躲岩浆和火球 · <span class="key">R</span>重开</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,p,plat,fireballs,pts,tick,keys,scroll;
+var G=0.5,J=-10;
+function init(){s={running:false,over:false,dist:0,lives:3,best:getBest()};p={x:100,y:200,vy:0,onG:false,w:22,h:28,anim:0,inv:0};plat=[{x:0,y:280,w:200},{x:260,y:280,w:120},{x:440,y:260,w:100},{x:600,y:280,w:160}];fireballs=[];pts=[];tick=0;keys={};scroll=2;updateHud();}
+function getBest(){return parseInt(localStorage.getItem('mescape_best')||'0',10)}
+function setBest(v){localStorage.setItem('mescape_best',v)}
+function updateHud(){document.getElementById('dist').textContent=Math.floor(s.dist);document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('best').textContent=s.best;}
+function update(){if(!s.running||s.over)return;tick++;s.dist+=scroll/5;scroll=2+s.dist/300;
+if((keys[' ']||keys['arrowup']||keys['w'])&&p.onG){p.vy=J;p.onG=false;SFX.jump();}
+p.vy+=G;p.y+=p.vy;p.onG=false;
+plat.forEach(function(pl){pl.x-=scroll;if(p.x+p.w>pl.x&&p.x<pl.x+pl.w&&p.y+p.h>pl.y&&p.y+p.h<pl.y+20&&p.vy>=0){p.y=pl.y-p.h;p.vy=0;p.onG=true}});
+while(plat[plat.length-1].x+plat[plat.length-1].w<W+200){var last=plat[plat.length-1];plat.push({x:last.x+last.w+50+Math.random()*70,y:240+Math.random()*60,w:80+Math.random()*80})}
+plat=plat.filter(function(pl){return pl.x+pl.w>-50});
+if(tick%80===0)fireballs.push({x:W+20,y:100+Math.random()*150,vx:-3-scroll,vy:0,r:10,t:0});
+fireballs.forEach(function(f){f.x+=f.vx;f.t+=0.2;f.y+=Math.sin(f.t)*1.5});
+fireballs=fireballs.filter(function(f){if(f.x<-20)return false;if(p.inv<=0&&Math.hypot(f.x-p.x-p.w/2,f.y-p.y-p.h/2)<f.r+12){s.lives--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(s.lives<=0)over();updateHud();return false;}return true});
+if(p.y>H){s.lives--;SFX.hurt();p.x=100;p.y=200;p.vy=0;p.inv=60;if(s.lives<=0)over();updateHud();}
+if(p.inv>0)p.inv--;p.anim+=0.2;
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0});
+if(s.dist>s.best){setBest(Math.floor(s.dist));s.best=Math.floor(s.dist);updateHud();}}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();}
+function draw(){
+x.fillStyle='#1a0a0a';x.fillRect(0,0,W,H);
+// 岩浆底
+var g=x.createLinearGradient(0,H-60,0,H);g.addColorStop(0,'#e55300');g.addColorStop(1,'#b71c1c');x.fillStyle=g;x.fillRect(0,H-40,W,40);
+for(var i=0;i<W;i+=8){x.fillStyle='rgba(255,200,0,0.4)';x.fillRect(i,H-40+Math.sin((i+tick*2)*0.05)*4,6,3)}
+// 平台（城堡砖块）
+plat.forEach(function(pl){x.fillStyle='#7f7f7f';x.fillRect(pl.x,pl.y,pl.w,pl.h>20?20:pl.h);x.fillStyle='#555';for(var bx=0;bx<pl.w;bx+=20){x.fillRect(pl.x+bx+8,pl.y,2,20);x.fillRect(pl.x+bx,pl.y+8,20,2)}x.fillStyle='#999';x.fillRect(pl.x,pl.y,pl.w,3)});
+// 火球
+fireballs.forEach(function(f){x.fillStyle='#ff5722';x.shadowColor='#ff5722';x.shadowBlur=10;x.beginPath();x.arc(f.x,f.y,f.r,0,7);x.fill();x.shadowBlur=0;x.fillStyle='#ffeb3b';x.beginPath();x.arc(f.x,f.y,f.r/2,0,7);x.fill()});
+// mario
+if(p.inv<=0||Math.floor(p.inv/4)%2===0){var px=p.x,py=p.y;var bob=p.onG?Math.sin(p.anim)*1.5:0;x.fillStyle='#e53935';x.fillRect(px,py+2+bob,p.w,16);x.fillStyle='#ff9800';x.fillRect(px+2,py-8+bob,18,10);x.fillStyle='#e53935';x.fillRect(px+2,py-8+bob,18,3);x.fillStyle='#fff';x.fillRect(px+5,py-4+bob,3,3);x.fillStyle='#1565c0';x.fillRect(px+2,py+18,7,6);x.fillRect(px+13,py+18,7,6)}
+pts.forEach(function(p){x.globalAlpha=p.life/20;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('没能逃脱！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('距离:'+Math.floor(s.dist)+'m 最高:'+s.best+'m',W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#ffd700';x.font='20px "Press Start 2P",monospace';x.fillText('准备逃脱',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if([' ','arrowup'].indexOf(e.key.toLowerCase())>=0||e.key===' ')e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+c.addEventListener('touchstart',function(e){e.preventDefault();keys[' ']=true;},{passive:false});
+c.addEventListener('touchend',function(e){e.preventDefault();keys[' ']=false},{passive:false});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();if(AOXMobile.isTouch)AOXMobile.virtualKeys({keys:[{label:'⏏',key:' ',color:'rgba(229,57,53,0.85)',big:true}]});toast('逃出城堡！')});
+init();loop();
+})();
+</script></body></html>

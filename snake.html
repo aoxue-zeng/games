@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贪吃蛇 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0d1b0d; }
+  .toggle-btn {
+    font-family:'Press Start 2P',monospace; font-size:10px; padding:8px 12px;
+    background:var(--mc-panel); border:3px solid var(--mc-black);
+    box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);
+    cursor:pointer; color:#1a1a1a; user-select:none;
+  }
+  .toggle-btn.on { background:var(--mc-grass); color:#fff; }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight);
+    padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="snake-neon.html">霓虹蛇</a>
+    <a href="snake-maze.html">障碍蛇</a>
+    <a href="2048.html">2048</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="practice.html">练打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="match3.html">三消</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐍 经典贪吃蛇</h1>
+  <p class="subtitle">吃苹果变长，别撞到自己！</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">长度</span><span id="length">3</span></div>
+    <div class="hud-item"><span class="label">最高分</span><span id="best">0</span></div>
+    <div class="hud-item"><span class="label">速度</span><span id="speed">1</span></div>
+  </div>
+
+  <div class="game-stage" style="margin-top:14px;">
+    <canvas id="gameCanvas" width="480" height="480"></canvas>
+  </div>
+
+  <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="toggle-btn on" id="wrapBtn">穿墙: 开</button>
+    <button class="toggle-btn on" id="accelBtn">加速: 开</button>
+  </div>
+
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←↑→↓</span> 或 <span class="key">WASD</span> 移动 · <span class="key">空格</span> 暂停 · <span class="key">R</span> 重开
+  </p>
+
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var COLS = 20, ROWS = 20, CELL = W/COLS;
+
+  var state, snake, dir, nextDir, food, tick, keys, wrap, accel;
+
+  function init(){
+    state = { running:false, over:false, paused:false, score:0, best:getBest(), speed:1, baseInterval:130 };
+    snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+    dir = {x:1,y:0}; nextDir = {x:1,y:0};
+    food = null; tick = 0; keys = {};
+    placeFood(); updateHud();
+  }
+  function getBest(){ return parseInt(localStorage.getItem('snake_best')||'0',10); }
+  function setBest(v){ localStorage.setItem('snake_best', v); }
+
+  function updateHud(){
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('length').textContent = snake.length;
+    document.getElementById('best').textContent = state.best;
+    document.getElementById('speed').textContent = state.speed;
+  }
+
+  function placeFood(){
+    while(true){
+      var x=Math.floor(Math.random()*COLS), y=Math.floor(Math.random()*ROWS);
+      var on = snake.some(function(s){ return s.x===x&&s.y===y; });
+      if(!on){ food={x:x,y:y,t:0}; return; }
+    }
+  }
+
+  function step(){
+    dir = nextDir;
+    var head = { x:snake[0].x+dir.x, y:snake[0].y+dir.y };
+    // 穿墙
+    if(wrap){
+      if(head.x<0)head.x=COLS-1; if(head.x>=COLS)head.x=0;
+      if(head.y<0)head.y=ROWS-1; if(head.y>=ROWS)head.y=0;
+    } else {
+      if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS){ gameOver(); return; }
+    }
+    // 撞自己
+    for(var i=0;i<snake.length;i++){ if(snake[i].x===head.x&&snake[i].y===head.y){ gameOver(); return; } }
+    snake.unshift(head);
+    // 吃食物
+    if(head.x===food.x && head.y===food.y){
+      state.score += 10; SFX.coin();
+      if(accel && state.score%30===0){ state.speed = Math.min(10, state.speed+1); }
+      placeFood();
+    } else { snake.pop(); }
+    updateHud();
+  }
+
+  function gameOver(){
+    state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose();
+    if(state.score>state.best){ setBest(state.score); state.best=state.score; toast('🏆 新纪录！'+state.score); }
+    updateHud();
+  }
+
+  function interval(){ return state.baseInterval / state.speed; }
+
+  function update(){
+    if(!state.running||state.over||state.paused) return;
+    tick++;
+    if(tick >= Math.floor(interval()/(1000/60))){ tick=0; step(); }
+    if(food) food.t += 0.15;
+  }
+
+  // ===== 渲染 =====
+  function draw(){
+    // 背景 + 网格
+    ctx.fillStyle='#0d1b0d'; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    for(var i=0;i<=COLS;i++){ ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(W,i*CELL); ctx.stroke(); }
+
+    // 食物（苹果）
+    if(food){
+      var fx=food.x*CELL, fy=food.y*CELL, bob=Math.sin(food.t)*2;
+      ctx.fillStyle='#e53935'; ctx.fillRect(fx+4, fy+4+bob, CELL-8, CELL-8);
+      ctx.fillStyle='#fff'; ctx.fillRect(fx+7, fy+7+bob, 4, 4);
+      ctx.fillStyle='#4a2c12'; ctx.fillRect(fx+CELL/2-1, fy+1+bob, 2, 5);
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(fx+CELL/2+1, fy+1+bob, 4, 3);
+    }
+
+    // 蛇
+    for(var s=snake.length-1;s>=0;s--){
+      var seg=snake[s]; var sx=seg.x*CELL, sy=seg.y*CELL;
+      if(s===0){
+        // 头
+        ctx.fillStyle='#5fb53f'; ctx.fillRect(sx+1,sy+1,CELL-2,CELL-2);
+        ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx+1,sy+1,CELL-2,3);
+        // 眼睛
+        ctx.fillStyle='#fff';
+        var ex = dir.x>0?sx+CELL-8:(dir.x<0?sx+3:sx+CELL/2-2);
+        var ey = dir.y>0?sy+CELL-8:(dir.y<0?sy+3:sy+3);
+        if(dir.x!==0){ ctx.fillRect(ex,sy+5,4,4); ctx.fillRect(ex,sy+CELL-9,4,4); }
+        else { ctx.fillRect(sx+5,ey,4,4); ctx.fillRect(sx+CELL-9,ey,4,4); }
+        ctx.fillStyle='#000';
+        if(dir.x!==0){ ctx.fillRect(ex+1,sy+6,2,2); ctx.fillRect(ex+1,sy+CELL-8,2,2); }
+        else { ctx.fillRect(sx+6,ey+1,2,2); ctx.fillRect(sx+CELL-8,ey+1,2,2); }
+      } else {
+        var shade = s%2===0?'#3d8b2a':'#4ea035';
+        ctx.fillStyle=shade; ctx.fillRect(sx+2,sy+2,CELL-4,CELL-4);
+        ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(sx+2,sy+2,CELL-4,2);
+      }
+    }
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillText('游戏结束', W/2, H/2-25);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P", monospace';
+        ctx.fillText('得分:'+state.score+'  最高:'+state.best, W/2, H/2+10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('按 R 或点击开始重玩', W/2, H/2+45);
+      } else if(state.paused){
+        ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('已暂停', W/2, H/2); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('空格继续', W/2, H/2+30);
+      } else {
+        ctx.fillStyle='#5fb53f'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('准备就绪', W/2, H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('点击开始按钮', W/2, H/2+25);
+      }
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  // ===== 输入 =====
+  document.addEventListener('keydown', function(e){
+    var k=e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0) e.preventDefault();
+    if(k==='arrowup'||k==='w'){ if(dir.y!==1) nextDir={x:0,y:-1}; }
+    else if(k==='arrowdown'||k==='s'){ if(dir.y!==-1) nextDir={x:0,y:1}; }
+    else if(k==='arrowleft'||k==='a'){ if(dir.x!==1) nextDir={x:-1,y:0}; }
+    else if(k==='arrowright'||k==='d'){ if(dir.x!==-1) nextDir={x:1,y:0}; }
+    else if(k===' '){ if(state.running&&!state.over) state.paused=!state.paused; }
+    else if(k==='r'){ init(); state.running=true; AOXSound.ensure(); }
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); wrap = document.getElementById('wrapBtn').classList.contains('on');
+    accel = document.getElementById('accelBtn').classList.contains('on');
+    state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    if(AOXMobile.isTouch) AOXMobile.virtualKeys({dpad:true, keys:[{label:'⏸',key:' ',color:'rgba(229,57,53,0.85)'}]});
+    toast('开始！吃苹果变长');
+  });
+  document.getElementById('wrapBtn').addEventListener('click', function(){
+    this.classList.toggle('on'); this.textContent='穿墙: '+(this.classList.contains('on')?'开':'关'); wrap=this.classList.contains('on'); SFX.click();
+  });
+  document.getElementById('accelBtn').addEventListener('click', function(){
+    this.classList.toggle('on'); this.textContent='加速: '+(this.classList.contains('on')?'开':'关'); accel=this.classList.contains('on'); SFX.click();
+  });
+
+  wrap=true; accel=true;
+  init(); loop();
+})();
+</script>
+</body>
+</html>

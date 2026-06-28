@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AoXuan · 像素世界</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="全部">
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="m-poison.html">毒蘑菇</a>
+    <a href="m-parachute.html">降落伞</a>
+    <a href="m-coins.html">金币射击</a>
+    <a href="m-escape.html">城堡逃脱</a>
+    <a href="m-rocket.html">火箭马里奥</a>
+    <a href="m-1up.html">1-Up</a>
+    <a href="m-circus.html">马戏</a>
+    <a href="m-puzzle.html">拼图</a>
+    <a href="m-mega.html">超级蘑菇</a>
+    <a href="m-rhythm.html">节奏</a>
+    <a href="m-dig.html">挖洞</a>
+    <a href="m-brawl.html">大乱斗</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="pvz.html">植物僵尸</a>
+    <a href="music.html">🎵 音乐</a>
+    <a href="music-vault.html">📦 仓库</a>
+    <a href="pf-jungle.html">联机闯关</a>
+    <a href="pf-extreme.html">极限挑战</a>
+    <a href="story1.html">📜剧本</a>
+    <a href="story4.html">海盗</a>
+    <a href="story5.html">机甲</a>
+    <a href="story6.html">牛仔</a>
+    <a href="story7.html">僵尸</a>
+    <a href="story8.html">童话</a>
+    <a href="story9.html">赛博</a>
+    <a href="story10.html">古墓</a>
+    <a href="story11.html">深海</a>
+    <a href="story12.html">拓荒</a>
+    <a href="epic.html">🌟史诗</a>
+    <a href="epic2.html">暗黑</a>
+    <a href="epic5.html">龙族</a>
+    <a href="mc3d.html">3D我的世界</a>
+    <a href="sandbox3d.html">3D沙盒</a>
+  </nav>
+</div>
+
+<div class="container">
+  <!-- 英雄区 -->
+  <section class="center" style="padding: 40px 0;">
+    <h1 class="title-3d">AoXuan</h1>
+    <p class="subtitle">欢迎来到我的像素世界 ⛏🌲💎</p>
+    <p style="color:white; text-shadow:2px 2px 0 #000; font-size:22px; margin-top:10px;">
+      玩家 · 创造者 · 游戏爱好者
+    </p>
+
+    <div style="margin-top:30px;">
+      <a href="#games" class="mc-btn green">开始探索 ▼</a>
+    </div>
+
+    <!-- 像素角色 -->
+    <div style="margin:40px auto 0; width:64px; height:64px; position:relative; animation: titleBob 1.5s ease-in-out infinite;">
+      <div style="position:absolute; inset:0; background:#5fb53f; border:3px solid #000;"></div>
+      <div style="position:absolute; top:14px; left:14px; width:10px; height:10px; background:#fff; border:2px solid #000;"></div>
+      <div style="position:absolute; top:14px; right:14px; width:10px; height:10px; background:#fff; border:2px solid #000;"></div>
+      <div style="position:absolute; top:17px; left:17px; width:4px; height:4px; background:#000;"></div>
+      <div style="position:absolute; top:17px; right:17px; width:4px; height:4px; background:#000;"></div>
+      <div style="position:absolute; top:36px; left:22px; right:22px; height:4px; background:#000;"></div>
+    </div>
+  </section>
+
+  <!-- 关于 -->
+  <section class="mc-panel" style="margin-top:30px;">
+    <h2 style="color:var(--mc-redstone); font-size:18px; margin-bottom:16px;">📜 关于我</h2>
+    <p style="font-size:20px; line-height:1.6;">
+      嗨！我是 <strong style="color:var(--mc-grass-dark);">AoXuan</strong>。这是一个用像素方块搭建的个人网站，
+      灵感来自 <strong style="color:var(--mc-diamond);">Minecraft</strong>。
+      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">109 个小游戏</strong> ——
+      涵盖马里奥、我的世界、动作射击、益智逻辑、经典街机、博弈竞猜、策略对战等 9 大分类，
+      电脑手机都能玩。拿上你的键盘，开始挖掘吧！⛏️
+    </p>
+    <div style="margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;">
+      <span class="hud-item" style="padding:8px 14px;">🏆 游戏创造者</span>
+      <span class="hud-item" style="padding:8px 14px;">🎮 硬核玩家</span>
+      <span class="hud-item" style="padding:8px 14px;">💻 代码工匠</span>
+      <span class="hud-item" style="padding:8px 14px;">🌟 梦想家</span>
+    </div>
+  </section>
+
+  <!-- 游戏入口 -->
+  <section id="games" style="margin-top:50px;">
+    <h2 class="center" style="font-size:24px; color:var(--mc-gold); text-shadow:3px 3px 0 #000; margin-bottom:10px;">
+      🎮 游戏大厅
+    </h2>
+    <p class="subtitle">选择一款游戏开始你的冒险</p>
+
+    <!-- 分类筛选 + 搜索 -->
+    <div class="filter-bar">
+      <input type="text" id="gameSearch" class="search-box" placeholder="🔍 搜索游戏名..." autocomplete="off">
+      <div class="cat-bar" id="catBar">
+        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">109</span></button>
+        <button class="cat-btn" data-cat="马里奥">🍄 马里奥 <span class="cat-cnt" id="cnt-马里奥">15</span></button>
+        <button class="cat-btn" data-cat="我的世界">⛏ 我的世界 <span class="cat-cnt" id="cnt-我的世界">15</span></button>
+        <button class="cat-btn" data-cat="动作射击">🎮 动作射击 <span class="cat-cnt" id="cnt-动作射击">39</span></button>
+        <button class="cat-btn" data-cat="益智逻辑">🧠 益智逻辑 <span class="cat-cnt" id="cnt-益智逻辑">14</span></button>
+        <button class="cat-btn" data-cat="经典街机">🕹️ 经典街机 <span class="cat-cnt" id="cnt-经典街机">12</span></button>
+        <button class="cat-btn" data-cat="博弈竞猜">🎲 博弈竞猜 <span class="cat-cnt" id="cnt-博弈竞猜">3</span></button>
+        <button class="cat-btn" data-cat="策略对战">♟️ 策略对战 <span class="cat-cnt" id="cnt-策略对战">2</span></button>
+        <button class="cat-btn" data-cat="创造休闲">🎨 创造休闲 <span class="cat-cnt" id="cnt-创造休闲">4</span></button>
+        <button class="cat-btn" data-cat="文字">⌨️ 文字 <span class="cat-cnt" id="cnt-文字">3</span></button>
+      </div>
+    </div>
+    <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 72 个游戏</p>
+
+    <div class="game-grid" id="gameGrid">
+      <a href="practice.html" class="game-card" data-cat="文字">
+        <span class="play-tag" style="background:var(--mc-grass);">入门</span>
+        <div class="thumb typing">⌨️</div>
+        <div class="info">
+          <h3>打字练习</h3>
+          <p>新手友好！虚拟键盘高亮提示下一个键，指法颜色分区，无时间压力。从主键位慢慢练到单词和句子。</p>
+        </div>
+      </a>
+
+      <a href="typing.html" class="game-card" data-cat="文字">
+        <span class="play-tag">PLAY</span>
+        <div class="thumb typing">⌨️</div>
+        <div class="info">
+          <h3>打字大作战</h3>
+          <p>单词从天而降！快速输入消灭它们，别让它们砸到地面。速度越来越快，挑战你的手速。</p>
+        </div>
+      </a>
+
+      <a href="mario.html" class="game-card" data-cat="马里奥">
+        <span class="play-tag">PLAY</span>
+        <div class="thumb mario">🍄</div>
+        <div class="info">
+          <h3>像素冒险</h3>
+          <p>操控像素小人跳跃闯关，踩扁怪物，收集金币和钻石，到达终点旗帜。类超级玛丽玩法。</p>
+        </div>
+      </a>
+
+      <a href="tetris.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag">PLAY</span>
+        <div class="thumb tetris">🟦</div>
+        <div class="info">
+          <h3>方块俄罗斯</h3>
+          <p>经典俄罗斯方块，方块换上了 Minecraft 皮肤。消除整行得分，挑战极限。</p>
+        </div>
+      </a>
+
+      <a href="mining.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#3d2817);">⛏️</div>
+        <div class="info">
+          <h3>挖矿大冒险</h3>
+          <p>往地底深处挖掘，收集煤、铁、金、钻石和绿宝石。小心熔岩和水下缺氧！</p>
+        </div>
+      </a>
+
+      <a href="sweeper.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#6a6a6a,#2a2a2a);">💣</div>
+        <div class="info">
+          <h3>苦力怕扫雷</h3>
+          <p>扫雷换上 Minecraft 皮肤！挖开方块寻找钻石矿物，用火把标记苦力怕，三种难度。</p>
+        </div>
+      </a>
+
+      <a href="match3.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e91e63,#ad1457);">🧱</div>
+        <div class="info">
+          <h3>方块三消</h3>
+          <p>交换相邻的草、泥、石、煤、金、钻石、红石方块，连成 3+ 消除，连锁得高分。</p>
+        </div>
+      </a>
+
+      <a href="dragon.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#000);">🐲</div>
+        <div class="info">
+          <h3>末影龙 Boss 战</h3>
+          <p>末地终极对决！移动瞄准射箭攻击末影龙，躲避火球和末影珍珠，三阶段越打越狂暴。</p>
+        </div>
+      </a>
+
+      <a href="potion.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4a148c,#1a0033);">🧪</div>
+        <div class="info">
+          <h3>合成台炼药</h3>
+          <p>记忆类炼药游戏：记住材料闪烁的顺序，再按相同顺序投入坩埚，关卡越高序列越长。</p>
+        </div>
+      </a>
+
+      <a href="tnt.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#c62828,#5d0000);">🧨</div>
+        <div class="info">
+          <h3>TNT 打靶</h3>
+          <p>30 秒节奏打靶！点击下落的 TNT 引爆，连击倍率加分，还能链式引爆附近方块。</p>
+        </div>
+      </a>
+
+      <a href="pvz.html" class="game-card" data-cat="策略对战">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4caf50,#1b5e20);">🌻</div>
+        <div class="info">
+          <h3>植物大战僵尸</h3>
+          <p>塔防经典！种向日葵产阳光，豌豆射手射击，坚果墙阻挡，樱桃炸弹清场。6 波僵尸大军来袭。</p>
+        </div>
+      </a>
+
+      <a href="snake.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#3d8b2a,#1b5e20);">🐍</div>
+        <div class="info">
+          <h3>经典贪吃蛇</h3>
+          <p>吃苹果变长，可开关穿墙和加速。方向键控制，越吃越长越快，挑战最高分。</p>
+        </div>
+      </a>
+
+      <a href="snake-neon.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#000,#4dd0e1);">🌟</div>
+        <div class="info">
+          <h3>霓虹贪吃蛇</h3>
+          <p>赛博朋克发光蛇！吃金星提升倍率，红方块减速，发光拖尾特效，最高 4 倍连击。</p>
+        </div>
+      </a>
+
+      <a href="snake-maze.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#3d2817);">🧱</div>
+        <div class="info">
+          <h3>障碍贪吃蛇</h3>
+          <p>5 个关卡迷宫！在石墙间穿梭吃钻石，每关墙体不同，越来越难。通关解锁下一关。</p>
+        </div>
+      </a>
+
+      <a href="2048.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#ffd700,#ff9800);">🔢</div>
+        <div class="info">
+          <h3>2048</h3>
+          <p>经典数字合并！滑动方块让相同数字相加，凑出 2048。Minecraft 配色，手机可滑动。</p>
+        </div>
+      </a>
+
+      <a href="memory.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#9c27b0,#4a148c);">🃏</div>
+        <div class="info">
+          <h3>记忆翻牌</h3>
+          <p>翻开方块找出相同图案配对。三档难度（4×3/4×4/6×4），3D 翻转动画，记录最少步数。</p>
+        </div>
+      </a>
+
+      <a href="shooter.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#0a0e27,#1565c0);">🛩️</div>
+        <div class="info">
+          <h3>飞机大战</h3>
+          <p>纵向卷轴射击！鼠标控制战机自动开火，击落三种敌机，等级越高敌机越多越快。</p>
+        </div>
+      </a>
+
+      <a href="sokoban.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#3d2817);">🚜</div>
+        <div class="info">
+          <h3>推箱子</h3>
+          <p>经典 Sokoban！把所有箱子推到目标点，6 个关卡，支持撤销。手机可滑动操作。</p>
+        </div>
+      </a>
+
+      <a href="whack.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#3d2817,#1a0e05);">🐹</div>
+        <div class="info">
+          <h3>打地鼠</h3>
+          <p>30 秒反应挑战！敲打冒出的地鼠，金色地鼠得高分，连击倍率加成。</p>
+        </div>
+      </a>
+
+      <a href="sudoku.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#37474f,#263238);">🧩</div>
+        <div class="info">
+          <h3>数独</h3>
+          <p>经典 9×9 数独！程序生成三档难度，错误提示，同行同列同宫高亮，自动校验。</p>
+        </div>
+      </a>
+
+      <a href="tank.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#1a1a1a,#424242);">⚔️</div>
+        <div class="info">
+          <h3>坦克大战</h3>
+          <p>保护基地！WASD 移动空格开炮，消灭敌方坦克，砖墙可打碎，钢墙打不穿。</p>
+        </div>
+      </a>
+
+      <a href="pong.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#0d1b2a,#4dd0e1);">🏓</div>
+        <div class="info">
+          <h3>乒乓</h3>
+          <p>对战 AI 的经典 Pong！鼠标控制球板，球速随回合加快，先到 7 分获胜。</p>
+        </div>
+      </a>
+
+      <a href="linkup.html" class="game-card" data-cat="文字">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#6a1b9a,#4a148c);">🀄</div>
+        <div class="info">
+          <h3>连连看</h3>
+          <p>连接相同图案消除，路径最多 2 个拐弯。提示、洗牌道具，卡住可自救。</p>
+        </div>
+      </a>
+
+      <a href="guess.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#00838f,#004d40);">⚓</div>
+        <div class="info">
+          <h3>猜数字</h3>
+          <p>猜 1-100 的数字，提示大了/小了，自动缩小范围。挑战最少次数猜中！</p>
+        </div>
+      </a>
+
+      <a href="pixel.html" class="game-card" data-cat="创造休闲">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e91e63,#ad1457);">🎨</div>
+        <div class="info">
+          <h3>像素画板</h3>
+          <p>16×16 像素创作画板！16 色调色盘 + 橡皮 + 填充工具，可保存为 PNG 图片。</p>
+        </div>
+      </a>
+
+      <a href="breakout.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#1565c0,#0d47a1);">🧱</div>
+        <div class="info">
+          <h3>打砖块</h3>
+          <p>经典 Breakout！移动挡板弹球消砖，多关卡，砖块有血量，球越打越快。</p>
+        </div>
+      </a>
+
+      <a href="invaders.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#000,#1b5e20);">👾</div>
+        <div class="info">
+          <h3>太空侵略者</h3>
+          <p>消灭外星人编队！左右移动射击，外星人下移并反击，波次递增难度。</p>
+        </div>
+      </a>
+
+      <a href="flappy.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4a90d9,#87ceeb);">🐦</div>
+        <div class="info">
+          <h3>像素鸟</h3>
+          <p>Flappy Bird 像素版！扇翅穿过管道缝隙，简单上手难精通，挑战最高分。</p>
+        </div>
+      </a>
+
+      <a href="reaction.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#2196f3,#0d47a1);">⚡</div>
+        <div class="info">
+          <h3>反应测试</h3>
+          <p>测你的反应速度！红屏等变绿瞬间点击，记录平均和最快反应时间（毫秒）。</p>
+        </div>
+      </a>
+
+      <a href="math.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#ff9800,#e65100);">🧮</div>
+        <div class="info">
+          <h3>算术挑战</h3>
+          <p>限时心算！加减乘除递进难度，带数字键盘，连对升级，越快越准越高分。</p>
+        </div>
+      </a>
+
+      <a href="slide.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#5fb53f,#1b5e20);">🔢</div>
+        <div class="info">
+          <h3>数字华容道</h3>
+          <p>滑动数字排好顺序！3×3/4×4/5×5 三档，记录最少步数和用时，保证可解。</p>
+        </div>
+      </a>
+
+      <a href="rhythm.html" class="game-card" data-cat="马里奥">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e91e63,#880e4f);">🎵</div>
+        <div class="info">
+          <h3>节奏点击</h3>
+          <p>四轨节奏游戏！D F J K 对应四条轨道，音符落到判定线按键，PERFECT/GOOD/OK 评级。</p>
+        </div>
+      </a>
+
+      <a href="wordsearch.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#00838f,#004d40);">🔍</div>
+        <div class="info">
+          <h3>单词搜索</h3>
+          <p>字母网格里圈出隐藏单词！拖动选字母，横竖斜八方向，三档难度。</p>
+        </div>
+      </a>
+
+      <a href="spotdiff.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#7c4dff,#311b92);">🔎</div>
+        <div class="info">
+          <h3>找不同</h3>
+          <p>两幅像素图找差异！颜色/大小/消失三种差异，点击标记，3/5/7 处难度。</p>
+        </div>
+      </a>
+
+      <a href="penguin.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e0f7fa,#80deea);">🐧</div>
+        <div class="info">
+          <h3>企鹅滑行</h3>
+          <p>滑雪躲避石头收集鱼！左右移动，距离越远越快，三条命挑战最远距离。</p>
+        </div>
+      </a>
+
+      <a href="dice.html" class="game-card" data-cat="博弈竞猜">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#6a1b9a,#311b92);">🎲</div>
+        <div class="info">
+          <h3>骰子猜大小</h3>
+          <p>押注三骰总和！小(4-10)/大(11-17)/豹子，摇骰动画，金币持久化，破产可重置。</p>
+        </div>
+      </a>
+
+      <a href="ladder.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#3d2817);">🪜</div>
+        <div class="info">
+          <h3>爬梯子</h3>
+          <p>按提示方向键快速爬升！按对上升连击加分，按错下滑，不按会慢慢掉落。</p>
+        </div>
+      </a>
+
+      <a href="jigsaw.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#00838f,#004d40);">🧩</div>
+        <div class="info">
+          <h3>拼图</h3>
+          <p>滑动方块还原像素图案！3×3/4×4 难度，随机生成风景图，带参考图，记录最少步数。</p>
+        </div>
+      </a>
+
+      <a href="goldmine.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#ffd700,#b8860b);">⛏</div>
+        <div class="info">
+          <h3>打金矿</h3>
+          <p>钩子抓金块钻石！摆动钩子按空格发射，大金块拉得慢，石头又重又不值钱，限时达标。</p>
+        </div>
+      </a>
+
+      <a href="catch.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4a90d9,#1565c0);">🐚</div>
+        <div class="info">
+          <h3>接贝壳</h3>
+          <p>开船接天上掉落的物品！贝壳💎🍎⭐加分，炸弹💣扣血，连击倍率，越接越快。</p>
+        </div>
+      </a>
+
+      <a href="darts.html" class="game-card" data-cat="经典街机">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e53935,#b71c1c);">🎯</div>
+        <div class="info">
+          <h3>飞镖</h3>
+          <p>移动靶投镖！10 轮挑战，靶心 100 分外环递减，抛物线飞行，瞄准线辅助。</p>
+        </div>
+      </a>
+
+      <a href="castle.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#7f7f7f,#3a3a3a);">🏰</div>
+        <div class="info">
+          <h3>城堡防御</h3>
+          <p>射箭击退进攻敌人守城堡！赚金币升级箭塔（伤害+射速），多波次递增，城堡血量。</p>
+        </div>
+      </a>
+
+      <a href="rocket.html" class="game-card" data-cat="马里奥">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#000,#1565c0);">🚀</div>
+        <div class="info"><h3>火箭升空</h3><p>垂直升空躲障碍！左右移动，加速耗燃料，收集⛽补给，飞越高越好。</p></div>
+      </a>
+      <a href="pipes.html" class="game-card" data-cat="动作射击">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#2196f3,#0d47a1);">⚓</div>
+        <div class="info"><h3>接水管</h3><p>旋转管道连通水源到终点！点击旋转，放水验证，关卡递增变大。</p></div>
+      </a>
+      <a href="burger.html" class="game-card" data-cat="创造休闲">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#ff9800,#e65100);">🍔</div>
+        <div class="info"><h3>汉堡大师</h3><p>记忆配方顺序叠汉堡！看配方再从下往上按顺序点材料，关卡越长越难。</p></div>
+      </a>
+      <a href="balance.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#3d2817);">⚖️</div>
+        <div class="info"><h3>天平称重</h3><p>用最少称重次数找出假币！放金币上两盘比较，假币更重，逻辑推理。</p></div>
+      </a>
+      <a href="thermometer.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#2196f3,#e53935);">🌡️</div>
+        <div class="info"><h3>温度计猜数</h3><p>猜数字，温度计显示冷热！越红越接近，自动缩范围，最少次数猜中。</p></div>
+      </a>
+      <a href="slots.html" class="game-card" data-cat="博弈竞猜">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#9c27b0,#4a148c);">🎰</div>
+        <div class="info"><h3>老虎机</h3><p>三转拉霸！凑三连图案赢金币，💎x50/7️⃣x30/🍒x20，金币持久化。</p></div>
+      </a>
+      <a href="24points.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4caf50,#1b5e20);">🃏</div>
+        <div class="info"><h3>算24点</h3><p>四张牌加减乘除算出24！点牌选运算符，保证有解，跳过/计时挑战。</p></div>
+      </a>
+      <a href="gomoku.html" class="game-card" data-cat="策略对战">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#d4a373,#8b5a2b);">⚫</div>
+        <div class="info"><h3>五子棋</h3><p>人机对战五子棋！你执黑先手，AI 评估防守，五子连珠获胜，记录胜负。</p></div>
+      </a>
+      <a href="horserace.html" class="game-card" data-cat="博弈竞猜">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4a8b3b,#1b5e20);">🐎</div>
+        <div class="info"><h3>赛马竞猜</h3><p>押注赛马猜冠军！五匹马竞速，押中冠军x3亚军x1.5，金币持久化。</p></div>
+      </a>
+
+      <a href="lumberjack.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#5fb53f,#3d8b2a);">🪓</div>
+        <div class="info"><h3>伐木大亨</h3><p>砍树攒木材，升级斧头（木→石→铁→金→钻），树越砍越大，放置收益。</p></div>
+      </a>
+      <a href="crafting.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#5d3a1a);">📗</div>
+        <div class="info"><h3>合成台</h3><p>记忆合成配方！观察3×3配方闪烁，用材料摆出正确组合合成工具。</p></div>
+      </a>
+      <a href="redstone.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#e53935,#b71c1c);">⚡</div>
+        <div class="info"><h3>红石电路</h3><p>铺设红石连接电源到所有灯！通电验证，关卡递增石头障碍，逻辑解谜。</p></div>
+      </a>
+      <a href="nether.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#1a0000,#e55300);">🔥</div>
+        <div class="info"><h3>下界探险</h3><p>在岩浆上跳跃！平台滚动，躲岩浆收集金粒，越跑越快，掉下去扣命。</p></div>
+      </a>
+      <a href="defend.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#5fb53f,#2e7d32);">🧟</div>
+        <div class="info"><h3>苦力怕防御</h3><p>点击引爆来袭苦力怕保护村庄！空格丢TNT范围炸，多波次递增难度。</p></div>
+      </a>
+      <a href="fishing.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#1565c0,#0d47a1);">🎣</div>
+        <div class="info"><h3>钓鱼大师</h3><p>抛竿等鱼漂下沉瞬间收杆！钓鱼🐠💎加分，靴子👢扣分，连击系统，60秒。</p></div>
+      </a>
+      <a href="treasure.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#5d3a1a);">🗺️</div>
+        <div class="info"><h3>寻宝探险</h3><p>罗盘红针指向最近宝藏！点击挖掘，越近针越红，挖出全部钻石通关。</p></div>
+      </a>
+      <a href="farm.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#4caf50,#2e7d32);">🌾</div>
+        <div class="info"><h3>农场丰收</h3><p>种麦子三步走：播种→浇水→等成熟→收获。60秒尽量多收，记录最高金币。</p></div>
+      </a>
+      <a href="builder.html" class="game-card" data-cat="我的世界">
+        <span class="play-tag" style="background:var(--mc-grass);">MC</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#7f7f7f,#3a3a3a);">🏗️</div>
+        <div class="info"><h3>建筑大师</h3><p>照参考图复刻像素建筑！选颜色点格子建造，实时显示匹配度，100%通关。</p></div>
+      </a>
+
+      <a href="m-poison.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#9c27b0)">🍄</div><div class="info"><h3>毒蘑菇躲避</h3><p>接好蘑菇加分躲毒蘑菇，左右移动，越接越快。</p></div></a>
+      <a href="m-parachute.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1565c0,#87ceeb)">🪂</div><div class="info"><h3>降落伞</h3><p>控制降落伞飘落躲云朵，安全着陆，飞得越远越高分。</p></div></a>
+      <a href="m-coins.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#0d1b2a,#ffd700)">💰</div><div class="info"><h3>金币射击</h3><p>炮台射飞行的金币加分补弹，别打炸弹！瞄准抛物线。</p></div></a>
+      <a href="m-escape.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1a0a0a,#e55300)">🏰</div><div class="info"><h3>城堡逃脱</h3><p>跳过岩浆和火球逃出城堡，平台滚动，越跑越快。</p></div></a>
+      <a href="m-rocket.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#000,#1565c0)">🚀</div><div class="info"><h3>火箭马里奥</h3><p>马里奥绑火箭飞高，加速耗燃料，收集⭐补给。</p></div></a>
+      <a href="m-1up.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1a2a1a,#4caf50)">🍄</div><div class="info"><h3>1-Up挑战</h3><p>限时顶砖块，绿蘑菇+1命，炸弹-1命，连击加分。</p></div></a>
+      <a href="m-circus.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#4a148c,#e53935)">🎪</div><div class="info"><h3>马里奥马戏</h3><p>移动蹦床接住马里奥弹起，别让他掉地，连击挑战。</p></div></a>
+      <a href="m-puzzle.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#5d3a1a,#b5651d)">🧩</div><div class="info"><h3>马里奥拼图</h3><p>3×3滑动拼图还原马里奥图案，记录最少步数。</p></div></a>
+      <a href="m-mega.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#87ceeb,#5fb53f)">🍄</div><div class="info"><h3>超级蘑菇变大</h3><p>吃蘑菇变大顶碎砖块，跳跳收集金币，马里奥经典。</p></div></a>
+      <a href="m-rhythm.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1a0a2a,#e53935)">🎵</div><div class="info"><h3>马里奥节奏</h3><p>四轨节奏游戏，蘑菇金币落到线时按D F J K，PERFECT评级。</p></div></a>
+      <a href="m-dig.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#8b5a2b,#5d3a1a)">⛏</div><div class="info"><h3>马里奥挖洞</h3><p>往下挖土收集金币躲乌龟，重力下落，越挖越深。</p></div></a>
+      <a href="m-brawl.html" class="game-card" data-cat="马里奥"><span class="play-tag" style="background:#e53935">马里奥</span><div class="thumb" style="background:linear-gradient(135deg,#1a2a4a,#e53935)">⚔️</div><div class="info"><h3>马里奥大乱斗</h3><p>平台乱斗打飞敌人下台，X攻击空格跳，累积伤害击退。</p></div></a>
+
+      <a href="snake2.html" class="game-card" data-cat="经典街机"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#4caf50,#e53935)">🐍</div><div class="info"><h3>双人贪吃蛇</h3><p>两条蛇同屏竞技！P1用WASD绿蛇，P2用方向键红蛇，撞死对方赢。</p></div></a>
+      <a href="pinball.html" class="game-card" data-cat="经典街机"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#1a0a2a,#e53935)">🟠</div><div class="info"><h3>弹球台</h3><p>弹球撞击缓冲器得分，A/D控制左右挡板，别让球掉下去，3球挑战。</p></div></a>
+      <a href="maze.html" class="game-card" data-cat="益智逻辑"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#5d3a1a)">🌀</div><div class="info"><h3>迷宫探险</h3><p>DFS生成随机迷宫，方向键移动找金色出口，关卡越深迷宫越大，记录最少步数。</p></div></a>
+
+      <a href="music.html" class="game-card" data-cat="创造休闲"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#9c27b0,#4dd0e1)">🎵</div><div class="info"><h3>音乐工作站</h3><p>像素音乐编辑器！6首预设歌曲（马里奥/塞尔达/俄罗斯等），自己编曲，导出JSON，拖文件导入。</p></div></a>
+
+      <a href="music-vault.html" class="game-card" data-cat="创造休闲"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#0d1b2a,#4dd0e1)">📦</div><div class="info"><h3>音乐仓库</h3><p>存储你创作的所有歌曲！从工作站存入，或拖文件导入（含mp3/wav音频）。加载/导出/删除，不丢失。</p></div></a>
+
+      <a href="pf-jungle.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#4caf50;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#1a3a1a,#5fb53f)">🌴</div><div class="info"><h3>丛林冒险·联机</h3><p>和网友一起像素跳跃闯关！PeerJS真联机，创建房间/输入房号加入，收集金币到终点，看谁先通关。</p></div></a>
+      <a href="pf-ice.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#4dd0e1;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#0d1b3a,#e0f7fa)">❄️</div><div class="info"><h3>冰雪世界·联机</h3><p>冰雪主题联机跳跃闯关！蓝白冰雪关卡，和对手竞速收集金币到旗杆，PeerJS实时同步。</p></div></a>
+      <a href="pf-sky.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#9c27b0;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#2a1a4a,#b39ddb)">🏰</div><div class="info"><h3>天空之城·联机</h3><p>紫色天空主题联机跳跃！浮空平台跳跃，和网友比赛谁先到达终点旗帜，实时联机对战。</p></div></a>
+
+      <a href="pf-volcano.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#e55300;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#3a0a0a,#e55300)">🌋</div><div class="info"><h3>火山熔岩·联机</h3><p>火山主题联机像素闯关！红色熔岩关卡，和对手竞速收集金币到终点，PeerJS实时同步。</p></div></a>
+      <a href="pf-ocean.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#1565c0;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#0a1a3a,#4dd0e1)">🌊</div><div class="info"><h3>深海世界·联机</h3><p>深海主题联机像素闯关！蓝色海洋关卡，和网友一起跳跃收集金币，实时联机对战。</p></div></a>
+      <a href="pf-desert.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#d4a020;">联机</span><div class="thumb" style="background:linear-gradient(135deg,#3a2a0a,#d4a020)">🏜️</div><div class="info"><h3>沙漠秘境·联机</h3><p>沙漠主题联机像素闯关！金色沙丘关卡，和对手比赛谁先通关，PeerJS P2P联机。</p></div></a>
+
+      <a href="pf-extreme.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#e53935;">极限</span><div class="thumb" style="background:linear-gradient(135deg,#0a0a14,#e53935)">💀</div><div class="info"><h3>极限挑战·AI队友</h3><p>超难关卡！尖刺/熔岩/移动平台/怪物。自选0-5个AI队友帮你打怪收集。3把钥匙🔑开门到终点。</p></div></a>
+
+      <a href="story1.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ffd700;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#ffd700)">⚔️</div><div class="info"><h3>勇者斗恶龙·剧本</h3><p>5关连环剧本！选角色(骑士/弓箭手/法师)→背包系统→3个技能→蝙蝠王Boss→恶龙最终Boss→7段剧情。</p></div></a>
+      <a href="story2.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#4dd0e1;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#0a0a2a,#4dd0e1)">🚀</div><div class="info"><h3>星际迷航·剧本</h3><p>5关连环剧本！选角色(重装/侦察/能量师)→背包系统→3个技能→虫族女王Boss→外星母舰最终Boss→7段剧情。</p></div></a>
+      <a href="story3.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#9c27b0;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#0a0a14,#9c27b0)">🥷</div><div class="info"><h3>忍者秘境·剧本</h3><p>5关连环剧本！选角色(体术/手里剑/忍术忍者)→背包系统→3个技能→怨灵王Boss→影魔最终Boss→7段剧情。</p></div></a>
+
+      <a href="story4.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#1565c0;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#0a1a3a,#1565c0)">🏴‍☠️</div><div class="info"><h3>海盗宝藏·剧本</h3><p>开放世界海盗冒险！选角色(剑客/火枪手/巫医)→群岛探索→任务榜→背包技能→幽灵船长Boss战。</p></div></a>
+      <a href="story5.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#37474f;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#37474f)">🤖</div><div class="info"><h3>机甲战争·剧本</h3><p>开放世界机甲科幻！选角色(坦克/突击/支援型)→废墟探索→任务榜→背包技能→巨型机甲Boss战。</p></div></a>
+      <a href="story6.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#d4a020;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#3a2a0a,#d4a020)">🤠</div><div class="info"><h3>西部牛仔·剧本</h3><p>开放世界西部冒险！选角色(枪手/快枪手/神枪手)→荒野探索→任务榜→背包技能→通缉犯头目Boss战。</p></div></a>
+
+      <a href="story7.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#558b2f;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a0a,#558b2f)">🧟</div><div class="info"><h3>僵尸末日·剧本</h3><p>开放世界末日生存！选角色(消防员/特警/军医)→废墟探索→任务榜→背包技能→尸王Boss战。</p></div></a>
+      <a href="story8.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#e91e63;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#2a1a3a,#e91e63)">👑</div><div class="info"><h3>童话王国·剧本</h3><p>开放世界魔法冒险！选角色(王子/精灵弓手/魔法师)→王国探索→任务榜→背包技能→黑暗女巫Boss战。</p></div></a>
+      <a href="story9.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#00bcd4;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#00bcd4)">🌃</div><div class="info"><h3>赛博朋克·剧本</h3><p>开放世界赛博都市！选角色(重装骇客/潜行者/网络行者)→霓虹都市探索→任务榜→背包技能→超级AI Boss战。</p></div></a>
+
+      <a href="story10.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ff9800;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#1a0e00,#ff9800)">🏺</div><div class="info"><h3>古墓探险·剧本</h3><p>超长地图5400米！3个连环任务榜解锁机制，9个区域探索，背包+技能+法老王Boss战。</p></div></a>
+      <a href="story11.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#1565c0;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#001a2a,#1565c0)">🌊</div><div class="info"><h3>深海危机·剧本</h3><p>超长海底地图！3个连环任务榜解锁，9个海域探索，背包+技能+深海巨兽Boss战。</p></div></a>
+      <a href="story12.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#7c4dff;">剧本</span><div class="thumb" style="background:linear-gradient(135deg,#000a1a,#7c4dff)">🛸</div><div class="info"><h3>星际拓荒·剧本</h3><p>超长异星地图！3个连环任务榜解锁，9个星区探索，背包+技能+虫族母皇Boss战。</p></div></a>
+
+      <a href="epic.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ffd700;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#ffd700)">🌟</div><div class="info"><h3>史诗剧本·万界征途</h3><p>超大型剧本！8000米地图·10个任务榜连环解锁·10英雄选2·3大Boss·10种怪物·技能升级·传送系统。</p></div></a>
+
+      <a href="epic2.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#e53935;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#e53935)">🌑</div><div class="info"><h3>暗黑纪元·史诗剧本</h3><p>Boss更强版！10任务榜解锁·10英雄选2·3大Boss(30/50/80血)·技能升级·传送·超长地图。</p></div></a>
+      <a href="epic3.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ffd700;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#ffd700)">⚡</div><div class="info"><h3>神域之战·史诗剧本</h3><p>神域主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic4.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#4caf50;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#4caf50)">🔥</div><div class="info"><h3>末日觉醒·史诗剧本</h3><p>末日主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic5.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ff5722;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#ff5722)">🐉</div><div class="info"><h3>龙族传说·史诗剧本</h3><p>龙族主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic6.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#9c27b0;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#9c27b0)">👹</div><div class="info"><h3>魔界入侵·史诗剧本</h3><p>魔界主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic7.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#00bcd4;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#00bcd4)">⏳</div><div class="info"><h3>时间裂隙·史诗剧本</h3><p>时间主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic8.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ff9800;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#ff9800)">🌋</div><div class="info"><h3>元素战争·史诗剧本</h3><p>元素主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic9.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#37474f;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#37474f)">👻</div><div class="info"><h3>幽灵舰队·史诗剧本</h3><p>幽灵主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic10.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#8d6e63;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#8d6e63)">🕳️</div><div class="info"><h3>地下帝国·史诗剧本</h3><p>地下主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+      <a href="epic11.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#3f51b5;">史诗</span><div class="thumb" style="background:linear-gradient(135deg,#0a0014,#3f51b5)">🌌</div><div class="info"><h3>星辰大海·史诗剧本</h3><p>星际主题史诗剧本！10任务榜解锁·强英雄·强Boss·技能升级·传送。</p></div></a>
+
+      <a href="mc3d.html" class="game-card" data-cat="我的世界"><span class="play-tag" style="background:#5fb53f;">3D</span><div class="thumb" style="background:linear-gradient(135deg,#5fb53f,#3d8b2a)">⛏</div><div class="info"><h3>3D我的世界</h3><p>真正的3D沙盒！第一人称挖矿/打怪/升级。挖煤铁金钻石，杀僵尸获经验，昼夜交替，放方块建造。</p></div></a>
+      <a href="sandbox3d.html" class="game-card" data-cat="创造休闲"><span class="play-tag" style="background:#4dd0e1;">3D</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#4dd0e1)">🧱</div><div class="info"><h3>3D方块沙盒</h3><p>3D自由建造！16色方块，飞行模式，左键破坏右键放置。保存/加载作品到localStorage，无限创造。</p></div></a>
+    </div>
+  </section>
+
+  <!-- 成就/统计 -->
+  <section class="mc-panel-dark" style="margin-top:50px;">
+    <h2 style="color:var(--mc-diamond); font-size:16px; margin-bottom:18px;">📊 世界数据</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:16px;">
+      <div class="hud-item"><span class="label">游戏数量</span>109</div>
+      <div class="hud-item"><span class="label">像素方块</span>∞</div>
+      <div class="hud-item"><span class="label">乐趣指数</span>100%</div>
+      <div class="hud-item"><span class="label">钻石</span>💎💎💎</div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="center" style="margin-top:50px; padding:30px 0; color:white; text-shadow:2px 2px 0 #000;">
+    <p>© 2026 AoXuan · 用 ❤️ 和 ⛏ 搭建</p>
+    <p style="font-size:16px; margin-top:8px; opacity:0.8;">Made with HTML · CSS · Canvas · JavaScript</p>
+  </footer>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+  // ===== 分类筛选 + 搜索 + 主题背景切换 =====
+  var currentCat = '全部';
+  var cards = document.querySelectorAll('.game-card');
+  var filterInfo = document.getElementById('filterInfo');
+
+  // 每个分类的主题：背景色 + 浮动方块皮肤(渐变) + emoji
+  var THEMES = {
+    '全部':      { blocks: [['#5fb53f','#3d8b2a'],['#8b5a2b','#6b4220'],['#7f7f7f','#555'],['#4dd0e1','#00838f'],['#ffd700','#b8860b']], emoji: '🎮' },
+    '马里奥':    { blocks: [['#e53935','#b71c1c'],['#ff9800','#e65100'],['#ffd700','#b8860b'],['#4caf50','#2e7d32'],['#2196f3','#1565c0']], emoji: '🍄' },
+    '我的世界':  { blocks: [['#5fb53f','#3d8b2a'],['#8b5a2b','#6b4220'],['#7f7f7f','#555'],['#4dd0e1','#00838f'],['#ffd700','#b8860b'],['#e53935','#b71c1c']], emoji: '⛏' },
+    '动作射击':  { blocks: [['#ff5722','#bf360c'],['#ff9800','#e65100'],['#e53935','#b71c1c'],['#ffd700','#b8860b'],['#1a1a2e','#000']], emoji: '💥' },
+    '益智逻辑':  { blocks: [['#9c27b0','#4a148c'],['#2196f3','#1565c0'],['#4caf50','#2e7d32'],['#ffd700','#b8860b'],['#e91e63','#880e4f']], emoji: '🧠' },
+    '经典街机':  { blocks: [['#4dd0e1','#00838f'],['#e53935','#b71c1c'],['#ffd700','#b8860b'],['#9c27b0','#4a148c'],['#4caf50','#2e7d32']], emoji: '👾' },
+    '博弈竞猜':  { blocks: [['#ffd700','#b8860b'],['#4caf50','#2e7d32'],['#e53935','#b71c1c'],['#1a1a2e','#000'],['#ff9800','#e65100']], emoji: '🎲' },
+    '策略对战':  { blocks: [['#2e7d32','#1b5e20'],['#8b5a2b','#6b4220'],['#7f7f7f','#555'],['#e53935','#b71c1c'],['#ffd700','#b8860b']], emoji: '♟' },
+    '创造休闲':  { blocks: [['#e91e63','#880e4f'],['#ff9800','#e65100'],['#ffd700','#b8860b'],['#4caf50','#2e7d32'],['#2196f3','#1565c0']], emoji: '🎨' },
+    '文字':      { blocks: [['#1565c0','#0d47a1'],['#4dd0e1','#00838f'],['#fff','#ccc'],['#ffd700','#b8860b'],['#9c27b0','#4a148c']], emoji: '⌨' }
+  };
+
+  function applyFilter() {
+    var search = document.getElementById('gameSearch').value.toLowerCase().trim();
+    var shown = 0;
+    cards.forEach(function(card) {
+      var cat = card.dataset.cat || '其他';
+      var name = (card.querySelector('h3') ? card.querySelector('h3').textContent : '') + ' ' + (card.querySelector('p') ? card.querySelector('p').textContent : '');
+      name = name.toLowerCase();
+      var catOk = (currentCat === '全部' || cat === currentCat);
+      var searchOk = (search === '' || name.indexOf(search) >= 0);
+      if (catOk && searchOk) { card.classList.remove('hidden'); shown++; }
+      else { card.classList.add('hidden'); }
+    });
+    var catLabel = currentCat === '全部' ? '全部' : currentCat;
+    filterInfo.textContent = '显示 ' + shown + ' 个游戏' + (search ? '（搜索：'+search+'）' : '') + (currentCat !== '全部' ? ' · 分类：'+currentCat : '');
+  }
+
+  // 切换主题：背景渐变 + 浮动方块皮肤
+  function switchTheme(cat) {
+    document.body.setAttribute('data-theme', cat);
+    var theme = THEMES[cat] || THEMES['全部'];
+    // 重新生成浮动方块
+    var container = document.querySelector('.floating-blocks');
+    if (!container) return;
+    container.innerHTML = '';
+    var skins = theme.blocks;
+    for (var i = 0; i < 16; i++) {
+      var b = document.createElement('div');
+      b.className = 'float-block';
+      var skin = skins[i % skins.length];
+      b.style.background = 'repeating-linear-gradient(90deg,' + skin[0] + ' 0,' + skin[0] + ' 8px,' + skin[1] + ' 8px,' + skin[1] + ' 16px)';
+      b.style.left = Math.random() * 100 + '%';
+      b.style.width = b.style.height = (24 + Math.random() * 32) + 'px';
+      var dur = 12 + Math.random() * 16;
+      b.style.animationDuration = dur + 's';
+      b.style.animationDelay = (-Math.random() * dur) + 's';
+      container.appendChild(b);
+    }
+    // 云朵（部分主题不显示云）
+    if (cat === '全部' || cat === '马里奥' || cat === '文字') {
+      for (var c = 0; c < 4; c++) {
+        var cloud = document.createElement('div');
+        cloud.className = 'cloud';
+        cloud.style.top = (5 + Math.random() * 40) + '%';
+        cloud.style.animationDuration = (30 + Math.random() * 30) + 's';
+        cloud.style.animationDelay = (-Math.random() * 40) + 's';
+        container.appendChild(cloud);
+      }
+    }
+  }
+
+  document.querySelectorAll('.cat-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentCat = btn.dataset.cat;
+      SFX.click();
+      switchTheme(currentCat);
+      applyFilter();
+    });
+  });
+
+  document.getElementById('gameSearch').addEventListener('input', applyFilter);
+
+  // 卡片直接显示（不延迟）
+  document.querySelectorAll('.game-card').forEach(function(card){
+    // 悬停音效
+    card.addEventListener('mouseenter', function(){ SFX.select(); });
+    card.addEventListener('click', function(){ SFX.click(); });
+  });
+  // 首次点击页面任意处开启背景音乐（浏览器策略）
+  var bgmStarted = false;
+  function tryStartBGM(){
+    if (bgmStarted || !AOXSound.isEnabled()) return;
+    bgmStarted = true;
+    AOXSound.startBGM('menu');
+  }
+  document.addEventListener('click', tryStartBGM);
+  document.addEventListener('keydown', tryStartBGM);
+  toast('欢迎来到 AoXuan 的像素世界！⛏');
+</script>
+</body>
+</html>

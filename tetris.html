@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方块俄罗斯 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background: #0d1b2a; }
+  #nextCanvas { background:#1a2a3a; border:3px solid var(--mc-shadow); }
+  /* 移动端俄罗斯方块按钮紧凑布局 */
+  @media (pointer: coarse) {
+    .mc-actions { gap: 8px; bottom: 14px; right: 10px; }
+    .mc-abtn { width: 54px; height: 54px; font-size: 16px; }
+  }
+  .tetris-layout { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; align-items:flex-start; }
+  .side-panel { display:flex; flex-direction:column; gap:16px; }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -3px -3px 0 0 var(--mc-shadow), inset 3px 3px 0 0 var(--mc-highlight);
+    padding:4px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+  .help-text { color:white; text-shadow:2px 2px 0 #000; font-size:16px; line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字游戏</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯方块</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:36px;">🟦 方块俄罗斯</h1>
+  <p class="subtitle">经典玩法 · Minecraft 皮肤</p>
+
+  <div class="tetris-layout" style="margin-top:24px;">
+    <!-- 左侧：HUD -->
+    <div class="side-panel">
+      <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+      <div class="hud-item"><span class="label">行数</span><span id="lines">0</span></div>
+      <div class="hud-item"><span class="label">等级</span><span id="level">1</span></div>
+      <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+    </div>
+
+    <!-- 中间：主游戏 -->
+    <div class="game-stage">
+      <canvas id="gameCanvas" width="300" height="600"></canvas>
+    </div>
+
+    <!-- 右侧：下一个 + 帮助 -->
+    <div class="side-panel">
+      <div class="mc-panel-dark" style="padding:14px;">
+        <div style="font-family:'Press Start 2P',monospace; font-size:10px; color:var(--mc-diamond); margin-bottom:10px;">下一个</div>
+        <canvas id="nextCanvas" width="120" height="120"></canvas>
+      </div>
+      <div class="mc-panel-dark" style="padding:14px; text-align:left;">
+        <div style="font-family:'Press Start 2P',monospace; font-size:10px; color:var(--mc-gold); margin-bottom:10px;">操作</div>
+        <div class="help-text">
+          <span class="key">←</span><span class="key">→</span> 移动<br>
+          <span class="key">↑</span> 旋转<br>
+          <span class="key">↓</span> 加速<br>
+          <span class="key">空格</span> 直落<br>
+          <span class="key">P</span> 暂停
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <button class="mc-btn gold" id="pauseBtn">⏸ 暂停</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var nextCanvas = document.getElementById('nextCanvas');
+  var nctx = nextCanvas.getContext('2d');
+
+  var COLS = 10, ROWS = 20, CELL = 30;
+  var W = canvas.width, H = canvas.height;
+
+  // 7 种方块 + Minecraft 风格颜色
+  var SHAPES = {
+    I: { color:'#4dd0e1', mat:[[1,1,1,1]] },
+    O: { color:'#ffd700', mat:[[1,1],[1,1]] },
+    T: { color:'#9c27b0', mat:[[0,1,0],[1,1,1]] },
+    S: { color:'#4caf50', mat:[[0,1,1],[1,1,0]] },
+    Z: { color:'#e53935', mat:[[1,1,0],[0,1,1]] },
+    J: { color:'#2196f3', mat:[[1,0,0],[1,1,1]] },
+    L: { color:'#ff9800', mat:[[0,0,1],[1,1,1]] }
+  };
+  var KEYS = ['I','O','T','S','Z','J','L'];
+
+  var grid, cur, nextPiece, state, particles;
+
+  function newGrid(){
+    grid = [];
+    for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
+  }
+
+  function newPiece(){
+    var k = KEYS[Math.floor(Math.random()*KEYS.length)];
+    var s = SHAPES[k];
+    var mat = s.mat.map(function(row){ return row.slice(); });
+    return { key:k, color:s.color, mat:mat, x:Math.floor((COLS-mat[0].length)/2), y:0 };
+  }
+
+  function rotate(mat){
+    var rows=mat.length, cols=mat[0].length;
+    var nm=[];
+    for(var c=0;c<cols;c++){
+      var row=[];
+      for(var r=rows-1;r>=0;r--){ row.push(mat[r][c]); }
+      nm.push(row);
+    }
+    return nm;
+  }
+
+  function collide(piece, dx, dy, mat){
+    mat = mat || piece.mat;
+    for(var r=0;r<mat.length;r++){
+      for(var c=0;c<mat[r].length;c++){
+        if(!mat[r][c]) continue;
+        var nx = piece.x+c+dx, ny = piece.y+r+dy;
+        if(nx<0||nx>=COLS||ny>=ROWS) return true;
+        if(ny>=0 && grid[ny][nx]) return true;
+      }
+    }
+    return false;
+  }
+
+  function merge(piece){
+    for(var r=0;r<piece.mat.length;r++){
+      for(var c=0;c<piece.mat[r].length;c++){
+        if(piece.mat[r][c]){
+          var ny=piece.y+r, nx=piece.x+c;
+          if(ny>=0) grid[ny][nx] = piece.color;
+        }
+      }
+    }
+  }
+
+  function clearLines(){
+    var cleared=[];
+    for(var r=ROWS-1;r>=0;r--){
+      var full=true;
+      for(var c=0;c<COLS;c++){ if(!grid[r][c]){ full=false; break; } }
+      if(full) cleared.push(r);
+    }
+    if(cleared.length===0) return 0;
+    // 爆炸粒子
+    cleared.forEach(function(r){
+      for(var c=0;c<COLS;c++){
+        explodeParticle(c*CELL+CELL/2, r*CELL+CELL/2, grid[r][c]);
+      }
+    });
+    // 移除行
+    cleared.forEach(function(r){
+      grid.splice(r,1);
+      grid.unshift(new Array(COLS).fill(null));
+    });
+    var n = cleared.length;
+    var pts = [0,100,300,500,800][n] * state.level;
+    state.score += pts;
+    state.lines += n;
+    // 消除音效
+    if(n>=4) SFX.clearBig(); else SFX.clear();
+    var nl = 1 + Math.floor(state.lines/10);
+    if(nl!==state.level){
+      state.level = nl;
+      state.dropInterval = Math.max(120, 800 - (state.level-1)*60);
+      SFX.levelUp();
+      toast('等级提升！Lv.'+state.level);
+    } else {
+      toast('消除 '+n+' 行！+'+pts);
+    }
+    updateHud();
+    return n;
+  }
+
+  function explodeParticle(x,y,color){
+    for(var i=0;i<6;i++){
+      var a=Math.random()*Math.PI*2, s=2+Math.random()*4;
+      particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:35,color:color,size:3+Math.random()*3});
+    }
+  }
+
+  function lockPiece(){
+    SFX.place();
+    merge(cur);
+    clearLines();
+    cur = nextPiece;
+    nextPiece = newPiece();
+    if(collide(cur,0,0)){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); saveBest(); }
+  }
+
+  function hardDrop(){
+    while(!collide(cur,0,1)){ cur.y++; state.score+=2; }
+    SFX.drop();
+    lockPiece();
+    updateHud();
+  }
+
+  function softDrop(){
+    if(!collide(cur,0,1)){ cur.y++; state.score+=1; }
+    else lockPiece();
+    updateHud();
+  }
+
+  function move(dx){
+    if(!collide(cur,dx,0)){ cur.x+=dx; SFX.move(); }
+  }
+
+  function rotateCur(){
+    var nm = rotate(cur.mat);
+    // 简单墙踢
+    var kicks=[0,-1,1,-2,2];
+    for(var i=0;i<kicks.length;i++){
+      if(!collide(cur,kicks[i],0,nm)){ cur.x+=kicks[i]; cur.mat=nm; SFX.rotate(); return; }
+    }
+  }
+
+  // ===== 状态 =====
+  function init(){
+    newGrid();
+    state = { running:false, over:false, paused:false, score:0, lines:0, level:1, dropInterval:800, dropTimer:0 };
+    particles = [];
+    cur = newPiece(); nextPiece = newPiece();
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('lines').textContent = state.lines;
+    document.getElementById('level').textContent = state.level;
+    document.getElementById('best').textContent = getBest();
+  }
+
+  function getBest(){ return parseInt(localStorage.getItem('tetris_best')||'0',10); }
+  function saveBest(){ if(state.score>getBest()){ localStorage.setItem('tetris_best',state.score); } }
+
+  // ===== 渲染 =====
+  function drawCell(c, x, y, color, size){
+    size = size || CELL;
+    // 主色
+    c.fillStyle = color;
+    c.fillRect(x, y, size, size);
+    // 高光
+    c.fillStyle = 'rgba(255,255,255,0.35)';
+    c.fillRect(x, y, size, 4);
+    c.fillRect(x, y, 4, size);
+    // 阴影
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.fillRect(x, y+size-4, size, 4);
+    c.fillRect(x+size-4, y, 4, size);
+    // 纹理点（Minecraft 感）
+    c.fillStyle = 'rgba(0,0,0,0.15)';
+    c.fillRect(x+size/2-1, y+size/2-1, 2, 2);
+  }
+
+  function drawGrid(){
+    ctx.fillStyle = '#0d1b2a';
+    ctx.fillRect(0,0,W,H);
+    // 网格线
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth=1;
+    for(var r=0;r<=ROWS;r++){ ctx.beginPath(); ctx.moveTo(0,r*CELL); ctx.lineTo(W,r*CELL); ctx.stroke(); }
+    for(var c=0;c<=COLS;c++){ ctx.beginPath(); ctx.moveTo(c*CELL,0); ctx.lineTo(c*CELL,H); ctx.stroke(); }
+
+    // 已落方块
+    for(var rr=0;rr<ROWS;rr++){
+      for(var cc=0;cc<COLS;cc++){
+        if(grid[rr][cc]) drawCell(ctx, cc*CELL, rr*CELL, grid[rr][cc]);
+      }
+    }
+  }
+
+  function drawGhost(){
+    if(!cur) return;
+    var gy=0;
+    while(!collide(cur,0,gy+1)) gy++;
+    ctx.globalAlpha=0.25;
+    for(var r=0;r<cur.mat.length;r++){
+      for(var c=0;c<cur.mat[r].length;c++){
+        if(cur.mat[r][c]){
+          drawCell(ctx, (cur.x+c)*CELL, (cur.y+r+gy)*CELL, cur.color);
+        }
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawPiece(){
+    if(!cur) return;
+    for(var r=0;r<cur.mat.length;r++){
+      for(var c=0;c<cur.mat[r].length;c++){
+        if(cur.mat[r][c] && cur.y+r>=0){
+          drawCell(ctx, (cur.x+c)*CELL, (cur.y+r)*CELL, cur.color);
+        }
+      }
+    }
+  }
+
+  function drawNext(){
+    nctx.fillStyle='#1a2a3a'; nctx.fillRect(0,0,120,120);
+    if(!nextPiece) return;
+    var m=nextPiece.mat;
+    var cs=22;
+    var ox=(120-m[0].length*cs)/2, oy=(120-m.length*cs)/2;
+    for(var r=0;r<m.length;r++){
+      for(var c=0;c<m[r].length;c++){
+        if(m[r][c]) drawCell(nctx, ox+c*cs, oy+r*cs, nextPiece.color, cs);
+      }
+    }
+  }
+
+  function drawParticles(){
+    for(var i=particles.length-1;i>=0;i--){
+      var p=particles[i];
+      ctx.globalAlpha=p.life/35;
+      ctx.fillStyle=p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      ctx.globalAlpha=1;
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.3; p.life--;
+      if(p.life<=0) particles.splice(i,1);
+    }
+  }
+
+  function draw(){
+    drawGrid();
+    drawGhost();
+    drawPiece();
+    drawParticles();
+    drawNext();
+
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='24px "Press Start 2P", monospace';
+        ctx.fillText('游戏结束', W/2, H/2-30);
+        ctx.fillStyle='#ffd700'; ctx.font='16px "Press Start 2P", monospace';
+        ctx.fillText('得分:'+state.score, W/2, H/2+5);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('点击开始再战', W/2, H/2+40);
+      } else {
+        ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('准备就绪', W/2, H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('点击「开始游戏」', W/2, H/2+25);
+      }
+    } else if(state.paused){
+      ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace';
+      ctx.textAlign='center';
+      ctx.fillText('已暂停', W/2, H/2);
+    }
+  }
+
+  // ===== 主循环 =====
+  var lastTime=0;
+  function loop(t){
+    var dt = t - lastTime; lastTime=t;
+    if(state.running && !state.paused && !state.over){
+      state.dropTimer += dt;
+      if(state.dropTimer >= state.dropInterval){
+        state.dropTimer=0;
+        if(!collide(cur,0,1)) cur.y++;
+        else lockPiece();
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 输入 =====
+  document.addEventListener('keydown', function(e){
+    if(!state.running || state.paused || state.over) {
+      if(e.key.toLowerCase()==='p' && state.running && !state.over){ state.paused=!state.paused; }
+      return;
+    }
+    var k = e.key;
+    if(k==='ArrowLeft'){ move(-1); e.preventDefault(); }
+    else if(k==='ArrowRight'){ move(1); e.preventDefault(); }
+    else if(k==='ArrowDown'){ softDrop(); e.preventDefault(); }
+    else if(k==='ArrowUp'){ rotateCur(); e.preventDefault(); }
+    else if(k===' '){ hardDrop(); e.preventDefault(); }
+    else if(k.toLowerCase()==='p'){ state.paused=!state.paused; }
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); state.running=true;
+    AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    if(AOXMobile.isTouch) AOXMobile.init({ actions:[
+      {key:'a',label:'◀',color:'rgba(33,150,243,0.85)',onPress:function(){ if(!state.paused&&!state.over){ move(-1); } }},
+      {key:'b',label:'⟳',color:'rgba(156,39,176,0.85)',onPress:function(){ if(!state.paused&&!state.over){ rotateCur(); } }},
+      {key:'c',label:'▶',color:'rgba(33,150,243,0.85)',onPress:function(){ if(!state.paused&&!state.over){ move(1); } }},
+      {key:'d',label:'▼',color:'rgba(255,152,0,0.85)',onPress:function(){ if(!state.paused&&!state.over){ softDrop(); } }},
+      {key:'e',label:'⤓',color:'rgba(229,57,53,0.85)',onPress:function(){ if(!state.paused&&!state.over){ hardDrop(); } }}
+    ] });
+    toast('开始消除方块！');
+  });
+  document.getElementById('pauseBtn').addEventListener('click', function(){
+    if(state.running && !state.over){
+      state.paused=!state.paused;
+      SFX.click();
+      toast(state.paused?'已暂停':'继续');
+    }
+  });
+
+  init();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老虎机 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .slot-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:24px;max-width:440px;margin:18px auto;text-align:center }
+  .reels { display:flex;gap:8px;justify-content:center;margin:14px 0 }
+  .reel { width:90px;height:100px;background:#0d1b2a;border:3px solid #000;overflow:hidden;position:relative;box-shadow: inset 3px 3px 0 0 #000;border-radius:6px }
+  .reel-inner { position:absolute;width:100%;text-align:center;line-height:100px;font-size:50px;transition:top 0.3s }
+  .reel.spinning .reel-inner{animation:spin 0.1s linear infinite}
+  @keyframes spin{0%{top:-100px}100%{top:0}}
+  .payline { height:4px;background:#ffd700;margin:-52px 0 52px;position:relative;z-index:2;box-shadow:0 0 8px #ffd700 }
+  .bet-row { display:flex;gap:10px;align-items:center;justify-content:center;margin:14px 0 }
+  .bet-in{font-family:'Press Start 2P',monospace;font-size:14px;width:70px;text-align:center;background:#0d1b2a;color:#ffd700;border:2px solid var(--mc-gold);padding:6px }
+  .paytable{font-size:14px;color:#ccc;line-height:1.8;margin-top:10px}
+  .paytable b{color:#ffd700}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎰 老虎机</h1>
+  <p class="subtitle">三转拉霸，凑图案赢金币！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">金币</span><span id="coins">1000</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">1000</span></div>
+    <div class="hud-item"><span class="label"> spins</span><span id="spins">0</span></div>
+  </div>
+  <div class="slot-stage">
+    <div class="reels" id="reels">
+      <div class="reel" id="r0"><div class="reel-inner">💎</div></div>
+      <div class="reel" id="r1"><div class="reel-inner">7️⃣</div></div>
+      <div class="reel" id="r2"><div class="reel-inner">🍒</div></div>
+    </div>
+    <div class="payline"></div>
+    <div class="bet-row">
+      <span style="font-family:'Press Start 2P',monospace;font-size:11px;color:#4dd0e1">押注</span>
+      <input type="number" class="bet-in" id="bet" value="50" min="10" step="10">
+    </div>
+    <button class="mc-btn green" id="spinBtn" style="font-size:16px;padding:18px 36px">🎰 SPIN</button>
+    <div class="paytable" id="result">按下 SPIN 开始</div>
+    <div class="paytable">💎💎💎 x50 · 7️⃣7️⃣7️⃣ x30 · 🍒🍒🍒 x20 · 🔔🔔🔔 x15 · 任意两同 x3</div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="resetBtn">🔄 重置</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SYMBOLS=['💎','7️⃣','🍒','🔔','🍋','⭐'];
+  var PAYS={'💎':50,'7️⃣':30,'🍒':20,'🔔':15};
+  var state={coins:1000,best:1000,spins:0,spinning:false};
+  var reels=[document.getElementById('r0'),document.getElementById('r1'),document.getElementById('r2')];
+  function load(){try{var s=JSON.parse(localStorage.getItem('slots_state'));if(s){state.coins=s.coins;state.best=s.best;state.spins=s.spins;}}catch(e){}}
+  function save(){localStorage.setItem('slots_state',JSON.stringify(state));}
+  function updateHud(){document.getElementById('coins').textContent=state.coins;document.getElementById('best').textContent=state.best;document.getElementById('spins').textContent=state.spins;}
+  function spin(){
+    if(state.spinning)return;
+    var bet=parseInt(document.getElementById('bet').value,10)||0;
+    if(bet<10){toast('最少押 10');return;}
+    if(bet>state.coins){toast('金币不够！');return;}
+    AOXSound.ensure();state.spinning=true;state.coins-=bet;state.spins++;SFX.click();
+    reels.forEach(function(r){r.classList.add('spinning');r.querySelector('.reel-inner').textContent=SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];});
+    document.getElementById('result').textContent='转动中...';
+    updateHud();
+    var results=[Math.floor(Math.random()*SYMBOLS.length),Math.floor(Math.random()*SYMBOLS.length),Math.floor(Math.random()*SYMBOLS.length)];
+    // 偶尔让结果更好
+    if(Math.random()<0.15){var s=Math.floor(Math.random()*4);results=[s,s,s];}
+    reels.forEach(function(r,i){
+      setTimeout(function(){
+        r.classList.remove('spinning');
+        r.querySelector('.reel-inner').textContent=SYMBOLS[results[i]];
+        SFX.move();
+      },800+i*500);
+    });
+    setTimeout(function(){finish(results,bet);},800+2*500+200);
+  }
+  function finish(results,bet){
+    state.spinning=false;
+    var s=[SYMBOLS[results[0]],SYMBOLS[results[1]],SYMBOLS[results[2]]];
+    var win=0,msg='';
+    if(s[0]===s[1]&&s[1]===s[2]){win=PAYS[s[0]]||10;msg='🎉 三连 '+s[0]+'！x'+win;SFX.win();}
+    else if(s[0]===s[1]||s[1]===s[2]||s[0]===s[2]){win=3;msg='两同 x3';SFX.clear();}
+    else{msg='没中';SFX.error();}
+    var gain=win*bet;
+    state.coins+=gain;
+    if(state.coins>state.best)state.best=state.coins;
+    document.getElementById('result').innerHTML=msg+(gain>0?' <b style="color:#4caf50">+'+gain+'</b>':'');
+    updateHud();save();
+    if(state.coins<=0)toast('破产了！点重置');
+  }
+  document.getElementById('spinBtn').addEventListener('click',spin);
+  document.getElementById('resetBtn').addEventListener('click',function(){state.coins=1000;state.spins=0;updateHud();save();SFX.click();toast('重置 1000 金币');});
+  load();updateHud();
+})();
+</script>
+</body>
+</html>

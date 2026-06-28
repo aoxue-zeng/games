@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>降落伞 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#87ceeb;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🪂 降落伞</h1>
+<p class="subtitle">控制降落伞飘落，躲云朵！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">高度</span><span id="dist">0</span>m</div><div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span>m</div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="400" height="460"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">←→</span>左右飘 · 撞云扣命 · 安全着陆加分</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,p,clouds,pts,tick,keys,scrollY;
+function init(){s={running:false,over:false,dist:0,lives:3,best:getBest()};p={x:W/2,y:80,vx:0,sway:0};clouds=[];pts=[];tick=0;keys={};scrollY=0;updateHud();}
+function getBest(){return parseInt(localStorage.getItem('mpara_best')||'0',10)}
+function setBest(v){localStorage.setItem('mpara_best',v)}
+function updateHud(){document.getElementById('dist').textContent=Math.floor(s.dist);document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('best').textContent=s.best;}
+function spawnCloud(){clouds.push({x:Math.random()*(W-80),y:-40,w:60+Math.random()*40,h:24,t:Math.random()*6})}
+function update(){if(!s.running||s.over)return;tick++;s.dist+=1.5;
+if(keys['arrowleft']||keys['a'])p.vx-=0.3;if(keys['arrowright']||keys['d'])p.vx+=0.3;p.vx*=0.92;p.x+=p.vx;p.x=Math.max(20,Math.min(W-20,p.x));p.sway+=0.1;
+clouds.forEach(function(c){c.y+=2.5;c.t+=0.05});
+if(tick%70===0)spawnCloud();
+clouds=clouds.filter(function(c){if(c.y>H+40)return false;if(p.x>c.x&&p.x<c.x+c.w&&p.y+10>c.y&&p.y+10<c.y+c.h){s.lives--;SFX.hurt();ex(p.x,p.y,'#fff');if(s.lives<=0)over();updateHud();return false;}return true;});
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0});
+if(s.dist>s.best){setBest(Math.floor(s.dist));s.best=Math.floor(s.dist);updateHud();}}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();}
+function draw(){
+var g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1565c0');g.addColorStop(1,'#87ceeb');x.fillStyle=g;x.fillRect(0,0,W,H);
+clouds.forEach(function(c){x.fillStyle='rgba(255,255,255,0.9)';x.fillRect(c.x,c.y,c.w,c.h);x.fillRect(c.x+10,c.y-8,c.w-20,12);x.fillRect(c.x+20,c.y-14,c.w-40,10)});
+// 地面
+x.fillStyle='#5fb53f';x.fillRect(0,H-30,W,30);x.fillStyle='#3d8b2a';x.fillRect(0,H-30,W,6);
+// 马里奥+降落伞
+var px=p.x,py=p.y;var sw=Math.sin(p.sway)*3;
+x.fillStyle='#e53935';x.beginPath();x.moveTo(px-30,py-30+sw);x.lineTo(px+30,py-30+sw);x.lineTo(px+20,py);x.lineTo(px-20,py);x.fill();x.fillStyle='#fff';x.fillRect(px-2,py-32+sw,4,6);
+x.fillStyle='#e53935';x.fillRect(px-10,py,20,16);x.fillStyle='#ff9800';x.fillRect(px-8,py-8,16,10);x.fillStyle='#e53935';x.fillRect(px-8,py-8,16,3);x.fillStyle='#1565c0';x.fillRect(px-8,py+16,6,6);x.fillRect(px+2,py+16,6,6);
+pts.forEach(function(p){x.globalAlpha=p.life/20;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('坠落！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('高度:'+Math.floor(s.dist)+'m 最高:'+s.best+'m',W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#fff';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+c.addEventListener('touchmove',function(e){e.preventDefault();var r=c.getBoundingClientRect();var nx=(e.touches[0].clientX-r.left)*(W/r.width);p.vx=(nx-p.x)*0.2},{passive:false});
+c.addEventListener('touchstart',function(e){e.preventDefault();var r=c.getBoundingClientRect();var nx=(e.touches[0].clientX-r.left)*(W/r.width);p.vx=(nx-p.x)*0.2},{passive:false});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('安全着陆！')});
+init();loop();
+})();
+</script></body></html>

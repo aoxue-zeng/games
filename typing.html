@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打字大作战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background: linear-gradient(180deg, #1a2a4a 0%, #0d1b2a 100%); }
+  .input-box {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    color: var(--mc-gold);
+    background: var(--mc-night);
+    border: 3px solid var(--mc-black);
+    box-shadow: inset 3px 3px 0 0 #2a3f5f, inset -3px -3px 0 0 #000;
+    padding: 14px 20px;
+    width: 320px;
+    text-align: center;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 0 #000;
+  }
+  .input-box:focus { outline: none; border-color: var(--mc-gold); }
+  /* 移动端输入框更大更易点 */
+  @media (pointer: coarse) {
+    .input-box { width: 90%; max-width: 360px; font-size: 20px; padding: 18px 16px; }
+    #gameCanvas { max-width: 100%; height: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字游戏</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯方块</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:36px;">⌨️ 打字大作战</h1>
+  <p class="subtitle">单词从天而降，输入消灭它们！</p>
+
+  <div class="hud" style="margin-top:24px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">等级</span><span id="level">1</span></div>
+  </div>
+
+  <div class="game-stage" style="margin-top:8px;">
+    <canvas id="gameCanvas" width="720" height="460"></canvas>
+  </div>
+
+  <div style="margin-top:18px;">
+    <input type="text" id="typeInput" class="input-box" placeholder="在这里输入..." autocomplete="off" autofocus>
+  </div>
+
+  <div style="margin-top:18px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+
+  <p style="color:white; text-shadow:2px 2px 0 #000; margin-top:16px; font-size:18px;">
+    提示：点击输入框，敲击键盘输入下落的单词即可消除。
+  </p>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  var WORDS = [
+    'minecraft','diamond','creeper','steve','zombie','enderman','redstone',
+    'crafting','survival','adventure','blocks','pixel','villager','skeleton',
+    'spider','obsidian','emerald','lava','water','stone','wood','gold','iron',
+    'sword','pickaxe','shovel','torch','tnt','portal','nether','village',
+    'build','mine','dig','explore','gather','smelt','enchant','brew',
+    'aoxuan','gamer','code','play','win','boss','level','score','combo'
+  ];
+
+  var state = { running:false, score:0, combo:0, lives:3, level:1, words:[], particles:[], spawnTimer:0, spawnInterval:90, fallSpeed:1.2 };
+  var input = document.getElementById('typeInput');
+
+  // ===== 单词实体 =====
+  function spawnWord(){
+    var w = WORDS[Math.floor(Math.random()*WORDS.length)];
+    var len = w.length;
+    var width = len * 16 + 20;
+    var x = 10 + Math.random()*(W - width - 20);
+    state.words.push({
+      text:w, x:x, y:-30, w:width,
+      matched:0, // 已匹配前缀长度
+      color: pickColor()
+    });
+  }
+
+  function pickColor(){
+    var cs = ['#5fb53f','#4dd0e1','#ffd700','#e53935','#9c27b0','#ff9800','#2196f3'];
+    return cs[Math.floor(Math.random()*cs.length)];
+  }
+
+  // ===== 粒子爆炸 =====
+  function explode(x, y, color){
+    for(var i=0;i<18;i++){
+      var a = Math.random()*Math.PI*2;
+      var s = 2+Math.random()*5;
+      state.particles.push({
+        x:x, y:y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - 2,
+        life:40, color:color, size:3+Math.random()*4
+      });
+    }
+  }
+
+  function explodeLine(x, y, color){
+    for(var i=0;i<8;i++){
+      state.particles.push({
+        x:x, y:y, vx:(Math.random()-0.5)*2, vy:1+Math.random()*3,
+        life:30, color:color, size:2+Math.random()*3
+      });
+    }
+  }
+
+  // ===== 输入处理 =====
+  input.addEventListener('input', function(){
+    if(!state.running) return;
+    var val = input.value.toLowerCase().replace(/[^a-z]/g,'');
+    var hit = false;
+    for(var i=0;i<state.words.length;i++){
+      var wd = state.words[i];
+      if(wd.text.startsWith(val) && val.length>0){
+        wd.matched = val.length;
+        hit = true;
+        // 完整匹配
+        if(val === wd.text){
+          state.score += wd.text.length * 10 * (1 + Math.floor(state.combo/5));
+          state.combo++;
+          explode(wd.x + wd.w/2, wd.y + 14, wd.color);
+          state.words.splice(i,1);
+          SFX.clear();
+          if(state.combo>=3) SFX.combo(state.combo);
+          checkLevel();
+          input.value = '';
+          updateHud();
+          toast('+'+wd.text.length*10+'  连击 x'+state.combo);
+          return;
+        } else if(val.length > (wd.matched-1)) {
+          SFX.move();
+        }
+      } else {
+        wd.matched = 0;
+      }
+    }
+    if(!hit && val.length>0){
+      // 输入错误，扣连击
+      state.combo = 0;
+      SFX.error();
+      updateHud();
+    }
+  });
+
+  function checkLevel(){
+    var nl = 1 + Math.floor(state.score/300);
+    if(nl !== state.level){
+      state.level = nl;
+      state.spawnInterval = Math.max(35, 90 - state.level*6);
+      state.fallSpeed = 1.2 + state.level*0.25;
+      SFX.levelUp();
+      toast('等级提升！Lv.'+state.level);
+    }
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('combo').textContent = state.combo;
+    document.getElementById('lives').textContent = '♥'.repeat(Math.max(0,state.lives)) || '—';
+    document.getElementById('level').textContent = state.level;
+  }
+
+  // ===== 渲染 =====
+  function drawBlock(x, y, w, h, color){
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+    // 像素高光阴影
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(x, y, w, 4);
+    ctx.fillRect(x, y, 4, h);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(x, y+h-4, w, 4);
+    ctx.fillRect(x+w-4, y, 4, h);
+  }
+
+  function draw(){
+    // 背景
+    ctx.fillStyle = '#0d1b2a';
+    ctx.fillRect(0,0,W,H);
+    // 星空
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    for(var s=0;s<stars.length;s++){
+      var st = stars[s];
+      ctx.fillRect(st.x, st.y, 2, 2);
+    }
+    // 地面
+    drawBlock(0, H-30, W, 30, '#3d8b2a');
+    drawBlock(0, H-30, W, 6, '#5fb53f');
+    ctx.fillStyle = '#6b4220';
+    ctx.fillRect(0, H-24, W, 24);
+    for(var d=0; d<W; d+=16){
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(d+8, H-24, 2, 24);
+    }
+
+    // 危险线
+    ctx.fillStyle = 'rgba(229,57,53,0.3)';
+    ctx.fillRect(0, H-60, W, 4);
+
+    if(!state.running){
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#ffd700';
+      ctx.font = '28px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('准备就绪', W/2, H/2 - 20);
+      ctx.font = '16px "Press Start 2P", monospace';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('点击「开始游戏」并输入单词', W/2, H/2 + 20);
+      return;
+    }
+
+    // 单词方块
+    ctx.font = 'bold 18px "VT323", monospace';
+    ctx.textAlign = 'center';
+    for(var i=0;i<state.words.length;i++){
+      var wd = state.words[i];
+      drawBlock(wd.x, wd.y, wd.w, 28, wd.color);
+      // 已输入部分高亮
+      if(wd.matched>0){
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        var mw = ctx.measureText(wd.text.substring(0,wd.matched)).width;
+        // 简化：用文字
+      }
+      // 文字
+      ctx.fillStyle = '#fff';
+      ctx.fillText(wd.text, wd.x + wd.w/2, wd.y + 19);
+      // 已匹配字母用金色
+      if(wd.matched>0){
+        ctx.fillStyle = '#ffd700';
+        var full = wd.text;
+        // 分别绘制前缀
+        ctx.textAlign = 'left';
+        var startX = wd.x + wd.w/2 - ctx.measureText(full).width/2;
+        ctx.fillText(full.substring(0, wd.matched), startX, wd.y + 19);
+        ctx.textAlign = 'center';
+      }
+    }
+
+    // 粒子
+    for(var p=0;p<state.particles.length;p++){
+      var pt = state.particles[p];
+      ctx.globalAlpha = pt.life/40;
+      drawBlock(pt.x, pt.y, pt.size, pt.size, pt.color);
+      ctx.globalAlpha = 1;
+    }
+
+    // 连击显示
+    if(state.combo>=3){
+      ctx.font = '20px "Press Start 2P", monospace';
+      ctx.fillStyle = '#ffd700';
+      ctx.textAlign = 'left';
+      ctx.fillText('COMBO x'+state.combo, 16, 36);
+    }
+  }
+
+  // 星空
+  var stars = [];
+  for(var i=0;i<60;i++){ stars.push({x:Math.random()*W, y:Math.random()*(H-60)}); }
+
+  // ===== 更新 =====
+  function update(){
+    if(!state.running) return;
+    state.spawnTimer++;
+    if(state.spawnTimer >= state.spawnInterval){
+      state.spawnTimer = 0;
+      spawnWord();
+    }
+    for(var i=state.words.length-1;i>=0;i--){
+      var wd = state.words[i];
+      wd.y += state.fallSpeed;
+      if(wd.y + 28 >= H - 30){
+        // 触底
+        state.lives--;
+        state.combo = 0;
+        explodeLine(wd.x+wd.w/2, H-30, '#e53935');
+        state.words.splice(i,1);
+        SFX.hurt();
+        updateHud();
+        toast('小心！生命 -1');
+        if(state.lives<=0){ gameOver(); }
+      }
+    }
+    for(var j=state.particles.length-1;j>=0;j--){
+      var pt = state.particles[j];
+      pt.x += pt.vx; pt.y += pt.vy;
+      pt.vy += 0.3; pt.life--;
+      if(pt.life<=0) state.particles.splice(j,1);
+    }
+  }
+
+  function gameOver(){
+    state.running = false;
+    input.value = '';
+    SFX.lose();
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#e53935';
+    ctx.font = '32px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('游戏结束', W/2, H/2 - 20);
+    ctx.fillStyle = '#ffd700';
+    ctx.font = '18px "Press Start 2P", monospace';
+    ctx.fillText('最终得分: '+state.score, W/2, H/2 + 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px "Press Start 2P", monospace';
+    ctx.fillText('点击开始游戏再战一次', W/2, H/2 + 56);
+  }
+
+  function loop(){
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    state.running = true;
+    state.score = 0; state.combo = 0; state.lives = 3; state.level = 1;
+    state.words = []; state.particles = [];
+    state.spawnInterval = 90; state.fallSpeed = 1.2; state.spawnTimer = 0;
+    updateHud();
+    input.value = '';
+    input.focus();
+    AOXSound.ensure();
+    AOXSound.startBGM('game');
+    SFX.select();
+    if(AOXMobile.isTouch) toast('点击输入框弹出键盘开始打字！');
+    else toast('游戏开始！快输入！');
+  });
+
+  // 点击画布聚焦输入
+  canvas.addEventListener('click', function(){ input.focus(); });
+
+  updateHud();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>接水管 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .pipe-grid { display:grid;gap:2px;margin:18px auto;width:fit-content;background:var(--mc-night);padding:6px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .pipe-cell { width:54px;height:54px;background:#5fb53f;border:2px solid #000;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;position:relative }
+  .pipe-cell:hover{background:#4ea035}
+  .pipe-cell svg{width:100%;height:100%}
+  .pipe-cell.source{background:#2196f3}
+  .pipe-cell.end{background:#ffd700}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚓ 接水管</h1>
+  <p class="subtitle">旋转管道，连通水源到终点！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+  </div>
+  <div class="pipe-grid" id="grid"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="checkBtn">💧 放水</button>
+    <button class="mc-btn gold" id="newBtn">🔄 新关卡</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">点击管道旋转方向，连好后点「放水」</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SIZE=5,grid,state,source,end,timerInt,startTime;
+  // 管道类型：方向集合 [上,右,下,左] 0/1
+  var TYPES={straight:[[1,0,1,0]],elbow:[[1,1,0,0]],tee:[[1,1,1,0]],cross:[[1,1,1,1]]};
+  function rotateConn(conn){return [conn[3],conn[0],conn[1],conn[2]];} // 顺时针旋转
+  function start(lvl){
+    AOXSound.ensure();SFX.click();SIZE=Math.min(7,5+Math.floor(lvl/3));
+    grid=[];for(var r=0;r<SIZE;r++){grid.push([]);for(var c=0;c<SIZE;c++){grid[r].push(null);}}
+    // 随机放管道
+    for(var rr=0;rr<SIZE;rr++)for(var cc=0;cc<SIZE;cc++){
+      var tks=Object.keys(TYPES);var k=tks[Math.floor(Math.random()*tks.length)];
+      var conn=TYPES[k][0].slice();var rot=Math.floor(Math.random()*4);
+      for(var i=0;i<rot;i++)conn=rotateConn(conn);
+      grid[rr][cc]={conn:conn,rot:rot};
+    }
+    source={r:Math.floor(SIZE/2),c:0};end={r:Math.floor(SIZE/2),c:SIZE-1};
+    grid[source.r][source.c]={conn:[0,1,0,0],rot:0,fix:true,src:true}; // 水源朝右
+    grid[end.r][end.c]={conn:[0,0,0,1],rot:0,fix:true,end:true}; // 终点朝左
+    state={moves:0,level:lvl,over:false};startTime=Date.now();
+    clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+    updateHud();render();
+  }
+  function updateHud(){document.getElementById('level').textContent=state.level;document.getElementById('moves').textContent=state.moves;}
+  function rotate(r,c){
+    var cell=grid[r][c];if(!cell||cell.fix)return;
+    cell.conn=rotateConn(cell.conn);cell.rot=(cell.rot+1)%4;state.moves++;SFX.rotate();updateHud();render();
+  }
+  // BFS 从水源追踪水流
+  function flow(){
+    var visited={};var queue=[{r:source.r,c:source.c,from:3}];visited[source.r+'_'+source.c]=true;
+    var reached=false;
+    while(queue.length){
+      var cur=queue.shift();var cell=grid[cur.r][cur.c];
+      // 检查终点
+      if(cur.r===end.r&&cur.c===end.c){reached=true;}
+      // 四方向
+      var dirs=[[0,-1,3,1],[1,0,2,0],[0,1,1,3],[-1,0,0,2]]; // dr,dc,fromDir,toDir
+      for(var d=0;d<4;d++){
+        var dd=dirs[d];var nr=cur.r+dd[0],nc=cur.c+dd[1];
+        if(nr<0||nr>=SIZE||nc<0||nc>=SIZE)continue;
+        if(!cell.conn[dd[3]])continue; // 当前格这方向没开口
+        var nb=grid[nr][nc];if(!nb)continue;
+        if(!nb.conn[dd[2]])continue; // 邻居对应方向没开口
+        var key=nr+'_'+nc;if(visited[key])continue;
+        visited[key]=true;queue.push({r:nr,c:nc,from:dd[2]});
+      }
+    }
+    return {reached:reached,visited:visited};
+  }
+  function check(){
+    var res=flow();
+    if(res.reached){SFX.win();clearInterval(timerInt);toast('🎉 水流通了！'+state.moves+'步');state.over=true;}
+    else{SFX.error();toast('没连通，继续转！');}
+    render(res.visited);
+  }
+  function render(visited){
+    var g=document.getElementById('grid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+SIZE+',54px)';
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      (function(r,c){var cell=grid[r][c];var d=document.createElement('div');d.className='pipe-cell';
+        if(cell&&cell.src)d.classList.add('source');if(cell&&cell.end)d.classList.add('end');
+        if(visited&&visited[r+'_'+c])d.style.background='#4dd0e1';
+        if(cell)d.innerHTML=drawPipe(cell.conn,cell.src,cell.end);
+        d.addEventListener('click',function(){rotate(r,c);});
+        g.appendChild(d);
+      })(r,c);
+    }
+  }
+  function drawPipe(conn,src,end){
+    var svg='<svg viewBox="0 0 54 54">';
+    var cx=27,cy=27;
+    if(conn[0])svg+='<rect x="24" y="0" width="6" height="27" fill="'+(src?'#2196f3':end?'#ffd700':'#8b5a2b')+'"/>';
+    if(conn[1])svg+='<rect x="27" y="24" width="27" height="6" fill="'+(end?'#ffd700':'#8b5a2b')+'"/>';
+    if(conn[2])svg+='<rect x="24" y="27" width="6" height="27" fill="#8b5a2b"/>';
+    if(conn[3])svg+='<rect x="0" y="24" width="27" height="6" fill="'+(src?'#2196f3':'#8b5a2b')+'"/>';
+    svg+='<circle cx="27" cy="27" r="8" fill="'+(src?'#2196f3':end?'#ffd700':'#6b4220')+'"/>';
+    if(src)svg+='<text x="27" y="32" text-anchor="middle" font-size="14" fill="#fff">💧</text>';
+    if(end)svg+='<text x="27" y="32" text-anchor="middle" font-size="14">🏁</text>';
+    return svg+'</svg>';
+  }
+  document.getElementById('checkBtn').addEventListener('click',function(){SFX.click();check();});
+  document.getElementById('newBtn').addEventListener('click',function(){start(state?state.level+1:1);});
+  start(1);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼图 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .jig-board { display:grid;gap:2px;margin:18px auto;width:fit-content;background:var(--mc-night);padding:6px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .jig-tile { width:84px;height:84px;cursor:pointer;border:2px solid #000;box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.1);transition:transform 0.1s;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden }
+  .jig-tile:hover{transform:scale(0.96)}
+  .jig-tile.empty{background:rgba(0,0,0,0.3);border-color:rgba(255,255,255,0.1);cursor:default;box-shadow:none}
+  .jig-tile canvas{display:block}
+  .ref-box { background:var(--mc-panel-dark);padding:10px;border:3px solid #000;margin:10px auto;width:fit-content }
+  .ref-box canvas{display:block;border:2px solid #000}
+  .diff-btn{font-family:'Press Start 2P',monospace;font-size:10px;padding:8px 12px;background:var(--mc-panel);border:3px solid var(--mc-black);box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a}
+  .diff-btn.active{background:var(--mc-grass);color:#fff}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="penguin.html">企鹅</a>
+    <a href="dice.html">骰子</a>
+    <a href="ladder.html">爬梯</a>
+    <a href="jigsaw.html">拼图</a>
+    <a href="goldmine.html">金矿</a>
+    <a href="catch.html">接贝壳</a>
+    <a href="darts.html">飞镖</a>
+    <a href="castle.html">城堡</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧩 拼图</h1>
+  <p class="subtitle">滑动方块还原图案！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="diff-btn active" data-s="3">3×3</button>
+    <button class="diff-btn" data-s="4">4×4</button>
+    <div class="ref-box"><canvas id="refCanvas" width="100" height="100"></canvas></div>
+  </div>
+  <div class="jig-board" id="board"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="shuffleBtn">🔀 打乱</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">点空格旁的方块滑动，还原图案。右边是参考图</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SIZE=3,TILE=84,tiles,imageData,moves,state,timerInt,startTime;
+  // 生成一张像素图案到 offscreen canvas
+  function genImage(sz){
+    var c=document.createElement('canvas');c.width=c.height=100;var cx=c.getContext('2d');
+    var palettes=[['#5fb53f','#3d8b2a','#8b5a2b','#ffd700'],['#2196f3','#4dd0e1','#fff','#ff9800'],['#e53935','#ffd700','#4caf50','#fff'],['#9c27b0','#e91e63','#fff','#4dd0e1']];
+    var pal=palettes[Math.floor(Math.random()*palettes.length)];
+    // 画一个简单像素图案：山+太阳+草
+    cx.fillStyle='#87ceeb';cx.fillRect(0,0,100,100);
+    cx.fillStyle=pal[3];cx.beginPath();cx.arc(80,20,12,0,7);cx.fill(); // 太阳
+    cx.fillStyle=pal[0];cx.fillRect(0,75,100,25); // 草地
+    cx.fillStyle=pal[1];cx.beginPath();cx.moveTo(20,75);cx.lineTo(40,40);cx.lineTo(60,75);cx.fill(); // 山
+    cx.fillStyle=pal[2];cx.beginPath();cx.moveTo(50,75);cx.lineTo(70,30);cx.lineTo(90,75);cx.fill();
+    cx.fillStyle=pal[0];cx.fillRect(35,55,6,6);cx.fillRect(43,53,6,6); // 树
+    // 像素化
+    var img=cx.getImageData(0,0,100,100);
+    return c;
+  }
+  function init(size){
+    SIZE=size;TILE=84;
+    imageData=genImage(SIZE);
+    // 画参考图
+    var rc=document.getElementById('refCanvas');var rctx=rc.getContext('2d');rctx.drawImage(imageData,0,0,100,100);
+    tiles=[];for(var i=0;i<SIZE*SIZE-1;i++)tiles.push(i);tiles.push(-1); // -1=空
+    moves=0;state={over:false,won:false};
+    clearInterval(timerInt);document.getElementById('timer').textContent='0';
+    updateHud();render();
+  }
+  function updateHud(){document.getElementById('moves').textContent=moves;var bk='jig_best_'+SIZE;var b=localStorage.getItem(bk);document.getElementById('best').textContent=b?b+'步':'—';}
+  function shuffle(){for(var i=0;i<SIZE*SIZE*30;i++){var ei=tiles.indexOf(-1);var er=Math.floor(ei/SIZE),ec=ei%SIZE;var nbrs=[];if(er>0)nbrs.push(ei-SIZE);if(er<SIZE-1)nbrs.push(ei+SIZE);if(ec>0)nbrs.push(ei-1);if(ec<SIZE-1)nbrs.push(ei+1);var ni=nbrs[Math.floor(Math.random()*nbrs.length)];var t=tiles[ei];tiles[ei]=tiles[ni];tiles[ni]=t;}moves=0;startTime=Date.now();state={over:false,won:false};clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);updateHud();render();SFX.rotate();}
+  function tryMove(idx){if(state.over)return;var ei=tiles.indexOf(-1);var er=Math.floor(ei/SIZE),ec=ei%SIZE,ir=Math.floor(idx/SIZE),ic=idx%SIZE;if((Math.abs(er-ir)===1&&ec===ic)||(Math.abs(ec-ic)===1&&er===ir)){var t=tiles[ei];tiles[ei]=tiles[idx];tiles[idx]=t;moves++;SFX.move();updateHud();render();checkWin();}}
+  function checkWin(){for(var i=0;i<SIZE*SIZE-1;i++)if(tiles[i]!==i)return;state.won=true;state.over=true;clearInterval(timerInt);SFX.win();var bk='jig_best_'+SIZE;var old=localStorage.getItem(bk);if(!old||moves<parseInt(old,10))localStorage.setItem(bk,moves);toast('🎉 还原成功！'+moves+'步');updateHud();}
+  function render(){
+    var b=document.getElementById('board');b.innerHTML='';b.style.gridTemplateColumns='repeat('+SIZE+','+TILE+'px)';
+    tiles.forEach(function(v,i){
+      var d=document.createElement('div');d.className='jig-tile';
+      if(v===-1){d.classList.add('empty');}
+      else{
+        // 切图：原图分 SIZE×SIZE，取第 v 块
+        var r=Math.floor(v/SIZE),c=v%SIZE;
+        var sc=document.createElement('canvas');sc.width=sc.height=TILE-4;
+        var sx=sc.getContext('2d');
+        var srcSize=100/SIZE;
+        sx.drawImage(imageData,c*srcSize,r*srcSize,srcSize,srcSize,0,0,TILE-4,TILE-4);
+        // 边框
+        sx.strokeStyle='rgba(0,0,0,0.3)';sx.lineWidth=2;sx.strokeRect(1,1,TILE-6,TILE-6);
+        d.appendChild(sc);
+        d.addEventListener('click',function(){tryMove(i);});
+      }
+      b.appendChild(d);
+    });
+  }
+  document.querySelectorAll('.diff-btn').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});b.classList.add('active');init(parseInt(b.dataset.s,10));SFX.click();});});
+  document.getElementById('shuffleBtn').addEventListener('click',function(){AOXSound.ensure();SFX.select();shuffle();toast('开始拼图！');});
+  init(3);
+})();
+</script>
+</body>
+</html>

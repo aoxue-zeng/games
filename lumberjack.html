@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伐木大亨 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#87ceeb; touch-action:none; cursor:pointer; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+  .upg-btn { font-family:'Press Start 2P',monospace;font-size:10px;padding:10px;background:var(--mc-panel);border:3px solid #000;box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a;margin:4px;user-select:none }
+  .upg-btn:disabled{opacity:0.4;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🪓 伐木大亨</h1>
+  <p class="subtitle">砍树攒木材，升级斧头！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">木材</span><span id="wood">0</span>🪵</div>
+    <div class="hud-item"><span class="label">砍伐数</span><span id="chops">0</span></div>
+    <div class="hud-item"><span class="label">斧头</span><span id="axe">木斧</span></div>
+    <div class="hud-item"><span class="label">每砍</span><span id="per">+1</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="420" height="380"></canvas></div>
+  <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="upg-btn" id="up1">石斧 50木</button>
+    <button class="upg-btn" id="up2">铁斧 200木</button>
+    <button class="upg-btn" id="up3">金斧 600木</button>
+    <button class="upg-btn" id="up4">钻斧 1500木</button>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px;"><span class="key">点击</span> 或 <span class="key">空格</span> 砍树</p>
+  <div style="margin-top:10px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,tree,particles,chopAnim,regrowT;
+  var AXES=[{name:'木斧',per:1,cost:0,col:'#8b5a2b'},{name:'石斧',per:2,cost:50,col:'#7f7f7f'},{name:'铁斧',per:4,cost:200,col:'#dddddd'},{name:'金斧',per:8,cost:600,col:'#ffd700'},{name:'钻斧',per:16,cost:1500,col:'#4dd0e1'}];
+  function init(){
+    state={wood:0,chops:0,axe:0};tree={hp:10,maxhp:10,h:160,shake:0};particles=[];chopAnim=0;regrowT=0;
+    load();updateHud();
+  }
+  function load(){try{var s=JSON.parse(localStorage.getItem('lumberjack'));if(s){state.wood=s.wood;state.chops=s.chops;state.axe=s.axe;}}catch(e){}}
+  function save(){localStorage.setItem('lumberjack',JSON.stringify(state));}
+  function updateHud(){
+    document.getElementById('wood').textContent=Math.floor(state.wood);
+    document.getElementById('chops').textContent=state.chops;
+    document.getElementById('axe').textContent=AXES[state.axe].name;
+    document.getElementById('per').textContent='+'+AXES[state.axe].per;
+    // 升级按钮
+    for(var i=1;i<AXES.length;i++){var b=document.getElementById('up'+i);b.disabled=state.axe>=i||state.wood<AXES[i].cost;}
+  }
+  function chop(){
+    AOXSound.ensure();
+    if(tree.hp<=0)return;
+    var dmg=AXES[state.axe].per;
+    tree.hp-=dmg;tree.shake=10;chopAnim=10;state.chops++;
+    SFX.dig();
+    for(var i=0;i<4;i++)particles.push({x:W/2+(Math.random()-0.5)*40,y:H-100-tree.h+Math.random()*tree.h,vx:(Math.random()-0.5)*4,vy:-2-Math.random()*3,life:25,c:'#8b5a2b',size:3});
+    if(tree.hp<=0){
+      // 倒下
+      var gain=Math.floor(tree.maxhp/2);state.wood+=gain;SFX.clear();
+      for(var i=0;i<15;i++)particles.push({x:W/2+(Math.random()-0.5)*60,y:H-100-tree.h+Math.random()*tree.h,vx:(Math.random()-0.5)*5,vy:-3-Math.random()*4,life:35,c:'#5fb53f',size:3});
+      regrowT=60;
+    }
+    updateHud();save();
+  }
+  function upgrade(i){
+    if(state.axe>=i||state.wood<AXES[i].cost)return;
+    state.wood-=AXES[i].cost;state.axe=i;SFX.levelUp();toast('升级 '+AXES[i].name+'！');updateHud();save();
+  }
+  function update(){
+    if(tree.shake>0)tree.shake--;
+    if(chopAnim>0)chopAnim--;
+    if(tree.hp<=0){regrowT--;if(regrowT<=0){tree.hp=tree.maxhp=10+Math.floor(state.chops/10)*5;tree.h=140+Math.min(80,Math.floor(state.chops/5)*4);}}
+    particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.25;p.life--;return p.life>0;});
+  }
+  function draw(){
+    ctx.fillStyle='#87ceeb';ctx.fillRect(0,0,W,H);
+    // 太阳
+    ctx.fillStyle='#ffd700';ctx.fillRect(W-60,20,30,30);
+    // 草地
+    ctx.fillStyle='#5fb53f';ctx.fillRect(0,H-60,W,60);
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(0,H-60,W,6);
+    // 树
+    if(tree.hp>0){
+      var tx=W/2+(tree.shake>0?Math.sin(tree.shake)*3:0);
+      // 树干
+      ctx.fillStyle='#6b4220';ctx.fillRect(tx-12,H-60-tree.h,24,tree.h);
+      ctx.fillStyle='#8b5a2b';ctx.fillRect(tx-10,H-60-tree.h,6,tree.h);
+      // 树叶
+      ctx.fillStyle='#3d8b2a';ctx.beginPath();ctx.arc(tx,H-60-tree.h,60,0,7);ctx.fill();
+      ctx.fillStyle='#5fb53f';ctx.beginPath();ctx.arc(tx-15,H-60-tree.h-10,40,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(tx+20,H-60-tree.h-5,38,0,7);ctx.fill();
+      // 血条
+      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(tx-40,H-60-tree.h-70,80,6);
+      ctx.fillStyle='#4caf50';ctx.fillRect(tx-40,H-60-tree.h-70,80*(tree.hp/tree.maxhp),6);
+    } else {
+      // 树桩
+      ctx.fillStyle='#6b4220';ctx.fillRect(W/2-14,H-60,28,14);
+      ctx.fillStyle='#8b5a2b';ctx.fillRect(W/2-10,H-58,6,10);
+      ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('重新生长中...',W/2,H-80);
+    }
+    // 玩家（史蒂夫）
+    var px=80,py=H-90;var arm=chopAnim>0?Math.sin(chopAnim*0.8)*15:0;
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(px-8,py,16,20); // 身体
+    ctx.fillStyle='#f0c8a0';ctx.fillRect(px-6,py-12,12,12); // 头
+    ctx.fillStyle='#4a2c12';ctx.fillRect(px-6,py-12,12,3);
+    ctx.fillStyle='#f0c8a0';ctx.fillRect(px+6,py+2+arm,12,6); // 手臂+斧
+    ctx.fillStyle=AXES[state.axe].col;ctx.fillRect(px+16,py-2+arm,6,12); // 斧头
+    ctx.fillStyle='#000';ctx.fillRect(px+17,py+arm,4,4);
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/35;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  canvas.addEventListener('click',chop);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();chop();},{passive:false});
+  document.addEventListener('keydown',function(e){if(e.key===' '){e.preventDefault();chop();}});
+  document.getElementById('up1').addEventListener('click',function(){upgrade(1);});
+  document.getElementById('up2').addEventListener('click',function(){upgrade(2);});
+  document.getElementById('up3').addEventListener('click',function(){upgrade(3);});
+  document.getElementById('up4').addEventListener('click',function(){upgrade(4);});
+  init();loop();
+})();
+</script>
+</body>
+</html>

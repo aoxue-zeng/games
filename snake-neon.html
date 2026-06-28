@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>霓虹贪吃蛇 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#000; }
+  .neon-stage { box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 0 0 40px rgba(77,208,225,0.4), 8px 8px 0 0 rgba(0,0,0,0.5); }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight);
+    padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+  .neon-legend { color:#4dd0e1; text-shadow:0 0 8px #4dd0e1; font-size:15px; margin-top:10px; }
+  .neon-legend .gold { color:#ffd700; text-shadow:0 0 8px #ffd700; }
+  .neon-legend .red { color:#ff1744; text-shadow:0 0 8px #ff1744; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="snake-neon.html">霓虹蛇</a>
+    <a href="snake-maze.html">障碍蛇</a>
+    <a href="2048.html">2048</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="practice.html">练打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="match3.html">三消</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;color:#4dd0e1;text-shadow:3px 3px 0 #00838f,6px 6px 0 rgba(0,0,0,0.4),0 0 20px #4dd0e1;">🐍 霓虹贪吃蛇</h1>
+  <p class="subtitle" style="color:#4dd0e1;text-shadow:0 0 8px #4dd0e1;">赛博朋克发光世界</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">倍率</span><span id="mult">x1</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+
+  <div class="game-stage neon-stage" style="margin-top:14px;">
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
+  </div>
+
+  <p class="neon-legend">
+    <span class="gold">★ 金星 +50 倍率x2</span> · <span class="red">◆ 红 +30 减速</span> · 普通 +10
+  </p>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:8px;">
+    <span class="key">←↑→↓</span> 移动 · <span class="key">空格</span> 暂停 · <span class="key">R</span> 重开
+  </p>
+
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var COLS = 25, ROWS = 25, CELL = W/COLS;
+
+  var state, snake, dir, nextDir, foods, tick, trail, slowTick;
+
+  function init(){
+    state = { running:false, over:false, paused:false, score:0, best:getBest(), combo:0, mult:1, slow:0, interval:7 };
+    snake = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
+    dir = {x:1,y:0}; nextDir = {x:1,y:0};
+    foods = []; tick = 0; trail = []; slowTick=0;
+    spawnFood('normal'); updateHud();
+  }
+  function getBest(){ return parseInt(localStorage.getItem('neon_snake_best')||'0',10); }
+  function setBest(v){ localStorage.setItem('neon_snake_best', v); }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('combo').textContent=state.combo;
+    document.getElementById('mult').textContent='x'+state.mult;
+    document.getElementById('best').textContent=state.best;
+  }
+
+  function spawnFood(type){
+    type = type || 'normal';
+    while(true){
+      var x=Math.floor(Math.random()*COLS), y=Math.floor(Math.random()*ROWS);
+      var on = snake.some(function(s){return s.x===x&&s.y===y;}) || foods.some(function(f){return f.x===x&&f.y===y;});
+      if(!on){ foods.push({x:x,y:y,t:0,type:type,life: type==='normal'?9999:240}); return; }
+    }
+  }
+
+  function step(){
+    dir = nextDir;
+    var head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+    if(head.x<0)head.x=COLS-1; if(head.x>=COLS)head.x=0;
+    if(head.y<0)head.y=ROWS-1; if(head.y>=ROWS)head.y=0;
+    for(var i=0;i<snake.length;i++){ if(snake[i].x===head.x&&snake[i].y===head.y){ gameOver(); return; } }
+    // 拖尾
+    trail.push({x:snake[0].x, y:snake[0].y, life:12});
+    snake.unshift(head);
+    // 吃食物
+    var ate=false;
+    for(var f=foods.length-1;f>=0;f--){
+      if(foods[f].x===head.x && foods[f].y===head.y){
+        var fd=foods[f];
+        if(fd.type==='normal'){
+          state.combo++; state.score += 10*state.mult; SFX.coin();
+        } else if(fd.type==='gold'){
+          state.combo++; state.mult = Math.min(4, state.mult+1); state.score += 50*state.mult; SFX.gem();
+          toast('★ 倍率提升！x'+state.mult);
+        } else if(fd.type==='red'){
+          state.score += 30*state.mult; state.slow=180; SFX.clear();
+          toast('◆ 减速！');
+        }
+        foods.splice(f,1); ate=true;
+        if(foods.filter(function(x){return x.type==='normal';}).length===0) spawnFood('normal');
+        break;
+      }
+    }
+    if(!ate) snake.pop();
+    if(state.combo>0 && state.combo%5===0 && !ate){ /* 连击保持 */ }
+    updateHud();
+  }
+
+  function gameOver(){
+    state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose();
+    if(state.score>state.best){ setBest(state.score); state.best=state.score; }
+    updateHud();
+  }
+
+  function update(){
+    if(!state.running||state.over||state.paused) return;
+    tick++;
+    var iv = state.slow>0? state.interval*2 : state.interval;
+    if(tick>=iv){ tick=0; step(); }
+    foods.forEach(function(f){ f.t+=0.15; f.life--; });
+    foods = foods.filter(function(f){ return f.life>0; });
+    // 随机生成特殊食物
+    if(Math.random()<0.008 && foods.length<4){
+      spawnFood(Math.random()<0.5?'gold':'red');
+    }
+    if(foods.filter(function(x){return x.type==='normal';}).length===0) spawnFood('normal');
+    if(state.slow>0) state.slow--;
+    trail.forEach(function(t){ t.life--; });
+    trail = trail.filter(function(t){ return t.life>0; });
+  }
+
+  function glow(color, x, y, w, h, blur){
+    ctx.shadowColor=color; ctx.shadowBlur=blur||15;
+    ctx.fillStyle=color; ctx.fillRect(x,y,w,h);
+    ctx.shadowBlur=0;
+  }
+
+  function draw(){
+    // 背景渐变 + 扫描线
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+    var g=ctx.createRadialGradient(W/2,H/2,50,W/2,H/2,W);
+    g.addColorStop(0,'rgba(77,208,225,0.08)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 网格
+    ctx.strokeStyle='rgba(77,208,225,0.1)'; ctx.lineWidth=1;
+    for(var i=0;i<=COLS;i++){ ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(W,i*CELL); ctx.stroke(); }
+
+    // 拖尾
+    trail.forEach(function(t){
+      var a=t.life/12;
+      ctx.fillStyle='rgba(77,208,225,'+(a*0.4)+')';
+      ctx.fillRect(t.x*CELL+2, t.y*CELL+2, CELL-4, CELL-4);
+    });
+
+    // 食物
+    foods.forEach(function(f){
+      var fx=f.x*CELL+CELL/2, fy=f.y*CELL+CELL/2, p=Math.sin(f.t)*0.3+1;
+      if(f.type==='normal'){
+        glow('#4dd0e1', fx-6*p, fy-6*p, 12*p, 12*p, 18);
+        glow('#fff', fx-3, fy-3, 6, 6, 8);
+      } else if(f.type==='gold'){
+        glow('#ffd700', fx-8*p, fy-8*p, 16*p, 16*p, 22);
+        // 星形
+        ctx.fillStyle='#fff'; ctx.shadowColor='#ffd700'; ctx.shadowBlur=15;
+        ctx.fillRect(fx-2, fy-8, 4, 16); ctx.fillRect(fx-8, fy-2, 16, 4);
+        ctx.shadowBlur=0;
+      } else {
+        glow('#ff1744', fx-7*p, fy-7*p, 14*p, 14*p, 20);
+        ctx.fillStyle='#fff'; ctx.shadowColor='#ff1744'; ctx.shadowBlur=15;
+        ctx.fillRect(fx-5, fy-2, 10, 4); ctx.fillRect(fx-2, fy-5, 4, 10);
+        ctx.shadowBlur=0;
+      }
+    });
+
+    // 蛇
+    for(var s=snake.length-1;s>=0;s--){
+      var seg=snake[s]; var sx=seg.x*CELL, sy=seg.y*CELL;
+      var color = s===0?'#fff':'#4dd0e1';
+      var blur = s===0?20:12;
+      glow(color, sx+1, sy+1, CELL-2, CELL-2, blur);
+      if(s===0){
+        // 眼
+        ctx.fillStyle='#ff1744'; ctx.shadowColor='#ff1744'; ctx.shadowBlur=10;
+        var ex=dir.x>0?sx+CELL-7:(dir.x<0?sx+3:sx+CELL/2-1.5);
+        var ey=dir.y>0?sy+CELL-7:(dir.y<0?sy+3:sy+3);
+        if(dir.x!==0){ ctx.fillRect(ex,sy+5,3,3); ctx.fillRect(ex,sy+CELL-8,3,3); }
+        else { ctx.fillRect(sx+5,ey,3,3); ctx.fillRect(sx+CELL-8,ey,3,3); }
+        ctx.shadowBlur=0;
+      }
+    }
+
+    // 减速效果
+    if(state.slow>0){
+      ctx.fillStyle='rgba(77,208,225,0.05)'; ctx.fillRect(0,0,W,H);
+    }
+
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.shadowColor='#ff1744'; ctx.shadowBlur=20; ctx.fillStyle='#ff1744'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillText('游戏结束', W/2, H/2-25); ctx.shadowBlur=0;
+        ctx.fillStyle='#4dd0e1'; ctx.font='14px "Press Start 2P", monospace';
+        ctx.fillText('得分:'+state.score+'  最高:'+state.best, W/2, H/2+10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('按 R 或点击开始重玩', W/2, H/2+45);
+      } else if(state.paused){
+        ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P", monospace'; ctx.fillText('已暂停', W/2, H/2);
+      } else {
+        ctx.shadowColor='#4dd0e1'; ctx.shadowBlur=20; ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('准备就绪', W/2, H/2-10); ctx.shadowBlur=0;
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('吃金星提升倍率！', W/2, H/2+25);
+      }
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  document.addEventListener('keydown', function(e){
+    var k=e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0) e.preventDefault();
+    if(k==='arrowup'||k==='w'){ if(dir.y!==1)nextDir={x:0,y:-1}; }
+    else if(k==='arrowdown'||k==='s'){ if(dir.y!==-1)nextDir={x:0,y:1}; }
+    else if(k==='arrowleft'||k==='a'){ if(dir.x!==1)nextDir={x:-1,y:0}; }
+    else if(k==='arrowright'||k==='d'){ if(dir.x!==-1)nextDir={x:1,y:0}; }
+    else if(k===' '){ if(state.running&&!state.over)state.paused=!state.paused; }
+    else if(k==='r'){ init(); state.running=true; AOXSound.ensure(); }
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    if(AOXMobile.isTouch) AOXMobile.virtualKeys({dpad:true, keys:[{label:'⏸',key:' ',color:'rgba(229,57,53,0.85)'}]});
+    toast('霓虹开始！吃金星提倍率');
+  });
+
+  init(); loop();
+})();
+</script>
+</body>
+</html>

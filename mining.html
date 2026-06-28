@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>挖矿大冒险 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#3d8b2a; }
+  .inv {
+    display:grid; grid-template-columns:repeat(6,1fr); gap:6px;
+    background:var(--mc-night); border:3px solid var(--mc-black);
+    box-shadow: inset 3px 3px 0 0 #2a3f5f, inset -3px -3px 0 0 #000;
+    padding:10px; margin-top:14px;
+  }
+  .inv-slot {
+    background:#8b8b8b; border:2px solid #000;
+    box-shadow: inset 2px 2px 0 0 #aaa, inset -2px -2px 0 0 #555;
+    aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:'Press Start 2P',monospace; font-size:9px; color:#fff; text-shadow:1px 1px 0 #000;
+    position:relative;
+  }
+  .inv-slot .icon { font-size:20px; }
+  .inv-slot .cnt { position:absolute; bottom:1px; right:3px; font-size:10px; }
+  .key {
+    display:inline-block; background:var(--mc-panel); border:2px solid #000;
+    box-shadow: inset -3px -3px 0 0 var(--mc-shadow), inset 3px 3px 0 0 var(--mc-highlight);
+    padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px;
+  }
+  .help-text { color:white; text-shadow:2px 2px 0 #000; font-size:16px; line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="sweeper.html">扫雷</a>
+    <a href="match3.html">三消</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:36px;">⛏ 挖矿大冒险</h1>
+  <p class="subtitle">往下深挖，收集矿石，避开熔岩！</p>
+
+  <div class="hud" style="margin-top:24px;">
+    <div class="hud-item"><span class="label">深度</span><span id="depth">0</span>m</div>
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">氧气</span><span id="oxygen">100</span></div>
+  </div>
+
+  <div class="game-stage" style="margin-top:8px;">
+    <canvas id="gameCanvas" width="600" height="560"></canvas>
+  </div>
+
+  <div class="inv" id="inventory" style="max-width:480px;margin:14px auto 0;"></div>
+
+  <div style="margin-top:14px;">
+    <span class="help-text">
+      <span class="key">←</span><span class="key">→</span> 左右 ·
+      <span class="key">↓</span> 下挖 ·
+      <span class="key">↑</span> 跳 ·
+      <span class="key">空格</span> 挖前方 ·
+      <span class="key">R</span> 重开
+    </span>
+  </div>
+
+  <div style="margin-top:16px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始挖掘</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  var CELL = 28, COLS = Math.floor(W/CELL), ROWS = 200; // 深度世界
+  var VIEW_ROWS = Math.floor(H/CELL);
+  var GRAVITY = 0.5, JUMP = -9, MOVE = 2.6;
+
+  // 方块类型
+  var T = {
+    AIR:0, GRASS:1, DIRT:2, STONE:3, COAL:4, IRON:5, GOLD:6,
+    DIAMOND:7, EMERALD:8, BEDROCK:9, LAVA:10, WATER:11
+  };
+  var TINFO = {};
+  TINFO[T.AIR] = {name:'空气',color:null,hard:0};
+  TINFO[T.GRASS] = {name:'草方块',color:'#5fb53f',hard:1,drop:'dirt'};
+  TINFO[T.DIRT] = {name:'泥土',color:'#8b5a2b',hard:1,drop:'dirt'};
+  TINFO[T.STONE] = {name:'石头',color:'#7f7f7f',hard:2,drop:'stone',score:2};
+  TINFO[T.COAL] = {name:'煤炭',color:'#2b2b2b',hard:2,drop:'coal',score:5};
+  TINFO[T.IRON] = {name:'铁矿',color:'#c9a17a',hard:3,drop:'iron',score:10};
+  TINFO[T.GOLD] = {name:'金矿',color:'#ffd700',hard:3,drop:'gold',score:25};
+  TINFO[T.DIAMOND] = {name:'钻石',color:'#4dd0e1',hard:4,drop:'diamond',score:100};
+  TINFO[T.EMERALD] = {name:'绿宝石',color:'#2ecc71',hard:4,drop:'emerald',score:60};
+  TINFO[T.BEDROCK] = {name:'基岩',color:'#3a3a3a',hard:99};
+  TINFO[T.LAVA] = {name:'熔岩',color:'#e55300',hard:0};
+  TINFO[T.WATER] = {name:'水',color:'#2196f3',hard:0};
+
+  var INV_ICONS = { dirt:'🟫', stone:'⬜', coal:'⚫', iron:'🟤', gold:'🟨', diamond:'💎', emerald:'💚' };
+
+  var world, player, cam, keys, state, particles, mining;
+
+  function genWorld(){
+    world = [];
+    for(var r=0;r<ROWS;r++){
+      var row=[];
+      for(var c=0;c<COLS;c++){
+        var t = T.AIR;
+        if(r===0){ t = T.GRASS; }
+        else if(r>=ROWS-1){ t = T.BEDROCK; }
+        else if(r<3){ t = T.DIRT; }
+        else {
+          t = T.STONE;
+          // 矿石概率随深度增加
+          var depth = r;
+          var rnd = Math.random();
+          if(depth>5 && rnd<0.08) t=T.COAL;
+          else if(depth>12 && rnd<0.10) t=T.IRON;
+          else if(depth>20 && rnd<0.04) t=T.GOLD;
+          else if(depth>28 && rnd<0.03) t=T.DIAMOND;
+          else if(depth>24 && rnd<0.02) t=T.EMERALD;
+          // 熔岩湖（深处随机）
+          if(depth>18 && Math.random()<0.015) t=T.LAVA;
+          // 水脉（浅处）
+          if(depth>4 && depth<16 && Math.random()<0.01) t=T.WATER;
+        }
+        row.push(t);
+      }
+      world.push(row);
+    }
+    // 开挖一个起点洞口
+    var sc = Math.floor(COLS/2);
+    world[0][sc]=T.AIR;
+  }
+
+  function init(){
+    genWorld();
+    player = { x:Math.floor(COLS/2)*CELL, y:-CELL, w:CELL-4, h:CELL-4, vx:0, vy:0, onGround:false, dir:1, anim:0, invuln:0, inLava:0, inWater:false };
+    cam = { y:0 };
+    keys = {};
+    state = { running:false, over:false, score:0, lives:3, oxygen:100, o2Tick:0, depth:0, maxDepth:0 };
+    particles = [];
+    mining = null;
+    inv = { dirt:0, stone:0, coal:0, iron:0, gold:0, diamond:0, emerald:0 };
+    updateHud(); renderInv();
+  }
+  var inv;
+
+  function updateHud(){
+    document.getElementById('depth').textContent = state.maxDepth;
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('lives').textContent = '♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('oxygen').textContent = state.oxygen;
+  }
+
+  function renderInv(){
+    var box = document.getElementById('inventory');
+    box.innerHTML='';
+    var keys2 = ['dirt','stone','coal','iron','gold','diamond','emerald'];
+    keys2.forEach(function(k){
+      var d=document.createElement('div'); d.className='inv-slot';
+      d.innerHTML = '<span class="icon">'+INV_ICONS[k]+'</span><span class="cnt">'+inv[k]+'</span>';
+      box.appendChild(d);
+    });
+  }
+
+  // ===== 输入 =====
+  document.addEventListener('keydown', function(e){
+    keys[e.key.toLowerCase()] = true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(e.key.toLowerCase())>=0 || e.key===' ') e.preventDefault();
+    if(e.key.toLowerCase()==='r'){ init(); state.running=true; }
+  });
+  document.addEventListener('keyup', function(e){ keys[e.key.toLowerCase()] = false; });
+
+  function getTile(c,r){
+    if(c<0||c>=COLS||r<0||r>=ROWS) return T.BEDROCK;
+    return world[r][c];
+  }
+  function setTile(c,r,v){ if(c<0||c<COLS&&r>=0&&r<ROWS) world[r][c]=v; }
+  function isSolid(t){ return t!==T.AIR && t!==T.LAVA && t!==T.WATER; }
+
+  function rectVsCell(px,py,pw,ph,c,r){
+    var bx=c*CELL, by=r*CELL;
+    return px < bx+CELL && px+pw > bx && py < by+CELL && py+ph > by;
+  }
+
+  // ===== 挖掘 =====
+  function tryMine(){
+    // 挖玩家朝向相邻的格子，或脚下
+    var pcx = Math.floor((player.x+player.w/2)/CELL);
+    var pcy = Math.floor((player.y+player.h/2)/CELL);
+    var tc = pcx + player.dir;
+    var tr = pcy;
+    if(keys['arrowdown']){ tc=pcx; tr=pcy+1; } // 下挖
+    var t = getTile(tc,tr);
+    var info = TINFO[t];
+    if(t===T.AIR || t===T.BEDROCK) return;
+    if(!mining || mining.c!==tc || mining.r!==tr){
+      mining = { c:tc, r:tr, t:t, progress:0 };
+    }
+    mining.progress += 1;
+    var need = (info.hard||1) * 18;
+    // 粒子 + 挖掘音
+    if(Math.random()<0.5){
+      particles.push({x:tc*CELL+CELL/2,y:tr*CELL+CELL/2,vx:(Math.random()-0.5)*2,vy:-1-Math.random()*2,life:20,color:info.color,size:3});
+    }
+    if(mining.progress % 6 === 0){
+      if(t===T.STONE||t===T.COAL||t===T.IRON||t===T.GOLD||t===T.DIAMOND||t===T.EMERALD) SFX.digStone();
+      else SFX.dig();
+    }
+    if(mining.progress>=need){
+      // 完成挖掘
+      world[tr][tc] = T.AIR;
+      if(info.drop){ inv[info.drop] = (inv[info.drop]||0)+1; renderInv(); }
+      if(info.score){ state.score += info.score; updateHud(); toast('+'+info.score+'  '+info.name); }
+      // 钻石/绿宝石爆裂
+      if(t===T.DIAMOND||t===T.EMERALD||t===T.GOLD){
+        SFX.gem();
+        for(var i=0;i<14;i++){
+          var a=Math.random()*Math.PI*2,s=2+Math.random()*4;
+          particles.push({x:tc*CELL+CELL/2,y:tr*CELL+CELL/2,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:35,color:info.color,size:3+Math.random()*3});
+        }
+      } else {
+        SFX.place();
+      }
+      mining = null;
+    }
+  }
+
+  // ===== 更新 =====
+  function update(){
+    if(!state.running || state.over) return;
+
+    // 输入移动（键盘 + 触屏）
+    if(keys['arrowleft']||keys['a'] || (AOXMobile.isTouch && AOXMobile.state.left)){ player.vx=-MOVE; player.dir=-1; }
+    else if(keys['arrowright']||keys['d'] || (AOXMobile.isTouch && AOXMobile.state.right)){ player.vx=MOVE; player.dir=1; }
+    else player.vx*=0.7;
+
+    var goJump = (keys['arrowup']||keys['w']||keys[' ']) || (AOXMobile.isTouch && AOXMobile.state.a);
+    if(goJump && player.onGround && !(keys['arrowdown'] || (AOXMobile.isTouch && AOXMobile.state.down))){
+      player.vy=JUMP; player.onGround=false; SFX.jump();
+    }
+
+    // 重力（水中减弱）
+    var g = player.inWater ? GRAVITY*0.35 : GRAVITY;
+    player.vy += g;
+    if(player.vy>10) player.vy=10;
+    if(player.inWater && player.vy>2) player.vy=2;
+
+    // 水平碰撞
+    player.x += player.vx;
+    collideAxis('x');
+    if(player.x<0) player.x=0;
+    if(player.x>W-player.w) player.x=W-player.w;
+
+    // 垂直碰撞
+    player.y += player.vy;
+    player.onGround=false; player.inWater=false;
+    collideAxis('y');
+
+    // 熔岩伤害
+    var pcx = Math.floor((player.x+player.w/2)/CELL);
+    var pcy = Math.floor((player.y+player.h/2)/CELL);
+    var cur = getTile(pcx,pcy);
+    if(cur===T.LAVA){
+      player.inLava++;
+      if(player.inLava%20===0){ state.lives--; player.invuln=60; updateHud(); SFX.hurt(); toast('🔥 烫！-1'); explode(player.x+player.w/2,player.y+player.h/2,'#e55300'); if(state.lives<=0) die(); }
+    } else { player.inLava=0; }
+    if(cur===T.WATER) player.inWater=true;
+
+    // 氧气
+    state.o2Tick++;
+    if(player.inWater){
+      if(state.o2Tick%30===0){ state.oxygen--; if(state.oxygen<0) state.oxygen=0; updateHud(); if(state.oxygen<=0 && state.o2Tick%60===0){ state.lives--; updateHud(); } }
+    } else {
+      if(state.o2Tick%15===0 && state.oxygen<100){ state.oxygen++; updateHud(); }
+    }
+
+    // 深度
+    state.depth = Math.max(0, Math.floor((player.y+player.h)/CELL));
+    if(state.depth>state.maxDepth) state.maxDepth=state.depth;
+    updateHud();
+
+    // 挖掘
+    if(keys[' '] || keys['arrowdown'] || (AOXMobile.isTouch && (AOXMobile.state.b || AOXMobile.state.down))){
+      // 触屏：B键挖前方，下键挖脚下
+      if(AOXMobile.isTouch && AOXMobile.state.down && !AOXMobile.state.b){ keys['arrowdown']=true; }
+      tryMine();
+      if(AOXMobile.isTouch && AOXMobile.state.down && !AOXMobile.state.b){ keys['arrowdown']=false; }
+    } else { mining=null; }
+
+    if(player.invuln>0) player.invuln--;
+    player.anim += Math.abs(player.vx)*0.2;
+
+    // 摄像机跟随
+    var target = player.y - H/2 + player.h/2;
+    if(target<0) target=0;
+    if(target>(ROWS-VIEW_ROWS)*CELL) target=(ROWS-VIEW_ROWS)*CELL;
+    cam.y += (target-cam.y)*0.15;
+
+    // 粒子
+    for(var i=particles.length-1;i>=0;i--){
+      var p=particles[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.3; p.life--;
+      if(p.life<=0) particles.splice(i,1);
+    }
+
+    // 掉出底部（不应发生）
+    if(player.y > ROWS*CELL){ die(); }
+  }
+
+  function collideAxis(axis){
+    var pcx0 = Math.floor(player.x/CELL), pcx1 = Math.floor((player.x+player.w-1)/CELL);
+    var pcy0 = Math.floor(player.y/CELL), pcy1 = Math.floor((player.y+player.h-1)/CELL);
+    for(var r=pcy0;r<=pcy1;r++){
+      for(var c=pcx0;c<=pcx1;c++){
+        var t=getTile(c,r);
+        if(!isSolid(t)) continue;
+        var bx=c*CELL, by=r*CELL;
+        if(axis==='x'){
+          if(player.vx>0){ player.x=bx-player.w; }
+          else if(player.vx<0){ player.x=bx+CELL; }
+          player.vx=0;
+        } else {
+          if(player.vy>0){ player.y=by-player.h; player.onGround=true; }
+          else if(player.vy<0){ player.y=by+CELL; }
+          player.vy=0;
+        }
+      }
+    }
+  }
+
+  function explode(x,y,color){
+    for(var i=0;i<16;i++){ var a=Math.random()*Math.PI*2,s=2+Math.random()*5;
+      particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:35,color:color,size:3+Math.random()*3}); }
+  }
+
+  function die(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); toast('💀 挖矿失败'); }
+
+  // ===== 渲染 =====
+  function drawCell(c,r,t,camY){
+    if(t===T.AIR) return;
+    var sx=c*CELL, sy=r*CELL-camY;
+    if(sy<-CELL||sy>H) return;
+    var info=TINFO[t];
+    var col = info.color;
+    if(t===T.GRASS){
+      ctx.fillStyle='#8b5a2b'; ctx.fillRect(sx,sy,CELL,CELL);
+      ctx.fillStyle='#5fb53f'; ctx.fillRect(sx,sy,CELL,7);
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(sx+4,sy+2,3,4); ctx.fillRect(sx+16,sy+2,3,4);
+    } else if(t===T.LAVA){
+      var f=Math.sin(Date.now()/120+r+c)*0.3+0.7;
+      ctx.fillStyle='#e55300'; ctx.fillRect(sx,sy,CELL,CELL);
+      ctx.fillStyle='rgba(255,200,0,'+f+')'; ctx.fillRect(sx,sy,CELL,6);
+      ctx.fillStyle='rgba(255,80,0,0.5)'; ctx.fillRect(sx,sy+CELL-5,CELL,5);
+    } else if(t===T.WATER){
+      ctx.fillStyle='rgba(33,150,243,0.7)'; ctx.fillRect(sx,sy,CELL,CELL);
+      ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx,sy+Math.sin(Date.now()/300+c)*2,CELL,3);
+    } else if(t===T.BEDROCK){
+      ctx.fillStyle='#3a3a3a'; ctx.fillRect(sx,sy,CELL,CELL);
+      ctx.fillStyle='#2a2a2a'; ctx.fillRect(sx+5,sy+5,6,6); ctx.fillRect(sx+16,sy+14,8,8);
+    } else {
+      // 矿石：石头底+矿物斑点
+      ctx.fillStyle='#7f7f7f'; ctx.fillRect(sx,sy,CELL,CELL);
+      if(t===T.STONE){
+        ctx.fillStyle='#6a6a6a'; ctx.fillRect(sx+6,sy+8,5,5); ctx.fillRect(sx+16,sy+16,6,6);
+      } else {
+        // 矿物点缀
+        ctx.fillStyle=col;
+        ctx.fillRect(sx+5,sy+6,6,6); ctx.fillRect(sx+16,sy+10,7,7); ctx.fillRect(sx+9,sy+18,5,5);
+        ctx.fillStyle='rgba(255,255,255,0.5)';
+        ctx.fillRect(sx+6,sy+7,2,2); ctx.fillRect(sx+17,sy+11,2,2);
+      }
+      // 通用边框高光
+      ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(sx,sy,CELL,2); ctx.fillRect(sx,sy,2,CELL);
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(sx,sy+CELL-2,CELL,2); ctx.fillRect(sx+CELL-2,sy,2,CELL);
+    }
+  }
+
+  function drawMiningOverlay(){
+    if(!mining) return;
+    var sx=mining.c*CELL, sy=mining.r*CELL-cam.y;
+    var info=TINFO[mining.t];
+    var need=(info.hard||1)*18;
+    var p=mining.progress/need;
+    // 裂纹
+    ctx.strokeStyle='rgba(0,0,0,'+(0.3+p*0.6)+')';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(sx+4,sy+6); ctx.lineTo(sx+CELL-6,sy+CELL-8);
+    ctx.moveTo(sx+CELL-6,sy+4); ctx.lineTo(sx+8,sy+CELL-6);
+    if(p>0.5){ ctx.moveTo(sx+CELL/2,sy+2); ctx.lineTo(sx+CELL/2-4,sy+CELL/2); ctx.lineTo(sx+CELL/2+4,sy+CELL-2); }
+    ctx.stroke();
+  }
+
+  function drawPlayer(){
+    if(player.invuln>0 && Math.floor(player.invuln/4)%2===0) return;
+    var sx=player.x, sy=player.y-cam.y;
+    var bob = player.onGround?Math.sin(player.anim)*1.2:0;
+    // 腿
+    var lo = player.onGround?Math.sin(player.anim)*3:0;
+    ctx.fillStyle='#1565c0';
+    ctx.fillRect(sx+4,sy+22+lo,6,4);
+    ctx.fillRect(sx+player.w-10,sy+22-lo,6,4);
+    // 身体（史蒂夫青衫）
+    ctx.fillStyle='#3d8b2a'; ctx.fillRect(sx+2,sy+8+bob,player.w-4,16);
+    // 头
+    ctx.fillStyle='#f0c8a0'; ctx.fillRect(sx+4,sy-2+bob,player.w-8,12);
+    ctx.fillStyle='#4a2c12'; ctx.fillRect(sx+4,sy-2+bob,player.w-8,3);
+    // 眼
+    ctx.fillStyle='#fff'; ctx.fillRect(sx+(player.dir>0?player.w-10:6),sy+3+bob,3,3);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+(player.dir>0?player.w-9:7),sy+4+bob,1,2);
+    // 手 + 镐
+    ctx.fillStyle='#f0c8a0'; ctx.fillRect(sx+(player.dir>0?player.w-2:0),sy+10+bob,4,8);
+    ctx.fillStyle='#7f7f7f'; // 镐头
+    if(player.dir>0) ctx.fillRect(sx+player.w,sy+8+bob,5,4);
+    else ctx.fillRect(sx-3,sy+8+bob,5,4);
+  }
+
+  function draw(){
+    // 背景随深度渐变（越深越暗）
+    var depthR = Math.min(1, cam.y/(ROWS*CELL));
+    var g = ctx.createLinearGradient(0,0,0,H);
+    if(depthR<0.15){ g.addColorStop(0,'#87ceeb'); g.addColorStop(1,'#5fb53f'); }
+    else if(depthR<0.4){ g.addColorStop(0,'#4a3a2a'); g.addColorStop(1,'#2a1a0a'); }
+    else { g.addColorStop(0,'#1a0a0a'); g.addColorStop(1,'#000'); }
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    // 绘制可见行
+    var startR = Math.floor(cam.y/CELL), endR = startR+VIEW_ROWS+1;
+    for(var r=startR;r<=endR && r<ROWS;r++){
+      for(var c=0;c<COLS;c++){
+        drawCell(c,r,world[r][c],cam.y);
+      }
+    }
+
+    drawMiningOverlay();
+    drawPlayer();
+
+    // 粒子
+    particles.forEach(function(p){
+      ctx.globalAlpha=p.life/35; ctx.fillStyle=p.color;
+      ctx.fillRect(p.x,p.y-cam.y,p.size,p.size); ctx.globalAlpha=1;
+    });
+
+    // 深度计/小提示
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(8,8,90,22);
+    ctx.fillStyle='#ffd700'; ctx.font='12px "Press Start 2P", monospace'; ctx.textAlign='left';
+    ctx.fillText('深 '+state.maxDepth+'m', 14, 24);
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P", monospace';
+        ctx.fillText('挖矿失败', W/2, H/2-40);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P", monospace';
+        ctx.fillText('最深:'+state.maxDepth+'m  得分:'+state.score, W/2, H/2-5);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('按 R 或点击开始重来', W/2, H/2+30);
+      } else {
+        ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillText('准备挖掘', W/2, H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
+        ctx.fillText('按方向键移动，空格/下挖', W/2, H/2+25);
+      }
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); state.running=true;
+    AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    if(AOXMobile.isTouch) AOXMobile.init({ dpad:true, actions:[{key:'a',label:'↑',color:'rgba(95,181,63,0.85)'},{key:'b',label:'⛏',color:'rgba(229,57,53,0.85)'}] });
+    toast('开挖！空格挖前方，↓挖脚下');
+  });
+
+  init();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>马里奥挖洞 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#8b5a2b;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">⛏ 马里奥挖洞</h1>
+<p class="subtitle">往下挖，收集金币躲敌人！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">深度</span><span id="depth">0</span>m</div><div class="hud-item"><span class="label">金币</span><span id="coins">0</span>💰</div><div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span>m</div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="380" height="440"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px"><span class="key">←→</span>移动 <span class="key">↓</span>挖 · 挖通土掉下去 · 躲乌龟</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var COLS=8,CELL=W/COLS,ROWS=60,VIEW=Math.floor(H/CELL);
+var T={AIR:0,DIRT:1,COIN:2,ROCK:3};
+var s,grid,p,enemies,keys,camY,tick,pts;
+function init(){s={running:false,over:false,depth:0,coins:0,lives:3,best:getBest()};grid=[];for(var r=0;r<ROWS;r++){var row=[];for(var c2=0;c2<COLS;c2++){if(r===0)row.push(T.AIR);else if(r<3)row.push(T.DIRT);else{var t=T.DIRT;if(Math.random()<0.1)t=T.COIN;if(Math.random()<0.04)t=T.ROCK;row.push(t)}}grid.push(row);}p={x:3,y:0,vx:0,vy:0,onG:false,anim:0,inv:0};enemies=[];keys={};camY=0;tick=0;pts=[];updateHud();}
+function getBest(){return parseInt(localStorage.getItem('mdig_best')||'0',10)}
+function setBest(v){localStorage.setItem('mdig_best',v)}
+function updateHud(){document.getElementById('depth').textContent=Math.floor(s.depth);document.getElementById('coins').textContent=s.coins;document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('best').textContent=s.best;}
+function getT(r,c){if(r<0||r>=ROWS||c<0||c>=COLS)return T.ROCK;return grid[r][c];}
+function isSolid(t){return t!==T.AIR;}
+function update(){if(!s.running||s.over)return;tick++;
+if(keys['arrowleft']||keys['a']){p.vx=-2;if(getT(p.y,Math.floor((p.x-12)/CELL))===T.AIR)p.x-=2;}
+if(keys['arrowright']||keys['d']){p.vx=2;if(getT(p.y,Math.floor((p.x+12)/CELL))===T.AIR)p.x+=2;}
+p.x=Math.max(CELL/2,Math.min(W-CELL/2,p.x));
+if(keys['arrowdown']||keys['s']){var br=p.y+1;var bc=Math.floor(p.x/CELL);if(getT(br,bc)===T.DIRT||getT(br,bc)===T.COIN){if(grid[br][bc]===T.COIN){s.coins++;SFX.coin()}grid[br][bc]=T.AIR;SFX.dig();}}
+p.vy+=0.4;p.y+=p.vy;var pc=Math.floor(p.x/CELL);var below=getT(Math.floor(p.y+0.5),pc);if(isSolid(below)&&p.vy>0){p.y=Math.floor(p.y);p.vy=0;p.onG=true;}else p.onG=false;
+if(p.y<0){p.y=0;p.vy=0;}
+s.depth=Math.max(s.depth,p.y);
+if(s.depth>s.best){setBest(Math.floor(s.depth));s.best=Math.floor(s.depth);updateHud();}
+// 敌人
+if(tick%120===0&&p.y>5){enemies.push({x:Math.floor(Math.random()*COLS)*CELL+CELL/2,y:p.y+5+Math.random()*5,vx:1,vy:0,anim:0});}
+enemies.forEach(function(e){e.anim+=0.1;var ec=Math.floor(e.x/CELL);var er=Math.floor(e.y);if(!isSolid(getT(er+1,ec))){e.vy+=0.4;e.y+=e.vy;}else{e.vy=0;e.x+=e.vx;if(isSolid(getT(er,Math.floor((e.x+e.vx*10)/CELL))))e.vx*=-1;}
+if(p.inv<=0&&Math.abs(e.x-p.x)<20&&Math.abs(e.y-p.y)<20){s.lives--;p.inv=60;SFX.hurt();ex(p.x,p.y-p.camY*CELL,'#e53935');if(s.lives<=0)over();updateHud();}});
+enemies=enemies.filter(function(e){return Math.abs(e.y-p.y)<15;});
+if(p.inv>0)p.inv--;p.anim+=0.1;
+var targetCam=p.y-VIEW/2;if(targetCam<0)targetCam=0;if(targetCam>ROWS-VIEW)targetCam=ROWS-VIEW;camY+=(targetCam-camY)*0.15;
+pts=pts.filter(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;pp.vy+=0.2;pp.life--;return pp.life>0;});
+updateHud();}
+function ex(x,y,c){for(var i=0;i<6;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();}
+function draw(){
+x.fillStyle='#5fb53f';x.fillRect(0,0,W,H);
+for(var r=Math.floor(camY);r<camY+VIEW+1&&r<ROWS;r++){for(var c2=0;c2<COLS;c2++){var t=grid[r][c2];var sx=c2*CELL,sy=(r-camY)*CELL;if(t===T.DIRT){x.fillStyle='#8b5a2b';x.fillRect(sx,sy,CELL,CELL);x.fillStyle='#6b4220';x.fillRect(sx,sy,CELL,2);x.fillRect(sx,sy,2,CELL);}else if(t===T.COIN){x.fillStyle='#ffd700';x.beginPath();x.arc(sx+CELL/2,sy+CELL/2,5,0,7);x.fill();}else if(t===T.ROCK){x.fillStyle='#7f7f7f';x.fillRect(sx,sy,CELL,CELL);x.fillStyle='#555';x.fillRect(sx+4,sy+4,CELL-8,CELL-8);}}}
+// mario
+var px=p.x,py=(p.y-camY)*CELL;if(p.inv<=0||Math.floor(p.inv/4)%2===0){x.fillStyle='#e53935';x.fillRect(px-8,py-6,16,16);x.fillStyle='#ff9800';x.fillRect(px-6,py-14,12,10);x.fillStyle='#e53935';x.fillRect(px-6,py-14,12,3);x.fillStyle='#1565c0';x.fillRect(px-6,py+10,5,6);x.fillRect(px+1,py+10,5,6);}
+enemies.forEach(function(e){var ey=(e.y-camY)*CELL;x.fillStyle='#2e7d32';x.fillRect(e.x-10,ey-8,20,16);x.fillStyle='#fff';x.fillRect(e.x-5,ey-4,3,3);x.fillRect(e.x+2,ey-4,3,3);x.fillStyle='#000';x.fillRect(e.x-4,ey-3,1,2);x.fillRect(e.x+3,ey-3,1,2);});
+pts.forEach(function(pp){x.globalAlpha=pp.life/20;x.fillStyle=pp.c;x.fillRect(pp.x,pp.y,pp.size,pp.size);x.globalAlpha=1});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('挖不动了！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('深度:'+Math.floor(s.depth)+'m 💰:'+s.coins,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#8b5a2b';x.font='20px "Press Start 2P",monospace';x.fillText('准备挖洞',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowleft','arrowright','arrowdown'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'⛏',key:'ArrowDown',color:'rgba(229,57,53,0.85)'}]});toast('往下挖！')});
+init();loop();
+})();
+</script></body></html>

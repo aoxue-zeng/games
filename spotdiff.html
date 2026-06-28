@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>找不同 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .sd-wrap { display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:18px }
+  .sd-canvas-box { background:var(--mc-night);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:8px }
+  .sd-canvas-box canvas { display:block;cursor:crosshair;touch-action:none }
+  .sd-label { font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-align:center;margin-top:8px;text-shadow:1px 1px 0 #000 }
+  .diff-btn{font-family:'Press Start 2P',monospace;font-size:10px;padding:8px 12px;background:var(--mc-panel);border:3px solid var(--mc-black);box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a}
+  .diff-btn.active{background:var(--mc-grass);color:#fff}
+  .circle{position:absolute;border:3px solid #ffd700;border-radius:50%;pointer-events:none;animation:pulse 0.5s}
+  @keyframes pulse{0%{transform:scale(2);opacity:0}100%{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🔍 找不同</h1>
+  <p class="subtitle">找出两幅图的差异！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">找到</span><span id="found">0</span>/<span id="total">5</span></div>
+    <div class="hud-item"><span class="label">错误</span><span id="errors">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="diff-btn active" data-d="easy">简单(3)</button>
+    <button class="diff-btn" data-d="medium">中等(5)</button>
+    <button class="diff-btn" data-d="hard">困难(7)</button>
+  </div>
+  <div class="sd-wrap" id="wrap">
+    <div class="sd-canvas-box"><canvas id="c1" width="280" height="280"></canvas><div class="sd-label">图 A</div></div>
+    <div class="sd-canvas-box"><canvas id="c2" width="280" height="280"></canvas><div class="sd-label">图 B</div></div>
+  </div>
+  <div style="margin-top:18px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 新一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">点击两幅图中不同的地方，点错会记错误数</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var c1=document.getElementById('c1'),c2=document.getElementById('c2');
+  var ctx1=c1.getContext('2d'),ctx2=c2.getContext('2d');
+  var W=c1.width,H=c1.height;
+  var DIFFS={easy:3,medium:5,hard:7};
+  var state,diffs,scene,foundCount,timerInt,startTime;
+  // 场景元素：固定位置的像素图案
+  function genScene(){
+    // 随机种子场景：背景色 + 一些方块/圆
+    var s={bg:'#5fb53f',items:[]};
+    var bgColors=['#5fb53f','#2196f3','#ff9800','#9c27b0','#e53935'];
+    s.bg=bgColors[Math.floor(Math.random()*bgColors.length)];
+    var colors=['#ffd700','#4dd0e1','#fff','#e53935','#2e7d32','#8b5a2b','#ff9800','#9c27b0'];
+    for(var i=0;i<14;i++){
+      s.items.push({
+        x:20+Math.random()*(W-60),y:20+Math.random()*(H-60),
+        size:20+Math.random()*24,color:colors[Math.floor(Math.random()*colors.length)],
+        shape:Math.random()<0.5?'rect':'circle',
+        rot:Math.random()*Math.PI
+      });
+    }
+    return s;
+  }
+  function drawScene(ctx,sc,modItems){
+    ctx.fillStyle=sc.bg;ctx.fillRect(0,0,W,H);
+    // 网格点
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    for(var x=0;x<W;x+=20)for(var y=0;y<H;y+=20)ctx.fillRect(x,y,2,2);
+    sc.items.forEach(function(it,idx){
+      var mod=modItems&&modItems[idx];
+      var col=mod&&mod.type==='color'?'#000':it.color;
+      var sz=mod&&mod.type==='size'?it.size*0.5:it.size;
+      var skip=mod&&mod.type==='remove';
+      if(skip)return;
+      ctx.save();ctx.translate(it.x,it.y);ctx.rotate(it.rot);
+      ctx.fillStyle=col;
+      if(it.shape==='rect')ctx.fillRect(-sz/2,-sz/2,sz,sz);
+      else{ctx.beginPath();ctx.arc(0,0,sz/2,0,7);ctx.fill();}
+      ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(-sz/2,-sz/2,sz,3);
+      ctx.restore();
+    });
+  }
+  function start(d){
+    AOXSound.ensure();SFX.click();
+    var n=DIFFS[d];scene=genScene();
+    // 生成差异
+    diffs=[];
+    var usedIdx={};
+    for(var i=0;i<n;i++){
+      var idx;do{idx=Math.floor(Math.random()*scene.items.length);}while(usedIdx[idx]);usedIdx[idx]=true;
+      var types=['color','size','remove'];var type=types[Math.floor(Math.random()*types.length)];
+      var it=scene.items[idx];
+      diffs.push({idx:idx,type:type,x:it.x,y:it.y,size:it.size,found:false});
+    }
+    foundCount=0;
+    document.getElementById('found').textContent=0;document.getElementById('errors').textContent=0;document.getElementById('total').textContent=n;
+    startTime=Date.now();clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+    redraw();
+  }
+  function redraw(){
+    // 图A：原图；图B：修改后
+    drawScene(ctx1,scene,null);
+    var modB={};diffs.forEach(function(d){modB[d.idx]=d;});
+    drawScene(ctx2,scene,modB);
+    // 标记已找到
+    diffs.forEach(function(d){if(d.found){markFound(ctx1,d);markFound(ctx2,d);}});
+  }
+  function markFound(ctx,d){
+    ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.beginPath();ctx.arc(d.x,d.y,d.size,0,7);ctx.stroke();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.arc(d.x,d.y,d.size,0,7);ctx.stroke();
+  }
+  function handleClick(e,canvas){
+    if(!scene)return;
+    var r=canvas.getBoundingClientRect();
+    var x=(e.clientX!==undefined?e.clientX:e.touches[0].clientX-r.left)*(W/r.width);
+    var y=(e.clientY!==undefined?e.clientY-r.top:e.touches[0].clientY-r.top)*(H/r.height);
+    x=(e.clientX!==undefined?(e.clientX-r.left):(e.touches[0].clientX-r.left))*(W/r.width);
+    y=(e.clientY!==undefined?(e.clientY-r.top):(e.touches[0].clientY-r.top))*(H/r.height);
+    AOXSound.ensure();
+    var hit=false;
+    for(var i=0;i<diffs.length;i++){
+      var d=diffs[i];if(d.found)continue;
+      if(Math.hypot(d.x-x,d.y-y)<d.size+8){
+        d.found=true;foundCount++;hit=true;SFX.gem();document.getElementById('found').textContent=foundCount;
+        redraw();
+        if(foundCount>=diffs.length){clearInterval(timerInt);SFX.win();toast('🎉 全部找到！');}
+        break;
+      }
+    }
+    if(!hit){SFX.error();var er=parseInt(document.getElementById('errors').textContent,10)+1;document.getElementById('errors').textContent=er;}
+  }
+  c1.addEventListener('click',function(e){handleClick(e,c1);});
+  c2.addEventListener('click',function(e){handleClick(e,c2);});
+  c1.addEventListener('touchstart',function(e){e.preventDefault();handleClick(e,c1);},{passive:false});
+  c2.addEventListener('touchstart',function(e){e.preventDefault();handleClick(e,c2);},{passive:false});
+  document.querySelectorAll('.diff-btn').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});b.classList.add('active');start(b.dataset.d);});});
+  document.getElementById('newBtn').addEventListener('click',function(){start(document.querySelector('.diff-btn.active').dataset.d);});
+  start('easy');
+})();
+</script>
+</body>
+</html>

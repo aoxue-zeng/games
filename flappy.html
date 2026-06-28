@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素鸟 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#87ceeb; touch-action:none; cursor:pointer; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐦 像素鸟</h1>
+  <p class="subtitle">扇翅穿过管道缝隙！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="400" height="500"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">空格</span> 或 <span class="key">点击</span> 扇翅膀 · <span class="key">R</span> 重开
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,bird,pipes,particles,tick,GROUND=H-60;
+  var GAP=130,PW=56,SPEED=2.5;
+  function init(){
+    state={running:false,over:false,score:0,best:getBest()};
+    bird={x:80,y:H/2,vy:0,r:14,rot:0,anim:0};
+    pipes=[];particles=[];tick=0;
+    updateHud();
+  }
+  function getBest(){return parseInt(localStorage.getItem('flappy_best')||'0',10);}
+  function setBest(v){localStorage.setItem('flappy_best',v);}
+  function updateHud(){document.getElementById('score').textContent=state.score;document.getElementById('best').textContent=state.best;}
+  function flap(){
+    if(!state.running){if(state.over)init();start();}
+    bird.vy=-6.5;SFX.jump();
+  }
+  function start(){state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();}
+  function spawnPipe(){
+    var top=60+Math.random()*(GROUND-GAP-120);
+    pipes.push({x:W,top:top,bottom:top+GAP,passed:false});
+  }
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    bird.vy+=0.35;bird.y+=bird.vy;bird.rot=Math.max(-0.4,Math.min(1.2,bird.vy*0.08));bird.anim+=0.3;
+    // 生成管道
+    if(tick%90===0)spawnPipe();
+    // 管道移动
+    pipes.forEach(function(p){p.x-=SPEED;if(!p.passed&&p.x+PW<bird.x){p.passed=true;state.score++;SFX.coin();updateHud();}});
+    pipes=pipes.filter(function(p){return p.x+PW>-5;});
+    // 碰撞
+    if(bird.y+bird.r>GROUND||bird.y-bird.r<0){hitGround();}
+    for(var i=0;i<pipes.length;i++){
+      var p=pipes[i];
+      if(bird.x+bird.r>p.x&&bird.x-bird.r<p.x+PW){
+        if(bird.y-bird.r<p.top||bird.y+bird.r>p.bottom){hitGround();}
+      }
+    }
+    particles=particles.filter(function(pt){pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;return pt.life>0;});
+  }
+  function hitGround(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();for(var i=0;i<16;i++){var a=Math.random()*Math.PI*2,s=2+Math.random()*4;particles.push({x:bird.x,y:bird.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,c:'#ffd700',size:2+Math.random()*3});}if(state.score>state.best){setBest(state.score);state.best=state.score;}updateHud();}
+  function draw(){
+    // 天空
+    var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#4a90d9');g.addColorStop(1,'#87ceeb');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    // 云
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    for(var c=0;c<3;c++){var cx=((c*180-tick*0.5)%(W+100)+W+100)%(W+100)-50;var cy=60+c*40;ctx.fillRect(cx,cy,60,16);ctx.fillRect(cx+10,cy-10,40,12);}
+    // 管道（Minecraft 石砖）
+    pipes.forEach(function(p){
+      ctx.fillStyle='#5fb53f';
+      ctx.fillRect(p.x,0,PW,p.top);ctx.fillRect(p.x,p.bottom,PW,GROUND-p.bottom);
+      ctx.fillStyle='#3d8b2a';
+      ctx.fillRect(p.x,0,4,p.top);ctx.fillRect(p.x,p.bottom,4,GROUND-p.bottom);
+      ctx.fillRect(p.x+PW-4,0,4,p.top);ctx.fillRect(p.x+PW-4,p.bottom,4,GROUND-p.bottom);
+      // 管口
+      ctx.fillStyle='#4ea035';ctx.fillRect(p.x-3,p.top-16,PW+6,16);ctx.fillRect(p.x-3,p.bottom,PW+6,16);
+      ctx.fillStyle='rgba(255,255,255,0.2)';ctx.fillRect(p.x-3,p.top-16,PW+6,4);ctx.fillRect(p.x-3,p.bottom,PW+6,4);
+    });
+    // 地面
+    ctx.fillStyle='#8b5a2b';ctx.fillRect(0,GROUND,W,60);
+    ctx.fillStyle='#5fb53f';ctx.fillRect(0,GROUND,W,8);
+    for(var d=0;d<W;d+=16){ctx.fillStyle='rgba(0,0,0,0.2)';ctx.fillRect(((d-tick*SPEED)%16+16)%16+0,GROUND+8,2,52);}
+    // 鸟
+    ctx.save();ctx.translate(bird.x,bird.y);ctx.rotate(bird.rot);
+    var wing=Math.sin(bird.anim)*3;
+    ctx.fillStyle='#ffd700';ctx.fillRect(-12,-10,24,20);
+    ctx.fillStyle='#ff9800';ctx.fillRect(-12,4,24,6);
+    ctx.fillStyle='#fff';ctx.fillRect(4,-7,8,8);ctx.fillStyle='#000';ctx.fillRect(8,-5,3,3);
+    ctx.fillStyle='#ff9800';ctx.fillRect(10,2,8,5); // 嘴
+    ctx.fillStyle='#e65100';ctx.fillRect(-6,-2+wing,8,5); // 翅膀
+    ctx.restore();
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/30;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='26px "Press Start 2P",monospace';ctx.fillText('撞到了！',W/2,H/2-30);ctx.fillStyle='#ffd700';ctx.font='16px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score+' 最高:'+state.best,W/2,H/2+5);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击/空格重玩',W/2,H/2+40);}
+      else{ctx.fillStyle='#fff';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备就绪',W/2,H/2-10);ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击/空格扇翅',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function flapAction(e){if(e)e.preventDefault();flap();}
+  document.addEventListener('keydown',function(e){if(e.key===' '||e.key==='ArrowUp'){e.preventDefault();flap();}if(e.key.toLowerCase()==='r'){init();}});
+  canvas.addEventListener('mousedown',flapAction);
+  canvas.addEventListener('touchstart',flapAction,{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();start();toast('扇翅穿过管道！');});
+  init();loop();
+})();
+</script>
+</body>
+</html>

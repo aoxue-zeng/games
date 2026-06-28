@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字华容道 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .slide-board { display:grid;gap:6px;margin:18px auto;width:fit-content;background:var(--mc-night);padding:10px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .slide-tile { width:76px;height:76px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:24px;cursor:pointer;border:3px solid #000;box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.2), inset -3px -3px 0 0 rgba(0,0,0,0.3);transition:all 0.12s;user-select:none }
+  .slide-tile:hover{transform:scale(0.95)}
+  .slide-tile.n{background:linear-gradient(135deg,#5fb53f,#3d8b2a);color:#fff;text-shadow:2px 2px 0 #000}
+  .slide-tile.empty{background:rgba(0,0,0,0.3);border-color:rgba(255,255,255,0.1);cursor:default;box-shadow:none}
+  .slide-tile.correct{background:linear-gradient(135deg,#4dd0e1,#00838f)}
+  .diff-btn{font-family:'Press Start 2P',monospace;font-size:10px;padding:8px 12px;background:var(--mc-panel);border:3px solid var(--mc-black);box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a}
+  .diff-btn.active{background:var(--mc-grass);color:#fff}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🔢 数字华容道</h1>
+  <p class="subtitle">滑动数字排好顺序！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+    <div class="hud-item"><span class="label">最佳步数</span><span id="best">—</span></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="diff-btn active" data-size="3">3×3</button>
+    <button class="diff-btn" data-size="4">4×4</button>
+    <button class="diff-btn" data-size="5">5×5</button>
+  </div>
+  <div class="slide-board" id="board"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="shuffleBtn">🔀 打乱开始</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">点击空格旁的数字滑动，按 1-顺序排好</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SIZE=3,tiles,moves,state,timerInt,startTime;
+  function init(size){
+    SIZE=size;tiles=[];
+    for(var i=1;i<SIZE*SIZE;i++)tiles.push(i);
+    tiles.push(0); // 0=空
+    moves=0;state={over:false,won:false};
+    clearInterval(timerInt);document.getElementById('timer').textContent='0';
+    updateHud();render();
+  }
+  function updateHud(){
+    document.getElementById('moves').textContent=moves;
+    var bk='slide_best_'+SIZE;var best=localStorage.getItem(bk);
+    document.getElementById('best').textContent=best?best+'步':'—';
+  }
+  function shuffle(){
+    // 随机有效移动保证可解
+    for(var i=0;i<SIZE*SIZE*40;i++){
+      var ei=tiles.indexOf(0);var er=Math.floor(ei/SIZE),ec=ei%SIZE;
+      var nbrs=[];
+      if(er>0)nbrs.push(ei-SIZE);if(er<SIZE-1)nbrs.push(ei+SIZE);if(ec>0)nbrs.push(ei-1);if(ec<SIZE-1)nbrs.push(ei+1);
+      var ni=nbrs[Math.floor(Math.random()*nbrs.length)];
+      var t=tiles[ei];tiles[ei]=tiles[ni];tiles[ni]=t;
+    }
+    moves=0;startTime=Date.now();state={over:false,won:false};
+    clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+    updateHud();render();SFX.shuffle?SFX.shuffle():SFX.rotate();
+  }
+  function tryMove(idx){
+    if(state.over)return;
+    var ei=tiles.indexOf(0);var er=Math.floor(ei/SIZE),ec=ei%SIZE;var ir=Math.floor(idx/SIZE),ic=idx%SIZE;
+    if((Math.abs(er-ir)===1&&ec===ic)||(Math.abs(ec-ic)===1&&er===ir)){
+      var t=tiles[ei];tiles[ei]=tiles[idx];tiles[idx]=t;moves++;SFX.move();updateHud();render();checkWin();
+    }
+  }
+  function checkWin(){
+    for(var i=0;i<SIZE*SIZE-1;i++){if(tiles[i]!==i+1)return;}
+    state.won=true;state.over=true;clearInterval(timerInt);AOXSound.stopBGM?AOXSound.stopBGM():0;SFX.win();
+    var bk='slide_best_'+SIZE;var old=localStorage.getItem(bk);
+    if(!old||moves<parseInt(old,10)){localStorage.setItem(bk,moves);}
+    var t=Math.floor((Date.now()-startTime)/1000);
+    toast('🎉 完成！'+moves+'步 '+t+'秒');updateHud();
+  }
+  function render(){
+    var b=document.getElementById('board');b.innerHTML='';b.style.gridTemplateColumns='repeat('+SIZE+',76px)';
+    tiles.forEach(function(v,i){
+      var d=document.createElement('div');d.className='slide-tile';
+      if(v===0){d.classList.add('empty');}
+      else{d.classList.add('n');d.textContent=v;if(v===i+1)d.classList.add('correct');d.addEventListener('click',function(){tryMove(i);});}
+      b.appendChild(d);
+    });
+  }
+  document.querySelectorAll('.diff-btn').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});b.classList.add('active');
+      init(parseInt(b.dataset.size,10));SFX.click();
+    });
+  });
+  document.getElementById('shuffleBtn').addEventListener('click',function(){AOXSound.ensure();SFX.select();shuffle();toast('开始滑动！');});
+  init(3);
+})();
+</script>
+</body>
+</html>

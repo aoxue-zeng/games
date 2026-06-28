@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>迷宫探险 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a1a2e;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="snake2.html">双人蛇</a><a href="pinball.html">弹球台</a><a href="maze.html">迷宫</a><a href="snake.html">贪吃蛇</a><a href="m-brawl.html">大乱斗</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🌀 迷宫探险</h1>
+<p class="subtitle">走出迷宫，越深越难！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div><div class="hud-item"><span class="label">步数</span><span id="steps">0</span></div><div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div><div class="hud-item"><span class="label">最佳步数</span><span id="best">—</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="440" height="440"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">←↑→↓</span>或<span class="key">WASD</span>移动 · 找到金色出口</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="newBtn">🔄 新迷宫</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var SIZE,CELL,maze,p,state,timerInt,startTime,exit;
+function init(lvl){
+  SIZE=Math.min(21,9+lvl*2);if(SIZE%2===0)SIZE++;CELL=Math.floor(W/SIZE);
+  maze=genMaze(SIZE);
+  p={x:1,y:1};exit={x:SIZE-2,y:SIZE-2};
+  state={level:lvl,steps:0,over:false,won:false};startTime=Date.now();
+  clearInterval(timerInt);document.getElementById('timer').textContent='0';
+  timerInt=setInterval(function(){if(!state.over)document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+  updateHud();draw();
+}
+function updateHud(){document.getElementById('level').textContent=state.level;document.getElementById('steps').textContent=state.steps;var b=localStorage.getItem('maze_best_'+SIZE);document.getElementById('best').textContent=b?b+'步':'—';}
+// DFS 生成迷宫
+function genMaze(n){
+  var g=[];for(var r=0;r<n;r++){g.push([]);for(var c2=0;c2<n;c2++)g[r].push(1);}
+  function carve(r,c){g[r][c]=0;var dirs=[[0,2],[0,-2],[2,0],[-2,0]];dirs.sort(function(){return Math.random()-0.5;});dirs.forEach(function(d){var nr=r+d[0],nc=c+d[1];if(nr>0&&nr<n-1&&nc>0&&nc<n-1&&g[nr][nc]===1){g[r+d[0]/2][c+d[1]/2]=0;carve(nr,nc);}});}
+  carve(1,1);return g;
+}
+function move(dx,dy){
+  if(state.over)return;var nx=p.x+dx,ny=p.y+dy;
+  if(nx<0||nx>=SIZE||ny<0||ny>=SIZE||maze[ny][nx]===1)return;
+  p.x=nx;p.y=ny;state.steps++;SFX.move();updateHud();
+  if(p.x===exit.x&&p.y===exit.y){state.over=true;state.won=true;clearInterval(timerInt);SFX.win();var bk='maze_best_'+SIZE;var old=localStorage.getItem(bk);if(!old||state.steps<parseInt(old,10))localStorage.setItem(bk,state.steps);toast('🎉 通关！'+state.steps+'步');updateHud();}
+}
+function draw(){
+  x.fillStyle='#1a1a2e';x.fillRect(0,0,W,H);
+  var off=(W-SIZE*CELL)/2;
+  for(var r=0;r<SIZE;r++)for(var c2=0;c2<SIZE;c2++){
+    var sx=off+c2*CELL,sy=off+r*CELL;
+    if(maze[r][c2]===1){x.fillStyle='#5d3a1a';x.fillRect(sx,sy,CELL,CELL);x.fillStyle='#3d2817';x.fillRect(sx,sy,CELL,2);x.fillRect(sx,sy,2,CELL);}
+    else{x.fillStyle='#2a2a4e';x.fillRect(sx,sy,CELL,CELL);}
+  }
+  // 出口
+  var ex=off+exit.x*CELL,ey=off+exit.y*CELL;x.fillStyle='#ffd700';x.shadowColor='#ffd700';x.shadowBlur=10;x.fillRect(ex+2,ey+2,CELL-4,CELL-4);x.shadowBlur=0;
+  // 玩家
+  var px=off+p.x*CELL,py=off+p.y*CELL;x.fillStyle='#e53935';x.fillRect(px+2,py+2,CELL-4,CELL-4);x.fillStyle='#ff9800';x.fillRect(px+4,py,CELL-8,4);x.fillStyle='#fff';x.fillRect(px+6,py+5,2,2);x.fillRect(px+CELL-8,py+5,2,2);
+  if(state.won){x.fillStyle='rgba(0,0,0,0.6)';x.fillRect(0,0,W,H);x.textAlign='center';x.fillStyle='#ffd700';x.font='20px "Press Start 2P",monospace';x.fillText('🎉 通关！',W/2,H/2-10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText(state.steps+'步',W/2,H/2+20);}
+}
+document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();if(k==='arrowup'||k==='w')move(0,-1);if(k==='arrowdown'||k==='s')move(0,1);if(k==='arrowleft'||k==='a')move(-1,0);if(k==='arrowright'||k==='d')move(1,0);if(['arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0)e.preventDefault();});
+document.getElementById('newBtn').addEventListener('click',function(){AOXSound.ensure();SFX.click();init(1);if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true});});
+init(1);
+if(window.AOXMobile&&AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true});
+})();
+</script></body></html>

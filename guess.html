@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猜数字 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .guess-display { font-family:'Press Start 2P',monospace; font-size:48px; color:var(--mc-gold); text-shadow:3px 3px 0 #000,0 0 20px var(--mc-gold); margin:20px 0; letter-spacing:8px; }
+  .guess-input { font-family:'Press Start 2P',monospace; font-size:24px; color:var(--mc-gold); background:var(--mc-night); border:3px solid var(--mc-black); box-shadow: inset 3px 3px 0 0 #2a3f5f, inset -3px -3px 0 0 #000; padding:14px 20px; width:200px; text-align:center; letter-spacing:6px; text-shadow:2px 2px 0 #000; }
+  .guess-input:focus { outline:none; border-color:var(--mc-gold); }
+  .history { max-width:420px; margin:16px auto 0; text-align:left; }
+  .hist-item { display:flex; justify-content:space-between; align-items:center; background:var(--mc-panel-dark); border:2px solid var(--mc-black); padding:8px 14px; margin-bottom:4px; font-family:'VT323',monospace; font-size:20px; }
+  .hist-item .guess { color:var(--mc-gold); font-family:'Press Start 2P',monospace; font-size:14px; }
+  .hist-item .hint-high { color:#e53935; } .hist-item .hint-low { color:#2196f3; } .hist-item .hint-correct { color:#4caf50; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚓ 猜数字</h1>
+  <p class="subtitle">猜一个 1-100 的数字，看几次猜中！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">范围</span><span id="range">1-100</span></div>
+    <div class="hud-item"><span class="label">已猜</span><span id="tries">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div class="guess-display" id="display">? ? ?</div>
+  <div><input type="number" id="input" class="guess-input" min="1" max="100" placeholder="1-100" autocomplete="off"></div>
+  <div style="margin-top:16px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="guessBtn">🎯 猜！</button>
+    <button class="mc-btn gold" id="newBtn">▶ 新游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <div class="history" id="history"></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:14px;">输入数字回车或点猜 · 提示会告诉你大了/小了</p>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var target, tries, lo, hi, state, history;
+  function init(){ target=Math.floor(Math.random()*100)+1; tries=0; lo=1; hi=100; state={over:false,won:false}; history=[];
+    document.getElementById('display').textContent='? ? ?'; document.getElementById('range').textContent='1-100'; document.getElementById('tries').textContent='0';
+    document.getElementById('best').textContent=getBest()?'≤'+getBest():'—'; document.getElementById('input').value=''; document.getElementById('input').disabled=false; document.getElementById('history').innerHTML=''; document.getElementById('input').focus();
+  }
+  function getBest(){return parseInt(localStorage.getItem('guess_best')||'0',10);}
+  function setBest(v){localStorage.setItem('guess_best',v);}
+  function guess(){
+    if(state.over)return; var v=parseInt(document.getElementById('input').value,10);
+    if(isNaN(v)||v<1||v>100){ SFX.error(); toast('输入1-100的数字'); return; }
+    AOXSound.ensure(); tries++; document.getElementById('tries').textContent=tries;
+    var hint='';
+    if(v===target){ state.won=true; state.over=true; hint='correct'; document.getElementById('display').textContent=target; SFX.win(); if(!getBest()||tries<getBest()){setBest(tries);toast('🏆 新纪录！'+tries+'次猜中！');}else toast('🎉 猜中了！用了'+tries+'次'); document.getElementById('input').disabled=true; addHistory(v,hint); }
+    else if(v<target){ if(v>=lo)lo=v+1; hint='low'; document.getElementById('range').textContent=lo+'-'+hi; SFX.move(); document.getElementById('display').textContent=lo+' - '+hi; addHistory(v,hint); }
+    else { if(v<=hi)hi=v-1; hint='high'; document.getElementById('range').textContent=lo+'-'+hi; SFX.move(); document.getElementById('display').textContent=lo+' - '+hi; addHistory(v,hint); }
+    document.getElementById('input').value=''; document.getElementById('input').focus();
+  }
+  function addHistory(v,hint){ history.unshift({v:v,hint:hint}); var box=document.getElementById('history'); box.innerHTML='';
+    history.forEach(function(h){ var d=document.createElement('div'); d.className='hist-item'; var txt=h.hint==='correct'?'✓ 猜中！':(h.hint==='low'?'太小了 ↑':'太大了 ↓');
+      d.innerHTML='<span class="guess">'+h.v+'</span><span class="hint-'+h.hint+'">'+txt+'</span>'; box.appendChild(d); }); }
+  document.getElementById('guessBtn').addEventListener('click',guess);
+  document.getElementById('newBtn').addEventListener('click',function(){ SFX.click(); init(); });
+  document.getElementById('input').addEventListener('keydown',function(e){ if(e.key==='Enter')guess(); });
+  init();
+})();
+</script>
+</body>
+</html>

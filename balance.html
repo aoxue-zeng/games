@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天平称重 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .bal-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:20px;max-width:480px;margin:18px auto;text-align:center }
+  .balance-vis { height:140px;position:relative;margin:10px 0 }
+  .coin-grid { display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:360px;margin:14px auto 0 }
+  .coin { background:var(--mc-panel);border:3px solid #000;box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:14px;cursor:pointer;user-select:none;border-radius:50% }
+  .coin.sel{background:var(--mc-gold);color:#000}
+  .coin.left{background:#2196f3;color:#fff}
+  .coin.right{background:#e53935;color:#fff}
+  .pan-btn{font-family:'Press Start 2P',monospace;font-size:11px;padding:10px;cursor:pointer;border:3px solid #000;margin:4px }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚖️ 天平称重</h1>
+  <p class="subtitle">用最少次数找出那枚假币！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">称重次数</span><span id="weighs">0</span></div>
+    <div class="hud-item"><span class="label">金币数</span><span id="count">8</span></div>
+  </div>
+  <div class="bal-stage">
+    <div style="font-family:'Press Start 2P',monospace;font-size:13px;color:#ffd700;margin-bottom:6px" id="prompt">选金币放上天平</div>
+    <div class="balance-vis"><canvas id="balCanvas" width="420" height="140"></canvas></div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="pan-btn mc-btn" id="leftBtn" style="background:#2196f3;color:#fff">放左盘</button>
+      <button class="pan-btn mc-btn green" id="weighBtn">⚖️ 称重</button>
+      <button class="pan-btn mc-btn" id="rightBtn" style="background:#e53935;color:#fff">放右盘</button>
+    </div>
+    <div class="coin-grid" id="coins"></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="accuseBtn">🔍 指认假币</button>
+    <button class="mc-btn green" id="newBtn">🔄 新一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点金币选中→放左/右盘→称重。假币比真币重，找出它并指认</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('balCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,coins,leftPan,rightPan,selected,tilt;
+  function init(lvl){
+    var n=Math.min(15,6+lvl);state={level:lvl||1,weighs:0,over:false,fake:Math.floor(Math.random()*n),heavy:true};
+    coins=[];for(var i=0;i<n;i++)coins.push({id:i,suspect:true});
+    leftPan=[];rightPan=[];selected=[];tilt=0;updateHud();renderCoins();drawBalance('idle');document.getElementById('prompt').textContent='选金币放上天平';
+  }
+  function updateHud(){document.getElementById('level').textContent=state.level;document.getElementById('weighs').textContent=state.weighs;document.getElementById('count').textContent=coins.length;}
+  function renderCoins(){
+    var g=document.getElementById('coins');g.innerHTML='';
+    coins.forEach(function(c){
+      var d=document.createElement('div');d.className='coin';d.textContent=c.id+1;
+      if(leftPan.indexOf(c.id)>=0)d.classList.add('left');
+      else if(rightPan.indexOf(c.id)>=0)d.classList.add('right');
+      else if(selected.indexOf(c.id)>=0)d.classList.add('sel');
+      d.addEventListener('click',function(){toggleSel(c.id);});
+      g.appendChild(d);
+    });
+  }
+  function toggleSel(id){
+    if(state.over)return;
+    var i=selected.indexOf(id);
+    if(i>=0)selected.splice(i,1);else{if(leftPan.indexOf(id)<0&&rightPan.indexOf(id)<0)selected.push(id);}
+    SFX.click();renderCoins();
+  }
+  function toLeft(){leftPan=leftPan.concat(selected);selected=[];SFX.place();renderCoins();}
+  function toRight(){rightPan=rightPan.concat(selected);selected=[];SFX.place();renderCoins();}
+  function weigh(){
+    if(leftPan.length===0||rightPan.length===0||leftPan.length!==rightPan.length){toast('两边金币数要相等！');SFX.error();return;}
+    state.weighs++;updateHud();
+    var lw=leftPan.reduce(function(s,id){return s+(id===state.fake?2:1);},0);
+    var rw=rightPan.reduce(function(s,id){return s+(id===state.fake?2:1);},0);
+    var res=lw>rw?'left':(rw>lw?'right':'equal');
+    if(res==='equal'){leftPan.forEach(function(id){coins[id].suspect=false;});rightPan.forEach(function(id){coins[id].suspect=false;});}
+    else{var heavySide=res==='left'?leftPan:rightPan;var lightSide=res==='left'?rightPan:leftPan;lightSide.forEach(function(id){coins[id].suspect=false;});var allOthers=[];coins.forEach(function(c){if(heavySide.indexOf(c.id)<0&&leftPan.indexOf(c.id)<0&&rightPan.indexOf(c.id)<0)allOthers.push(c.id);});allOthers.forEach(function(id){coins[id].suspect=false;});}
+    leftPan=[];rightPan=[];SFX.clear();drawBalance(res);
+    document.getElementById('prompt').textContent=res==='equal'?'⚖️ 平衡！这些都不是假的':(res==='left'?'⬅️ 左边重！假币在左':'➡️ 右边重！假币在右');
+    renderCoins();
+  }
+  function accuse(id){
+    if(state.over)return;
+    if(id===state.fake){state.over=true;SFX.win();toast('🎉 找到了！第'+(id+1)+'号是假币！用了'+state.weighs+'次');document.getElementById('prompt').textContent='🎉 答对！'+state.weighs+'次称重';}
+    else{SFX.lose();toast('❌ 错了！第'+(state.fake+1)+'号才是假币');state.over=true;document.getElementById('prompt').textContent='❌ 错了！假币是第'+(state.fake+1)+'号';}
+  }
+  function drawBalance(res){
+    var target=res==='left'?0.3:(res==='right'?-0.3:0);
+    var animT=0;
+    function anim(){
+      ctx.clearRect(0,0,W,H);
+      tilt+=(target-tilt)*0.2;animT++;
+      // 支点
+      ctx.fillStyle='#6b4220';ctx.beginPath();ctx.moveTo(W/2,H-10);ctx.lineTo(W/2-30,H-50);ctx.lineTo(W/2+30,H-50);ctx.fill();
+      // 横梁
+      ctx.save();ctx.translate(W/2,H-50);ctx.rotate(tilt);
+      ctx.fillStyle='#8b5a2b';ctx.fillRect(-160,-4,320,8);
+      // 盘子
+      ctx.fillStyle='#7f7f7f';ctx.beginPath();ctx.arc(-130,20,30,0,Math.PI);ctx.fill();ctx.fillRect(-131,12,2,18);
+      ctx.beginPath();ctx.arc(130,20,30,0,Math.PI);ctx.fill();ctx.fillRect(129,12,2,18);
+      ctx.restore();
+      if(animT<30)requestAnimationFrame(anim);
+    }
+    anim();
+  }
+  document.getElementById('leftBtn').addEventListener('click',toLeft);
+  document.getElementById('rightBtn').addEventListener('click',toRight);
+  document.getElementById('weighBtn').addEventListener('click',weigh);
+  document.getElementById('accuseBtn').addEventListener('click',function(){
+    if(selected.length!==1){toast('选中一枚金币再指认！');return;}
+    accuse(selected[0]);selected=[];renderCoins();
+  });
+  document.getElementById('newBtn').addEventListener('click',function(){AOXSound.ensure();init(state.level+1);});
+  // 点金币两次指认
+  document.getElementById('coins').addEventListener('click',function(e){if(e.target.classList.contains('coin')&&state.over)return;});
+  init(1);
+})();
+</script>
+</body>
+</html>

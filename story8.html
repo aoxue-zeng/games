@@ -1,0 +1,417 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>童话王国·开放世界 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+#gameCanvas{background:#2a1a3a;touch-action:none}
+.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}
+.panel{max-width:560px;margin:12px auto;background:var(--mc-panel-dark);border:4px solid var(--mc-black);padding:20px;box-shadow:inset 4px 4px 0 0 #2a3f5f,inset -4px -4px 0 0 #000,8px 8px 0 0 rgba(0,0,0,0.4);text-align:center;min-height:300px}
+.panel .ch{font-family:'Press Start 2P',monospace;font-size:13px;color:#ffd700;margin-bottom:10px;text-shadow:2px 2px 0 #000}
+.panel .nr{font-size:17px;color:#e0e0e0;line-height:1.7;max-width:480px;margin:0 auto 12px}
+.char-grid{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.char-card{background:#0d1b2a;border:3px solid #000;padding:14px;cursor:pointer;width:110px;box-shadow:inset 2px 2px 0 0 #2a3f5f}
+.char-card:hover{border-color:#ffd700}.char-card.sel{border-color:#4caf50;box-shadow:0 0 12px #4caf50}
+.char-card .ci{font-size:34px}.char-card .cn{font-family:'Press Start 2P',monospace;font-size:8px;color:#ffd700;margin-top:4px}
+.char-card .cs{font-size:11px;color:#888;margin-top:3px}
+#questPanel{display:none;position:fixed;top:56px;right:0;width:280px;max-height:80vh;overflow-y:auto;background:var(--mc-night);border:4px solid var(--mc-black);box-shadow:inset 4px 4px 0 0 #2a3f5f;z-index:200;padding:14px}
+#questPanel .qt{font-family:'Press Start 2P',monospace;font-size:11px;color:#ffd700;margin-bottom:10px;text-shadow:1px 1px 0 #000}
+.quest-item{background:#0d1b2a;border:2px solid #000;padding:10px;margin:6px 0;font-size:14px;color:#ccc}
+.quest-item.done{opacity:0.5;text-decoration:line-through}
+.quest-item .qn{color:#ffd700;font-family:'Press Start 2P',monospace;font-size:9px;margin-bottom:4px}
+.quest-item.active{border-color:#4caf50;box-shadow:0 0 6px #4caf50}
+.skill-bar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:4px 0}
+.skill-btn{font-family:'Press Start 2P',monospace;font-size:8px;padding:8px 10px;border:2px solid #000;cursor:pointer;color:#fff;text-shadow:1px 1px 0 #000;position:relative}
+.skill-btn:disabled{opacity:0.3}
+.skill-btn .cd{position:absolute;bottom:0;right:2px;font-size:7px;color:#ffd700}
+.inv-bar{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:4px 0}
+.inv-slot{width:34px;height:34px;background:#0d1b2a;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;cursor:pointer}
+.inv-slot .cnt{position:absolute;bottom:0;right:1px;font-size:9px;color:#ffd700}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="story8.html">📜英雄</a><a href="story2.html">🚀星际</a><a href="story3.html">🥷忍者</a><a href="mario.html">冒险</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:24px;color:#ffd700">⚔️ 童话王国·开放世界</h1>
+<p class="subtitle">自由探索 · 任务系统 · Boss战</p>
+<div id="storyArea"></div>
+<div id="gameArea" style="display:none">
+<div class="hud" style="margin-top:10px">
+<div class="hud-item"><span class="label">角色</span><span id="charName">—</span></div>
+<div class="hud-item"><span class="label">生命</span><span id="hp">—</span></div>
+<div class="hud-item"><span class="label">金币</span><span id="gold">0</span></div>
+<div class="hud-item"><span class="label">任务</span><span id="qCount">0/5</span></div>
+</div>
+<div class="skill-bar" id="skillBar"></div>
+<div class="inv-bar" id="invBar"></div>
+<div class="game-stage" style="margin-top:6px"><canvas id="gameCanvas" width="640" height="400"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:12px;margin-top:6px">
+<span class="key">←→</span>移动 <span class="key">空格</span>跳 <span class="key">X</span>攻击 <span class="key">1 2 3</span>技能 <span class="key">Q</span>任务榜 · 走到NPC接任务
+</p>
+</div>
+<div id="questPanel">
+<div class="qt">📋 任务榜</div>
+<div id="questList"></div>
+<button class="mc-btn" style="margin-top:8px;font-size:10px;padding:6px" onclick="document.getElementById('questPanel').style.display='none'">关闭</button>
+</div>
+<div style="margin-top:10px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="index.html" class="mc-btn">← 返回</a></div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var sa=document.getElementById('storyArea'),ga=document.getElementById('gameArea');
+var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d'),W=640,H=400;
+var WORLD_W=3600,GRAVITY=0.5;
+// 角色
+var CHARS=[
+{icon:'🛡️',name:'骑士',hp:5,speed:3,jump:-10,color:'#4caf50',atk:3,skills:[{n:'盾击',dmg:5,cd:60,icon:'🛡️'},{n:'冲锋',dmg:3,cd:40,icon:'💨'},{n:'治愈',heal:2,cd:120,icon:'💚'}]},
+{icon:'🏹',name:'弓箭手',hp:3,speed:3.5,jump:-11,color:'#ff9800',atk:2,skills:[{n:'连射',dmg:4,cd:50,icon:'🏹'},{n:'翻滚',dmg:0,cd:30,icon:'💨'},{n:'暴击',dmg:8,cd:100,icon:'⚡'}]},
+{icon:'🔮',name:'法师',hp:2,speed:3,jump:-10,color:'#9c27b0',atk:4,skills:[{n:'火球',dmg:6,cd:45,icon:'🔥'},{n:'冰冻',dmg:2,cd:80,icon:'❄️'},{n:'治疗',heal:3,cd:120,icon:'💚'}]}
+];
+// 大地图平台（地面+浮空台+危险区）
+var PLAT=[
+// 村庄区(0-700) - 连续地面
+{x:0,y:340,w:700,h:60,t:'ground'},
+// 森林区(700-1400) - 连续地面
+{x:700,y:340,w:700,h:60,t:'ground'},{x:850,y:280,w:80,h:16,t:'brick'},{x:1050,y:250,w:80,h:16,t:'brick'},
+// 沼泽区(1400-1900)有尖刺 - 地面连续但中间有尖刺
+{x:1400,y:340,w:500,h:60,t:'ground'},{x:1580,y:340,w:40,h:60,t:'spike'},
+// 山洞区(1900-2500) - 连续地面
+{x:1900,y:340,w:600,h:60,t:'ground'},{x:2000,y:280,w:60,h:16,t:'brick'},{x:2200,y:250,w:60,h:16,t:'brick'},{x:2350,y:290,w:60,h:16,t:'brick'},
+// 火山区(2500-3000)有熔岩 - 地面连续但中间有熔岩
+{x:2500,y:340,w:500,h:60,t:'ground'},{x:2640,y:340,w:60,h:60,t:'lava'},{x:2740,y:300,w:60,h:16,t:'brick'},
+// 龙巢(3000-3600) - 连续地面
+{x:3000,y:340,w:600,h:60,t:'ground'},{x:3150,y:260,w:100,h:16,t:'brick'},{x:3350,y:220,w:100,h:16,t:'brick'}
+];
+// NPC和任务点
+var NPCS=[
+{x:80,y:310,icon:'👑',name:'国王',quest:0,color:'#ffd700',dialog:'恶龙苏醒了！请讨伐它！'},
+{x:500,y:310,icon:'🧙',name:'老法师',quest:1,color:'#9c27b0',dialog:'带上这瓶药水，路上用得着。'},
+{x:1100,y:310,icon:'🏹',name:'猎人',quest:2,color:'#ff9800',dialog:'森林里有史莱姆，帮我清掉3只！'},
+{x:1700,y:310,icon:'⚒️',name:'矿工',quest:3,color:'#7f7f7f',dialog:'沼泽的尖刺挡路，小心跳过去！'},
+{x:2300,y:310,icon:'🛡️',name:'老兵',quest:4,color:'#4caf50',dialog:'前面就是火山，准备好决战了吗？'}
+];
+// 任务系统
+var QUESTS=[
+{name:'国王的委托',desc:'前往森林，消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'药水x1'},
+{name:'老法师的礼物',desc:'去找老法师对话获得药水',target:'talk1',done:false,active:false,reward:'药水x2'},
+{name:'猎人的请求',desc:'森林里消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'金币x20'},
+{name:'矿工的指引',desc:'穿越沼泽尖刺区到达山洞',target:'reach1900',done:false,active:false,reward:'剑x1'},
+{name:'老兵的考验',desc:'到达火山口准备最终决战',target:'reach3000',done:false,active:false,reward:'无敌星x1'}
+];
+// 野怪分布
+var MOBS=[
+{x:850,y:318,type:'slime',hp:1,range:80},{x:1000,y:318,type:'slime',hp:1,range:80},{x:1150,y:318,type:'slime',hp:1,range:80},
+{x:1450,y:318,type:'slime',hp:2,range:60},{x:1950,y:318,type:'bat',hp:2,range:100},{x:2150,y:318,type:'bat',hp:2,range:100},
+{x:2550,y:318,type:'slime',hp:2,range:80},{x:2900,y:318,type:'bat',hp:3,range:120},
+{x:3200,y:318,type:'boss',hp:15,range:200,boss:true,name:'远古恶龙'}
+];
+// 金币
+var COINS=[[200,310],[400,310],[900,250],[1100,220],[1200,310],[1500,310],[1700,310],[2050,250],[2250,220],[2400,310],[2600,310],[2900,310],[3100,310],[3300,180],[3400,310]];
+// 道具
+var ITEMS=[[550,310,'potion','🧪'],[1200,310,'potion','🧪'],[2400,310,'sword','⚔️'],[2950,310,'star','⭐']];
+
+var selChar=null,state,p,enemies,coins,items,bullets,particles,keys_,tick,cam,hp,maxHp,gold,inventory,skillCd,npcs,quests,killCount,talkedNPC,bossDead,showQuest;
+
+function intro(){
+  sa.style.display='block';ga.style.display='none';
+  sa.innerHTML='<div class="panel"><div class="ch">⚔️ 勇者斗恶龙 · 开放世界</div>'+
+    '<div class="nr">远古恶龙 🐲 从火山深处苏醒，吞噬了王国的光明。<br>这是一个<b style="color:#ffd700">开放世界</b>——你可以在大地图上自由探索，<br>找到NPC接任务，收集道具，升级技能，最终讨伐恶龙！</div>'+
+    '<div style="color:#4dd0e1;font-size:14px;margin:8px">🗺️ 大地图自由探索 · 📋 5个任务 · 👑 NPC对话 · 🐲 Boss战</div>'+
+    '<button class="mc-btn green" id="nBtn" style="margin-top:12px">▶ 选择角色</button></div>';
+  document.getElementById('nBtn').onclick=function(){AOXSound.ensure();SFX.select();chooseChar();};
+}
+function chooseChar(){
+  var cards='';CHARS.forEach(function(c,i){cards+='<div class="char-card" data-idx="'+i+'"><div class="ci">'+c.icon+'</div><div class="cn">'+c.name+'</div><div class="cs">❤️'+c.hp+' 🗡️'+c.atk+'</div></div>';});
+  sa.innerHTML='<div class="panel"><div class="ch">选择你的勇者</div><div class="char-grid">'+cards+'</div><div id="ci" style="color:#888;font-size:13px;margin:8px">点击角色查看技能</div><button class="mc-btn green" id="sBtn" style="display:none;margin-top:10px">▶ 进入开放世界</button></div>';
+  document.querySelectorAll('.char-card').forEach(function(card){
+    card.onclick=function(){
+      document.querySelectorAll('.char-card').forEach(function(x){x.classList.remove('sel');});
+      card.classList.add('sel');SFX.click();
+      selChar=CHARS[parseInt(card.dataset.idx)];
+      document.getElementById('ci').innerHTML='技能：'+selChar.skills.map(function(s){return s.icon+s.n}).join(' / ');
+      document.getElementById('sBtn').style.display='inline-block';
+      document.getElementById('charName').textContent=selChar.name;
+    };
+  });
+  document.getElementById('sBtn').onclick=function(){SFX.select();startGame();};
+}
+function startGame(){
+  state={running:true,over:false};tick=0;cam={x:0};
+  p={x:50,y:310,w:22,h:30,vx:0,vy:0,onG:true,dir:1,anim:0,inv:180,atkCd:0};
+  maxHp=selChar.hp;hp=maxHp;bullets=[];particles=[];keys_={};skillCd=[0,0,0];gold=0;killCount=0;talkedNPC=-1;bossDead=false;
+  inventory={potion:0,sword:0,star:0};
+  npcs=JSON.parse(JSON.stringify(NPCS));
+  quests=JSON.parse(JSON.stringify(QUESTS));
+  enemies=MOBS.map(function(m){return{x:m.x,y:m.y,w:m.boss?40:20,h:m.boss?30:20,vx:0.5,origX:m.x,range:m.range,hp:m.hp,maxhp:m.hp,alive:true,anim:Math.random()*6,type:m.type,boss:m.boss,name:m.name,frozen:0};});
+  coins=COINS.map(function(c){return{x:c[0],y:c[1],got:false,t:Math.random()*6};});
+  items=ITEMS.map(function(it){return{x:it[0],y:it[1],type:it[2],icon:it[3],got:false};});
+  quests[0].active=true; // 第一个任务默认激活
+  updateHud();buildSkillBar();buildInvBar();renderQuests();
+  sa.style.display='none';ga.style.display='block';
+  if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'⚔',key:'x',color:'rgba(229,57,53,0.85)'},{label:'Q',key:'q'},{label:'1',key:'1'},{label:'2',key:'2'},{label:'3',key:'3'}]});
+  AOXSound.ensure();AOXSound.startBGM('game');
+}
+function buildSkillBar(){
+  var sb=document.getElementById('skillBar');sb.innerHTML='';
+  selChar.skills.forEach(function(s,i){var b=document.createElement('button');b.className='skill-btn';b.style.background=['#4caf50','#2196f3','#e53935'][i];b.innerHTML=s.icon+s.n+'<span class="cd" id="sk'+i+'"></span>';b.onclick=function(){useSkill(i);};sb.appendChild(b);});
+}
+function buildInvBar(){
+  var ib=document.getElementById('invBar');ib.innerHTML='';
+  [{i:'🧪',n:'potion',c:inventory.potion},{i:'⚔️',n:'sword',c:inventory.sword},{i:'⭐',n:'star',c:inventory.star}].forEach(function(s){
+    var d=document.createElement('div');d.className='inv-slot';d.innerHTML=s.i+(s.c>0?'<span class="cnt">'+s.c+'</span>':'');d.style.opacity=s.c>0?'1':'0.3';
+    d.onclick=function(){if(s.n==='potion'&&inventory.potion>0&&hp<maxHp){inventory.potion--;hp=Math.min(maxHp,hp+2);SFX.clear();updateHud();buildInvBar();toast('🧪 回血+2');}};
+    ib.appendChild(d);});
+}
+function renderQuests(){
+  var ql=document.getElementById('questList');ql.innerHTML='';
+  var done=0;
+  quests.forEach(function(q,i){
+    var d=document.createElement('div');d.className='quest-item'+(q.done?' done':'')+(q.active?' active':'');
+    d.innerHTML='<div class="qn">'+(q.done?'✅':'📋')+' '+q.name+'</div><div style="font-size:13px">'+q.desc+'</div><div style="font-size:12px;color:#888;margin-top:4px">奖励：'+q.reward+(q.active?' · <span style="color:#4caf50">进行中</span>':'')+'</div>';
+    ql.appendChild(d);if(q.done)done++;
+  });
+  document.getElementById('qCount').textContent=done+'/'+quests.length;
+}
+function updateHud(){document.getElementById('hp').textContent='♥'.repeat(Math.max(0,hp))||'—';document.getElementById('gold').textContent=gold;}
+function useSkill(i){
+  if(!state||!state.running||skillCd[i]>0)return;
+  var s=selChar.skills[i];skillCd[i]=s.cd;SFX.levelUp();
+  if(s.heal){hp=Math.min(maxHp,hp+s.heal);ex(p.x,p.y,'#4caf50');updateHud();toast(s.icon+' '+s.n+' 回血'+s.heal);}
+  else if(s.dmg){enemies.forEach(function(e){if(e.alive&&Math.abs(e.x-p.x)<120){e.hp-=s.dmg;ex(e.x,e.y,'#ffd700');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(e.boss){bossDead=true;SFX.win();toast('🐲 恶龙被击败！');checkWin();}SFX.clear();}}});}
+  if(i===1&&selChar.name==='弓箭手'){p.vy=-6;}
+  if(i===1&&selChar.name==='法师'){enemies.forEach(function(e){if(e.alive)e.frozen=120;});}
+  updateHud();
+}
+function rc(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+function checkQuests(){
+  // 杀怪任务
+  if(!quests[0].done&&killCount>=3){quests[0].done=true;quests[0].active=false;inventory.potion++;buildInvBar();SFX.gem();toast('✅ 任务完成：猎人的请求 +20金币');gold+=20;quests[2].done=true;quests[2].active=false;updateHud();renderQuests();}
+  if(!quests[1].done&&talkedNPC===1){quests[1].done=true;quests[1].active=false;inventory.potion+=2;buildInvBar();SFX.gem();toast('✅ 任务完成：老法师的礼物');renderQuests();}
+  if(!quests[3].done&&p.x>=1900){quests[3].done=true;quests[3].active=false;inventory.sword++;buildInvBar();SFX.gem();toast('✅ 任务完成：矿工的指引 +剑');renderQuests();}
+  if(!quests[4].done&&p.x>=3000){quests[4].done=true;quests[4].active=false;inventory.star++;buildInvBar();SFX.gem();toast('✅ 任务完成：老兵的考验 +无敌星');renderQuests();}
+}
+function checkWin(){
+  if(bossDead){state.over=true;state.running=false;
+    setTimeout(function(){
+      sa.style.display='block';ga.style.display='none';
+      var done=quests.filter(function(q){return q.done;}).length;
+      sa.innerHTML='<div class="panel"><div class="ch">🏆 通关！恶龙被击败！</div><div class="nr">远古恶龙倒下了！王国恢复了光明 🌅<br><br>完成任务：'+done+'/'+quests.length+'<br>金币：'+gold+'<br>背包：🧪'+inventory.potion+' ⚔️'+inventory.sword+' ⭐'+inventory.star+'</div><div style="font-size:40px;margin:12px">🏆🎉🐲</div><div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button class="mc-btn green" onclick="location.reload()">🔄 重玩</button><a href="index.html" class="mc-btn">← 返回</a></div></div>';
+    },1500);
+  }
+}
+function update(){
+  if(!state||!p||!state.running||state.over)return;tick++;
+  for(var i=0;i<3;i++)if(skillCd[i]>0){skillCd[i]--;var el=document.getElementById('sk'+i);if(el)el.textContent=skillCd[i]>0?Math.ceil(skillCd[i]/60)+'s':'';}
+  if(keys_['arrowleft']||keys_['a']){p.vx=-selChar.speed;p.dir=-1;}
+  else if(keys_['arrowright']||keys_['d']){p.vx=selChar.speed;p.dir=1;}
+  else p.vx*=0.8;
+  if((keys_[' ']||keys_['arrowup']||keys_['w'])&&p.onG){p.vy=selChar.jump;p.onG=false;SFX.jump();}
+  if(keys_['x']){if(!p.atkCd||p.atkCd<=0){p.atkCd=25;bullets.push({x:p.x+p.dir*18,y:p.y-5,vx:p.dir*5,dmg:selChar.atk,life:50});SFX.shoot();}}
+  if(p.atkCd>0)p.atkCd--;
+  if(keys_['q']){keys_['q']=false;document.getElementById('questPanel').style.display=document.getElementById('questPanel').style.display==='block'?'none':'block';}
+  // 重力+移动
+  p.vy+=GRAVITY;if(p.vy>14)p.vy=14;
+  // 水平先走
+  p.x+=p.vx;if(p.x<0)p.x=0;if(p.x>WORLD_W-p.w)p.x=WORLD_W-p.w;
+  // 水平碰撞（只挡墙不挡地面）
+  for(var hi=0;hi<PLAT.length;hi++){var pl=PLAT[hi];if(pl.t==='spike'||pl.t==='lava'||pl.t==='ground')continue;
+    if(p.y+p.h>pl.y+3&&p.y<pl.y+pl.h&&p.x+p.w>pl.x&&p.x<pl.x+pl.w){
+      if(p.vx>0)p.x=pl.x-p.w;else if(p.vx<0)p.x=pl.x+pl.w;p.vx=0;
+    }
+  }
+  // 垂直移动
+  p.y+=p.vy;
+  // 地面碰撞：检查所有地面平台，找脚下支撑
+  p.onG=false;
+  for(var gi=0;gi<PLAT.length;gi++){var gp=PLAT[gi];if(gp.t==='spike'||gp.t==='lava')continue;
+    // 玩家脚底在这个平台的X范围内
+    if(p.x+p.w>gp.x+2&&p.x<gp.x+gp.w-2){
+      // 玩家脚底在平台顶部附近（允许小穿透）
+      if(p.y+p.h>=gp.y&&p.y+p.h<=gp.y+20){
+        p.y=gp.y-p.h;p.vy=0;p.onG=true;break;
+      }
+      // 从上面快速落下穿过顶部
+      if(p.vy>0&&p.y+p.h-p.vy<=gp.y+2&&p.y+p.h>=gp.y){
+        p.y=gp.y-p.h;p.vy=0;p.onG=true;break;
+      }
+    }
+  }
+  // 浮空砖块碰撞（从下方顶到）
+  for(var bi=0;bi<PLAT.length;bi++){var bp=PLAT[bi];if(bp.t==='brick'&&p.x+p.w>bp.x&&p.x<bp.x+bp.w){
+    if(p.vy<0&&p.y<bp.y+bp.h&&p.y>bp.y){p.y=bp.y+bp.h;p.vy=0;}
+    if(p.vy>0&&p.y+p.h>bp.y&&p.y+p.h<bp.y+bp.h+10&&p.x+p.w>bp.x&&p.x<bp.x+bp.w){p.y=bp.y-p.h;p.vy=0;p.onG=true;}
+  }}
+  // 危险物
+  for(var di=0;di<PLAT.length;di++){var dp=PLAT[di];if(dp.t!=='spike'&&dp.t!=='lava')continue;
+    if(p.x+p.w>dp.x+2&&p.x<dp.x+dp.w-2&&p.y+p.h>dp.y&&p.y<dp.y+dp.h){
+      if(p.inv<=0){hp--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(hp<=0)gameOver();updateHud();}
+    }
+  }
+  p.anim+=Math.abs(p.vx)*0.2;if(p.inv>0)p.inv--;
+  // NPC交互
+  npcs.forEach(function(n,i){if(Math.abs(p.x-n.x)<40&&Math.abs(p.y-n.y)<50){
+    if(!n.talked){n.talked=true;talkedNPC=i;toast(n.icon+' '+n.name+'：'+n.dialog);SFX.select();checkQuests();
+      if(i===1){quests[1].active=true;renderQuests();}}
+  }});
+  // 敌人
+  enemies.forEach(function(e){if(!e.alive)return;e.anim+=0.1;if(e.frozen>0){e.frozen--;return;}
+    if(!e.boss){e.x+=e.vx;if(e.x<e.origX-e.range||e.x>e.origX+e.range)e.vx*=-1;}
+    else{e.x=e.origX+Math.sin(e.anim*0.3)*150;e.y=280+Math.sin(e.anim*0.5)*30;}
+    if(p.inv<=0&&rc(p,e)){hp--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(hp<=0)gameOver();updateHud();}});
+  bullets.forEach(function(b){b.x+=b.vx;b.life--;enemies.forEach(function(e){if(e.alive&&Math.abs(b.x-e.x)<e.w&&Math.abs(b.y-e.y)<e.h){e.hp-=b.dmg;b.life=0;ex(e.x,e.y,'#fff');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(!e.boss)killCount++;if(e.boss){bossDead=true;SFX.win();toast('🐲 恶龙被击败！');checkWin();}SFX.clear();checkQuests();updateHud();}}});});
+  bullets=bullets.filter(function(b){return b.life>0;});
+  coins.forEach(function(c){c.t+=0.15;if(!c.got&&Math.abs(p.x+11-c.x)<16&&Math.abs(p.y+15-c.y)<16){c.got=true;gold++;SFX.coin();updateHud();}});
+  items.forEach(function(it){if(!it.got&&Math.abs(p.x+11-it.x)<18&&Math.abs(p.y+15-it.y)<18){it.got=true;inventory[it.type]++;SFX.gem();buildInvBar();toast(it.icon+' 获得道具！');}});
+  checkQuests();
+  var tc=p.x-280;if(tc<0)tc=0;if(tc>WORLD_W-W)tc=WORLD_W-W;cam.x+=(tc-cam.x)*0.1;
+  particles=particles.filter(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;pp.vy+=0.2;pp.life--;return pp.life>0;});
+  if(p.y>H+60){hp--;p.x=Math.max(50,p.x-50);p.y=310;p.vy=0;p.inv=60;SFX.hurt();if(hp<=0)gameOver();updateHud();}
+}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3});}}
+function gameOver(){state.over=true;state.running=false;SFX.lose();toast('💀 失败！按R重生');setTimeout(function(){if(state.over){hp=maxHp;p.x=50;p.y=310;p.vy=0;p.inv=180;state.over=false;state.running=true;updateHud();}},2000);}
+function draw(){
+  ctx.fillStyle='#1a2a1a';ctx.fillRect(0,0,W,H);
+  if(!state||!p)return;
+  // 远景
+  ctx.fillStyle='rgba(255,255,255,0.1)';for(var s=0;s<20;s++){var sx=(s*80-cam.x*0.2)%W;if(sx<0)sx+=W;ctx.fillRect(sx,(s*60)%H,60,20);}
+  // 区域标识
+  var zones=[[0,600,'村庄'],[700,1300,'森林'],[1400,1800,'沼泽'],[1900,2400,'山洞'],[2500,3000,'火山'],[3000,3600,'龙巢']];
+  zones.forEach(function(z){if(p.x>=z[0]&&p.x<=z[1]){ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px "Press Start 2P",monospace';ctx.textAlign='left';ctx.fillText('📍 '+z[2],10,20);}});
+  // 平台
+  PLAT.forEach(function(pl){var sx=pl.x-cam.x;if(sx+pl.w<0||sx>W)return;
+    if(pl.t==='lava'){ctx.fillStyle='#e55300';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.fillStyle='rgba(255,200,0,0.5)';ctx.fillRect(sx,pl.y+Math.sin(tick*0.1+pl.x)*3,pl.w,5);}
+    else if(pl.t==='spike'){ctx.fillStyle='#aaa';for(var sp=0;sp<pl.w;sp+=8){ctx.beginPath();ctx.moveTo(sx+sp,pl.y+pl.h);ctx.lineTo(sx+sp+4,pl.y);ctx.lineTo(sx+sp+8,pl.y+pl.h);ctx.fill();}}
+    else{ctx.fillStyle='#5fb53f';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.fillStyle='#3d8b2a';ctx.fillRect(sx,pl.y,pl.w,4);ctx.fillStyle='#6b4220';ctx.fillRect(sx,pl.y+4,pl.w,pl.h-4);}});
+  // 金币
+  coins.forEach(function(c){if(c.got)return;var sx=c.x-cam.x;if(sx<-10||sx>W+10)return;ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=5;ctx.fillRect(sx-5,c.y-5+Math.sin(c.t)*2,10,10);ctx.shadowBlur=0;});
+  // 道具
+  items.forEach(function(it){if(it.got)return;var sx=it.x-cam.x;if(sx<-15||sx>W+15)return;ctx.font='18px serif';ctx.textAlign='center';ctx.fillText(it.icon,sx,it.y+8+Math.sin(tick*0.1)*2);});
+  // NPC
+  npcs.forEach(function(n){var sx=n.x-cam.x;if(sx<-30||sx>W+30)return;
+    ctx.font='28px serif';ctx.textAlign='center';ctx.fillText(n.icon,sx,n.y+8);
+    if(Math.abs(p.x-n.x)<60){ctx.fillStyle='#ffd700';ctx.font='9px "Press Start 2P",monospace';ctx.fillText(n.name,sx,n.y-15);ctx.fillStyle='#4dd0e1';ctx.font='8px "Press Start 2P",monospace';ctx.fillText('! 任务',sx,n.y-5);}
+    // 任务标记
+    if(!n.talked&&QUESTS[n.quest]&&!quests[n.quest].done){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(sx,n.y-30,4+Math.sin(tick*0.15)*2,0,7);ctx.fill();}});
+  // 敌人（美化版+感叹号标记）
+  enemies.forEach(function(e){if(!e.alive)return;var sx=e.x-cam.x;if(sx<-50||sx>W+50)return;
+    var bob=Math.sin(e.anim)*2;
+    if(e.boss){
+      // Boss美化：大身体+翅膀+角+发光眼
+      ctx.fillStyle=e.frozen>0?'#4dd0e1':'#9c27b0';
+      ctx.beginPath();ctx.ellipse(sx+20,e.y+15+bob,35,25,0,0,7);ctx.fill();
+      // 翅膀
+      ctx.fillStyle=e.frozen>0?'#4dd0e1':'#6a1b9a';
+      ctx.beginPath();ctx.moveTo(sx-15,e.y+10+bob);ctx.lineTo(sx-35,e.y-5+bob);ctx.lineTo(sx-10,e.y+20+bob);ctx.fill();
+      ctx.beginPath();ctx.moveTo(sx+55,e.y+10+bob);ctx.lineTo(sx+75,e.y-5+bob);ctx.lineTo(sx+50,e.y+20+bob);ctx.fill();
+      // 角
+      ctx.fillStyle='#ffd700';
+      ctx.beginPath();ctx.moveTo(sx+10,e.y-10+bob);ctx.lineTo(sx+5,e.y-25+bob);ctx.lineTo(sx+15,e.y-10+bob);ctx.fill();
+      ctx.beginPath();ctx.moveTo(sx+30,e.y-10+bob);ctx.lineTo(sx+35,e.y-25+bob);ctx.lineTo(sx+25,e.y-10+bob);ctx.fill();
+      // 眼睛（发光红眼）
+      ctx.fillStyle='#ff1744';ctx.shadowColor='#ff1744';ctx.shadowBlur=8;
+      ctx.beginPath();ctx.arc(sx+12,e.y+5+bob,4,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(sx+28,e.y+5+bob,4,0,7);ctx.fill();
+      ctx.shadowBlur=0;
+      // 牙齿
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(sx+15,e.y+18+bob);ctx.lineTo(sx+18,e.y+25+bob);ctx.lineTo(sx+21,e.y+18+bob);ctx.fill();
+      ctx.beginPath();ctx.moveTo(sx+22,e.y+18+bob);ctx.lineTo(sx+25,e.y+25+bob);ctx.lineTo(sx+28,e.y+18+bob);ctx.fill();
+      // 名字+血条
+      ctx.fillStyle='#fff';ctx.font='9px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText(e.name,sx+20,e.y-30);
+      ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(sx-20,e.y-42,80,5);ctx.fillStyle='#e53935';ctx.fillRect(sx-20,e.y-42,80*(e.hp/e.maxhp),5);
+    } else {
+      // 普通怪物美化：圆身体+眼睛+脚+细节
+      var col=e.frozen>0?'#4dd0e1':(e.type==='slime'?'#4caf50':'#9c27b0');
+      // 身体（圆形）
+      ctx.fillStyle=col;
+      ctx.beginPath();ctx.arc(sx+10,e.y+8+bob,12,0,7);ctx.fill();
+      // 高光
+      ctx.fillStyle='rgba(255,255,255,0.3)';
+      ctx.beginPath();ctx.arc(sx+6,e.y+4+bob,4,0,7);ctx.fill();
+      // 眼睛（大眼+瞳孔）
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx+6,e.y+6+bob,3.5,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(sx+14,e.y+6+bob,3.5,0,7);ctx.fill();
+      ctx.fillStyle='#000';ctx.beginPath();ctx.arc(sx+6,e.y+7+bob,1.5,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(sx+14,e.y+7+bob,1.5,0,7);ctx.fill();
+      // 嘴巴
+      ctx.strokeStyle='#000';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(sx+10,e.y+12+bob,3,0,Math.PI);ctx.stroke();
+      // 脚
+      ctx.fillStyle=col;
+      ctx.fillRect(sx+4,e.y+18+bob,5,4);
+      ctx.fillRect(sx+12,e.y+18+bob,5,4);
+    }
+    // 感叹号标记（绿色=怪物需要打）
+    if(!e.boss){
+      ctx.fillStyle='#4caf50';ctx.font='bold 18px Arial';ctx.textAlign='center';
+      var exY=e.y-8+Math.sin(tick*0.1)*2;
+      ctx.fillText('!',sx+10,exY);
+      // 感叹号背景圆
+      ctx.fillStyle='rgba(76,175,80,0.3)';
+      ctx.beginPath();ctx.arc(sx+10,e.y-12,8,0,7);ctx.fill();
+      ctx.fillStyle='#4caf50';ctx.font='bold 16px Arial';
+      ctx.fillText('!',sx+10,e.y-7);
+    } else {
+      // Boss用更大的感叹号
+      ctx.fillStyle='#e53935';ctx.font='bold 24px Arial';ctx.textAlign='center';
+      var exY2=e.y-35+Math.sin(tick*0.1)*3;
+      ctx.fillText('!',sx+20,exY2);
+    }
+  });
+  // NPC感叹号（红色=人/对话任务）
+  npcs.forEach(function(n){if(n.talked)return;var sx=n.x-cam.x;if(sx<-30||sx>W+30)return;
+    ctx.fillStyle='rgba(229,57,53,0.3)';ctx.beginPath();ctx.arc(sx,n.y-20,8,0,7);ctx.fill();
+    ctx.fillStyle='#e53935';ctx.font='bold 16px Arial';ctx.textAlign='center';
+    ctx.fillText('!',sx,n.y-15+Math.sin(tick*0.1)*2);
+  });
+  // 玩家
+  if(p.inv<=0||Math.floor(p.inv/4)%2===0){var sx=p.x-cam.x;var bob=p.onG?Math.sin(p.anim)*1.5:0;ctx.fillStyle=selChar.color;ctx.fillRect(sx+2,p.y+8+bob,18,16);ctx.fillStyle='#f0c8a0';ctx.fillRect(sx+4,p.y-2+bob,14,12);ctx.fillStyle='#4a2c12';ctx.fillRect(sx+4,p.y-2+bob,14,3);ctx.fillStyle='#fff';ctx.fillRect(sx+(p.dir>0?11:6),p.y+3+bob,3,3);ctx.fillStyle='#000';ctx.fillRect(sx+(p.dir>0?12:7),p.y+4+bob,1,2);ctx.fillStyle='#1565c0';ctx.fillRect(sx+3,p.y+24,6,6);ctx.fillRect(sx+13,p.y+24,6,6);ctx.font='12px serif';ctx.textAlign='center';ctx.fillText(selChar.icon,sx+10,p.y-6+bob);}
+  // 子弹
+  bullets.forEach(function(b){ctx.fillStyle='#ffd700';ctx.fillRect(b.x-cam.x-2,b.y,5,4);});
+  particles.forEach(function(pp){ctx.globalAlpha=pp.life/20;ctx.fillStyle=pp.c;ctx.fillRect(pp.x-cam.x,pp.y,pp.size,pp.size);ctx.globalAlpha=1;});
+  // 小地图
+  drawMiniMap();
+}
+function drawMiniMap(){
+  var mw=140,mh=30,mx=W-mw-10,my=10;
+  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(mx-2,my-2,mw+4,mh+4);
+  ctx.fillStyle='#2a4a2a';ctx.fillRect(mx,my,mw,mh);
+  // NPC点
+  npcs.forEach(function(n){var nx=mx+(n.x/WORLD_W)*mw;ctx.fillStyle=n.talked?'#555':'#ffd700';ctx.fillRect(nx-1,my+5,3,3);});
+  // Boss点
+  enemies.forEach(function(e){if(e.boss&&e.alive){var bx=mx+(e.x/WORLD_W)*mw;ctx.fillStyle='#e53935';ctx.fillRect(bx-2,my+5,4,4);}});
+  // 玩家点
+  var px=mx+(p.x/WORLD_W)*mw;ctx.fillStyle='#4dd0e1';ctx.fillRect(px-1,my+12,3,3);
+  // 标签
+  ctx.fillStyle='#fff';ctx.font='7px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('MAP',mx+mw/2,my+mh-3);
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys_[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key==='1')useSkill(0);if(e.key==='2')useSkill(1);if(e.key==='3')useSkill(2);if(e.key.toLowerCase()==='r'&&state&&state.over){hp=maxHp;p.x=50;p.y=310;p.vy=0;p.inv=180;state.over=false;state.running=true;updateHud();}});
+document.addEventListener('keyup',function(e){keys_[e.key.toLowerCase()]=false;});
+// 触屏控制
+var touchStartX=0;
+canvas.addEventListener('touchstart',function(e){
+  e.preventDefault();var r=canvas.getBoundingClientRect();
+  var tx=e.touches[0].clientX-r.left;var ty=e.touches[0].clientY-r.top;
+  if(ty<H*0.4){keys_[' ']=true;setTimeout(function(){keys_[' ']=false;},200);}
+  touchStartX=tx;
+},{passive:false});
+canvas.addEventListener('touchmove',function(e){
+  e.preventDefault();var r=canvas.getBoundingClientRect();
+  var tx=e.touches[0].clientX-r.left;var dx=tx-touchStartX;
+  if(dx>10){keys_['arrowright']=true;keys_['arrowleft']=false;}
+  else if(dx<-10){keys_['arrowleft']=true;keys_['arrowright']=false;}
+  else{keys_['arrowleft']=false;keys_['arrowright']=false;}
+},{passive:false});
+canvas.addEventListener('touchend',function(e){
+  e.preventDefault();keys_['arrowleft']=false;keys_['arrowright']=false;
+},{passive:false});
+intro();loop();
+})();
+</script>
+</body>
+</html>

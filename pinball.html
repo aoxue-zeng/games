@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>弹球台 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a0a2a;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="snake2.html">双人蛇</a><a href="pinball.html">弹球台</a><a href="maze.html">迷宫</a><a href="snake.html">贪吃蛇</a><a href="m-brawl.html">大乱斗</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🟠 弹球台</h1>
+<p class="subtitle">弹球撞击缓冲器得分，别让球掉下去！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">得分</span><span id="score">0</span></div><div class="hud-item"><span class="label">球</span><span id="balls">3</span>🔴</div><div class="hud-item"><span class="label">最高</span><span id="best">0</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="380" height="480"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px"><span class="key">A</span>左挡板 <span class="key">D</span>右挡板 · 撞缓冲器+分 · <span class="key">R</span>重开</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,ball,flippers,bumpers,pts,keys,tick;
+function init(){s={running:false,over:false,score:0,balls:3,best:getBest()};ball={x:W/2,y:80,vx:2,vy:3,r:7};flippers=[{x:80,y:H-60,angle:0.4,side:-1},{x:W-80,y:H-60,angle:-0.4,side:1}];bumpers=[{x:W/2,y:160,r:22,val:50},{x:W/2-70,y:240,r:18,val:30},{x:W/2+70,y:240,r:18,val:30},{x:W/2,y:320,r:20,val:40}];pts=[];keys={};tick=0;updateHud();}
+function getBest(){return parseInt(localStorage.getItem('pinball_best')||'0',10)}
+function setBest(v){localStorage.setItem('pinball_best',v)}
+function updateHud(){document.getElementById('score').textContent=s.score;document.getElementById('balls').textContent=s.balls;document.getElementById('best').textContent=s.best;}
+function update(){if(!s.running||s.over)return;tick++;
+// 挡板
+if(keys['a'])flippers[0].angle=-0.5;else flippers[0].angle=0.4;
+if(keys['d'])flippers[1].angle=0.5;else flippers[1].angle=-0.4;
+// 球物理
+ball.vy+=0.15;ball.x+=ball.vx;ball.y+=ball.vy;
+// 墙
+if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);SFX.move();}
+if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);SFX.move();}
+if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);SFX.move();}
+// 缓冲器
+bumpers.forEach(function(b){var d=Math.hypot(ball.x-b.x,ball.y-b.y);if(d<b.r+ball.r){var ang=Math.atan2(ball.y-b.y,ball.x-b.x);ball.x=b.x+Math.cos(ang)*(b.r+ball.r);ball.y=b.y+Math.sin(ang)*(b.r+ball.r);var sp=Math.hypot(ball.vx,ball.vy);ball.vx=Math.cos(ang)*sp*1.05;ball.vy=Math.sin(ang)*sp*1.05;s.score+=b.val;SFX.hit();ex(ball.x,ball.y,'#ffd700');updateHud();}});
+// 挡板碰撞
+flippers.forEach(function(f){var fx=f.x+Math.cos(f.angle)*40,fy=f.y+Math.sin(f.angle)*40;var d=Math.hypot(ball.x-fx,ball.y-fy);if(d<25&&ball.vy>0){ball.vy=-Math.abs(ball.vy)-3;ball.vx+=(ball.x-fx)*0.1;SFX.jump();}});
+// 掉底
+if(ball.y>H+20){s.balls--;SFX.lose();if(s.balls<=0)over();else{ball.x=W/2;ball.y=80;ball.vx=2;ball.vy=3;}updateHud();}
+if(s.score>s.best){setBest(s.score);s.best=s.score;updateHud();}
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});}
+function ex(x,y,c){for(var i=0;i<6;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();}
+function draw(){
+x.fillStyle='#1a0a2a';x.fillRect(0,0,W,H);
+// 缓冲器
+bumpers.forEach(function(b){var p=Math.sin(tick*0.05)*2;x.fillStyle='#e53935';x.shadowColor='#e53935';x.shadowBlur=12;x.beginPath();x.arc(b.x,b.y,b.r+p,0,7);x.fill();x.shadowBlur=0;x.fillStyle='#ffeb3b';x.beginPath();x.arc(b.x,b.y,b.r/2,0,7);x.fill();x.fillStyle='rgba(255,255,255,0.5)';x.beginPath();x.arc(b.x-4,b.y-4,3,0,7);x.fill();});
+// 挡板
+flippers.forEach(function(f){var fx=f.x+Math.cos(f.angle)*40,fy=f.y+Math.sin(f.angle)*40;x.strokeStyle='#4dd0e1';x.lineWidth=8;x.lineCap='round';x.beginPath();x.moveTo(f.x,f.y);x.lineTo(fx,fy);x.stroke();x.fillStyle='#4dd0e1';x.beginPath();x.arc(f.x,f.y,6,0,7);x.fill();});
+// 球
+x.fillStyle='#fff';x.shadowColor='#fff';x.shadowBlur=8;x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();x.shadowBlur=0;
+// 底部缺口提示
+x.fillStyle='rgba(229,57,53,0.3)';x.fillRect(0,H-5,W,5);
+pts.forEach(function(p){x.globalAlpha=p.life/20;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1;});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('球用完了！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('得分:'+s.score+' 最高:'+s.best,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#4dd0e1';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+c.addEventListener('touchstart',function(e){e.preventDefault();var r=c.getBoundingClientRect();var tx=(e.touches[0].clientX-r.left)*(W/r.width);if(tx<W/2)keys['a']=true;else keys['d']=true},{passive:false});
+c.addEventListener('touchend',function(){keys['a']=false;keys['d']=false},{passive:false});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();if(AOXMobile.isTouch)AOXMobile.virtualKeys({keys:[{label:'A',key:'a',color:'rgba(76,175,80,0.85)'},{label:'D',key:'d',color:'rgba(229,57,53,0.85)'}]});toast('弹球！')});
+init();loop();
+})();
+</script></body></html>

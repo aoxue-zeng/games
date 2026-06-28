@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#d4a373; touch-action:none; cursor:pointer; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚫ 五子棋</h1>
+  <p class="subtitle">人机对战，五子连珠获胜！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">你(黑)</span><span id="pwin">0</span>胜</div>
+    <div class="hud-item"><span class="label">AI(白)</span><span id="awin">0</span>胜</div>
+    <div class="hud-item"><span class="label">当前</span><span id="turn">你的回合</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="500" height="500"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    <span class="key">点击</span> 落子 · 你执黑先手 · 连成五子（横竖斜）获胜
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 新对局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var SIZE=15,CELL=W/SIZE;
+  var board,state,turn,thinking;
+  function init(){board=[];for(var r=0;r<SIZE;r++)board.push(new Array(SIZE).fill(0));state={over:false,won:0,pwin:parseInt(localStorage.getItem('gomoku_p')||'0'),awin:parseInt(localStorage.getItem('gomoku_a')||'0')};turn=1;thinking=false;updateHud();draw();}
+  function updateHud(){document.getElementById('pwin').textContent=state.pwin;document.getElementById('awin').textContent=state.awin;document.getElementById('turn').textContent=state.over?(state.won===1?'你赢了！':state.won===2?'AI 赢了':'平局'):(turn===1?'你的回合':'AI 思考中...');}
+  function draw(){
+    ctx.fillStyle='#d4a373';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#8b5a2b';ctx.lineWidth=1;
+    for(var i=0;i<SIZE;i++){ctx.beginPath();ctx.moveTo(CELL/2+i*CELL,CELL/2);ctx.lineTo(CELL/2+i*CELL,H-CELL/2);ctx.stroke();ctx.beginPath();ctx.moveTo(CELL/2,CELL/2+i*CELL);ctx.lineTo(W-CELL/2,CELL/2+i*CELL);ctx.stroke();}
+    // 天元星位
+    [[3,3],[3,11],[7,7],[11,3],[11,11]].forEach(function(p){ctx.fillStyle='#8b5a2b';ctx.beginPath();ctx.arc(CELL/2+p[0]*CELL,CELL/2+p[1]*CELL,3,0,7);ctx.fill();});
+    // 棋子
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      if(board[r][c]){var x=CELL/2+c*CELL,y=CELL/2+r*CELL;
+        ctx.fillStyle=board[r][c]===1?'#1a1a1a':'#fff';
+        ctx.beginPath();ctx.arc(x,y,CELL/2-2,0,7);ctx.fill();
+        ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+        if(board[r][c]===2){ctx.fillStyle='rgba(0,0,0,0.1)';ctx.beginPath();ctx.arc(x-3,y-3,3,0,7);ctx.fill();}
+      }
+    }
+  }
+  function place(r,c,who){
+    if(board[r][c]||state.over)return false;
+    board[r][c]=who;SFX.place();draw();
+    if(checkWin(r,c,who)){state.over=true;state.won=who;if(who===1){state.pwin++;localStorage.setItem('gomoku_p',state.pwin);SFX.win();}else{state.awin++;localStorage.setItem('gomoku_a',state.awin);SFX.lose();}updateHud();toast(who===1?'🎉 你赢了！':'AI 赢了');return true;}
+    return true;
+  }
+  function checkWin(r,c,who){
+    var dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    for(var d=0;d<4;d++){var cnt=1;for(var i=1;i<5;i++){var nr=r+dirs[d][0]*i,nc=c+dirs[d][1]*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==who)break;cnt++;}for(var j=1;j<5;j++){var nr2=r-dirs[d][0]*j,nc2=c-dirs[d][1]*j;if(nr2<0||nr2>=SIZE||nc2<0||nc2>=SIZE||board[nr2][nc2]!==who)break;cnt++;}if(cnt>=5)return true;}
+    return false;
+  }
+  // AI：评估每个空位得分
+  function aiMove(){
+    var best=-1,bestR=7,bestC=7;
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      if(board[r][c])continue;
+      var hasNb=false;for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){var nr=r+dr,nc=c+dc;if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]){hasNb=true;}}if(!hasNb)continue;
+      var myScore=evalPos(r,c,2),oppScore=evalPos(r,c,1);
+      var score=myScore*1.1+oppScore;
+      if(score>best){best=score;bestR=r;bestC=c;}
+    }
+    place(bestR,bestC,2);
+    if(!state.over){turn=1;updateHud();}
+  }
+  function evalPos(r,c,who){
+    var opp=who===1?2:1;var total=0;
+    var dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    dirs.forEach(function(d){
+      var cnt=1,blk=0;for(var i=1;i<5;i++){var nr=r+d[0]*i,nc=c+d[1]*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE){blk++;break;}if(board[nr][nc]===who)cnt++;else{if(board[nr][nc]===opp)blk++;break;}}
+      for(var j=1;j<5;j++){var nr2=r-d[0]*j,nc2=c-d[1]*j;if(nr2<0||nr2>=SIZE||nc2<0||nc2>=SIZE){blk++;break;}if(board[nr2][nc2]===who)cnt++;else{if(board[nr2][nc2]===opp)blk++;break;}}
+      if(cnt>=5)total+=100000;else if(cnt===4&&blk===0)total+=10000;else if(cnt===4)total+=1000;else if(cnt===3&&blk===0)total+=1000;else if(cnt===3)total+=100;else if(cnt===2&&blk===0)total+=100;else if(cnt===2)total+=10;else if(cnt===1)total+=1;
+    });
+    return total;
+  }
+  function handleClick(e){
+    if(state.over||turn!==1||thinking)return;
+    var rect=canvas.getBoundingClientRect();
+    var x=(e.clientX!==undefined?e.clientX:e.touches[0].clientX-rect.left)*(W/rect.width);
+    var y=(e.clientY!==undefined?e.clientY:e.touches[0].clientY-rect.top)*(H/rect.height);
+    var c=Math.round((x-CELL/2)/CELL),r=Math.round((y-CELL/2)/CELL);
+    if(r<0||r>=SIZE||c<0||c>=SIZE)return;
+    AOXSound.ensure();
+    if(place(r,c,1)){if(!state.over){turn=2;thinking=true;updateHud();setTimeout(function(){thinking=false;aiMove();},400);}}
+  }
+  canvas.addEventListener('click',handleClick);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();handleClick(e);},{passive:false});
+  document.getElementById('newBtn').addEventListener('click',function(){init();SFX.click();});
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>节奏点击 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a0a2a; touch-action:none; }
+  .lane-key { display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight);padding:6px 14px;font-family:'Press Start 2P',monospace;font-size:14px;margin:0 6px;color:#1a1a1a }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;color:#e91e63;text-shadow:3px 3px 0 #880e4f,0 0 20px #e91e63;">🎵 节奏点击</h1>
+  <p class="subtitle">音符落到判定线时按键！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最高连击</span><span id="maxcombo">0</span></div>
+    <div class="hud-item"><span class="label">准确率</span><span id="acc">100%</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="420" height="480"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="lane-key">D</span><span class="lane-key">F</span><span class="lane-key">J</span><span class="lane-key">K</span> 或点击对应轨道
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var LANES=4,LW=W/LANES,JUDGE_Y=H-80;
+  var KEYS=['d','f','j','k'];var COLORS=['#e53935','#ff9800','#2196f3','#4caf50'];
+  var state,notes,hits,particles,laneFlash,tick,spawnTick,keys;
+  function init(){
+    state={running:false,over:false,score:0,combo:0,maxcombo:0,total:0,hit:0,speed:3,interval:45};
+    notes=[];particles=[];laneFlash=[0,0,0,0];tick=0;spawnTick=0;keys={};
+    updateHud();
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('combo').textContent=state.combo;
+    document.getElementById('maxcombo').textContent=state.maxcombo;
+    document.getElementById('acc').textContent=state.total>0?Math.round(state.hit/state.total*100)+'%':'100%';
+  }
+  function spawnNote(){
+    var lane=Math.floor(Math.random()*LANES);
+    notes.push({lane:lane,y:-20,hit:false});
+  }
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;spawnTick++;
+    if(spawnTick>=state.interval){spawnTick=0;spawnNote();}
+    notes.forEach(function(n){n.y+=state.speed;});
+    // 漏掉
+    notes=notes.filter(function(n){
+      if(n.y>JUDGE_Y+40&&!n.hit){state.combo=0;state.total++;SFX.error();updateHud();return false;}
+      return true;
+    });
+    laneFlash=laneFlash.map(function(f){return f>0?f-1:0;});
+    particles=particles.filter(function(p){p.y+=p.vy;p.life--;return p.life>0;});
+    // 难度递增
+    if(state.score>0&&state.score%200===0&&state.interval>20){state.interval--;state.speed+=0.05;}
+  }
+  function hitLane(lane){
+    if(!state.running||state.over)return;
+    laneFlash[lane]=10;SFX.move();
+    // 找最近的未击中音符
+    var best=null,bestDist=999;
+    for(var i=0;i<notes.length;i++){
+      var n=notes[i];if(n.lane!==lane||n.hit)continue;
+      var d=Math.abs(n.y-JUDGE_Y);
+      if(d<bestDist){bestDist=d;best=n;}
+    }
+    if(best&&bestDist<50){
+      best.hit=true;state.total++;state.hit++;state.combo++;
+      if(state.combo>state.maxcombo)state.maxcombo=state.combo;
+      var pts=bestDist<15?100:(bestDist<30?70:40);
+      state.score+=pts*(1+Math.floor(state.combo/10));
+      var rating=bestDist<15?'PERFECT!':(bestDist<30?'GOOD':'OK');
+      particles.push({x:lane*LW+LW/2,y:JUDGE_Y,text:rating,life:30,color:bestDist<15?'#ffd700':'#4dd0e1'});
+      if(bestDist<15)SFX.coin();else SFX.clear();
+      notes=notes.filter(function(n){return !n.hit;});
+      updateHud();
+    }else{
+      state.combo=0;updateHud();
+    }
+  }
+  function draw(){
+    ctx.fillStyle='#1a0a2a';ctx.fillRect(0,0,W,H);
+    // 轨道
+    for(var l=0;l<LANES;l++){
+      ctx.fillStyle=l%2===0?'rgba(255,255,255,0.03)':'rgba(255,255,255,0.06)';
+      ctx.fillRect(l*LW,0,LW,H);
+      if(laneFlash[l]>0){ctx.globalAlpha=laneFlash[l]/10*0.4;ctx.fillStyle=COLORS[l];ctx.fillRect(l*LW,0,LW,H);ctx.globalAlpha=1;}
+    }
+    // 判定线
+    ctx.fillStyle='#ffd700';ctx.fillRect(0,JUDGE_Y,W,4);
+    ctx.fillStyle='rgba(255,215,0,0.2)';ctx.fillRect(0,JUDGE_Y-30,W,64);
+    // 按键提示
+    for(var k=0;k<LANES;k++){
+      ctx.fillStyle=COLORS[k];ctx.fillRect(k*LW+10,H-50,LW-20,40);
+      ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(k*LW+10,H-50,LW-20,4);
+      ctx.fillStyle='#fff';ctx.font='16px "Press Start 2P",monospace';ctx.textAlign='center';
+      ctx.fillText(['D','F','J','K'][k],k*LW+LW/2,H-24);
+    }
+    // 音符
+    notes.forEach(function(n){
+      ctx.fillStyle=COLORS[n.lane];ctx.shadowColor=COLORS[n.lane];ctx.shadowBlur=12;
+      ctx.fillRect(n.lane*LW+8,n.y-12,LW-16,24);
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fillRect(n.lane*LW+8,n.y-12,LW-16,4);
+    });
+    // 粒子
+    particles.forEach(function(p){
+      ctx.globalAlpha=Math.min(1,p.life/20);ctx.fillStyle=p.color;ctx.font='14px "Press Start 2P",monospace';ctx.textAlign='center';
+      ctx.fillText(p.text,p.x,p.y);ctx.globalAlpha=1;
+    });
+    // 连击
+    if(state.combo>=5){
+      ctx.fillStyle='#ffd700';ctx.font='20px "Press Start 2P",monospace';ctx.textAlign='left';
+      ctx.fillText('COMBO '+state.combo,10,30);
+    }
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='26px "Press Start 2P",monospace';ctx.fillText('结束',W/2,H/2-30);ctx.fillStyle='#ffd700';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score,W/2,H/2+5);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('最高连击:'+state.maxcombo,W/2,H/2+30);}
+      else{ctx.fillStyle='#e91e63';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备就绪',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('D F J K 对应四轨',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){
+    var k=e.key.toLowerCase();var idx=KEYS.indexOf(k);
+    if(idx>=0){e.preventDefault();hitLane(idx);}
+    if(k==='r'){init();state.running=true;AOXSound.ensure();}
+  });
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();var r=canvas.getBoundingClientRect();for(var i=0;i<e.touches.length;i++){var x=(e.touches[i].clientX-r.left)*(W/r.width);hitLane(Math.floor(x/LW));}},{passive:false});
+  canvas.addEventListener('mousedown',function(e){var r=canvas.getBoundingClientRect();var x=(e.clientX-r.left)*(W/r.width);hitLane(Math.floor(x/LW));});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('跟上节奏！');});
+  init();loop();
+})();
+</script>
+</body>
+</html>

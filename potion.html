@@ -1,0 +1,281 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合成台炼药 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .brew-stage {
+    background: radial-gradient(circle at center, #2a1a3a 0%, #0d0518 100%);
+    border:4px solid var(--mc-black);
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.5);
+    padding:20px; min-height:420px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    max-width:560px; margin:0 auto;
+  }
+  .recipe-display {
+    font-family:'Press Start 2P',monospace; font-size:14px; color:#b388ff;
+    text-shadow:2px 2px 0 #000; margin-bottom:16px; text-align:center; min-height:24px;
+  }
+  .brew-grid {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:10px 0;
+  }
+  .ingredient {
+    width:84px; height:84px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:38px;
+    background:linear-gradient(135deg,#8b8b8b,#6a6a6a);
+    border:3px solid #000;
+    box-shadow: inset 3px 3px 0 0 #aaa, inset -3px -3px 0 0 #555;
+    transition:all 0.1s; user-select:none;
+  }
+  .ingredient:hover { transform:translate(-2px,-2px); box-shadow: inset 3px 3px 0 0 #aaa, inset -3px -3px 0 0 #555, 4px 4px 0 0 rgba(0,0,0,0.4); }
+  .ingredient:active { transform:translate(1px,1px); }
+  .ingredient.flash { background:linear-gradient(135deg,#ffd700,#ff9800); animation:flash 0.4s; }
+  .ingredient.wrong { background:linear-gradient(135deg,#e53935,#b71c1c); animation:shake 0.3s; }
+  .ingredient.right { background:linear-gradient(135deg,#4caf50,#2e7d32); }
+  .ingredient.disabled { opacity:0.4; cursor:not-allowed; }
+  @keyframes flash { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  .cauldron {
+    width:140px; height:90px; margin:14px auto; position:relative;
+  }
+  .cauldron-body {
+    position:absolute; bottom:0; width:140px; height:70px;
+    background:#2a2a2a; border:3px solid #000; border-radius:0 0 30px 30px;
+    box-shadow: inset 4px 4px 0 0 #1a1a1a;
+  }
+  .cauldron-liquid {
+    position:absolute; bottom:8px; left:14px; right:14px; height:40px;
+    border-radius:0 0 20px 20px; transition:background 0.4s;
+  }
+  .cauldron-bubbles { position:absolute; inset:0; overflow:hidden; }
+  .bubble {
+    position:absolute; bottom:10px; width:6px; height:6px; background:rgba(255,255,255,0.5);
+    border-radius:50%; animation:bubble 2s infinite;
+  }
+  @keyframes bubble { 0%{bottom:10px;opacity:1} 100%{bottom:60px;opacity:0} }
+  .progress-dots { display:flex; gap:8px; margin:10px 0; }
+  .dot { width:14px; height:14px; background:#333; border:2px solid #000; }
+  .dot.done { background:#4caf50; }
+  .dot.current { background:#ffd700; animation:flash 0.6s infinite; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="typing.html">打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="sweeper.html">扫雷</a>
+    <a href="match3.html">三消</a>
+    <a href="dragon.html">末影龙</a>
+    <a href="potion.html">炼药</a>
+    <a href="tnt.html">打靶</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧪 合成台炼药</h1>
+  <p class="subtitle">记住配方顺序，正确投入材料炼制药水！</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+  </div>
+
+  <div class="brew-stage">
+    <div class="recipe-display" id="recipeDisplay">点击开始按钮</div>
+    <div class="progress-dots" id="dots"></div>
+    <div class="cauldron">
+      <div class="cauldron-bubbles" id="bubbles"></div>
+      <div class="cauldron-liquid" id="liquid" style="background:#4a148c;"></div>
+      <div class="cauldron-body"></div>
+    </div>
+    <div class="brew-grid" id="grid"></div>
+  </div>
+
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始炼药</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:10px;">
+    先观察材料闪烁顺序，再按相同顺序点击投入坩埚
+  </p>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // 9 种材料
+  var ING = [
+    {icon:'🟢',name:'蜘蛛眼',color:'#4caf50'},
+    {icon:'🔴',name:'烈焰粉',color:'#e53935'},
+    {icon:'💧',name:'水滴',color:'#2196f3'},
+    {icon:'🌽',name:'金胡萝卜',color:'#ffd700'},
+    {icon:'🟣',name:'末影珍珠',color:'#9c27b0'},
+    {icon:'⚫',name:'地狱疣',color:'#4a148c'},
+    {icon:'🟤',name:'岩浆膏',color:'#ff5722'},
+    {icon:'🦴',name:'骨头',color:'#eeeeee'},
+    {icon:'🍄',name:'蘑菇',color:'#d32f2f'}
+  ];
+  var POTION_COLORS = ['#4a148c','#1b5e20','#0d47a1','#bf360c','#4a148c'];
+
+  var grid, state, sequence, playerSeq, showing, liquid;
+
+  function init(){
+    state = { running:false, over:false, score:0, level:1, lives:3, combo:0, phase:'idle' };
+    sequence = []; playerSeq = [];
+    liquid = document.getElementById('liquid');
+    buildGrid(); buildBubbles(); updateHud();
+    document.getElementById('recipeDisplay').textContent = '点击开始按钮';
+  }
+
+  function buildGrid(){
+    var g = document.getElementById('grid'); g.innerHTML='';
+    ING.forEach(function(it, i){
+      var d=document.createElement('div');
+      d.className='ingredient'; d.textContent=it.icon; d.dataset.idx=i;
+      d.title=it.name;
+      d.addEventListener('click', function(){ onClick(i); });
+      g.appendChild(d);
+    });
+  }
+  function buildBubbles(){
+    var b=document.getElementById('bubbles'); b.innerHTML='';
+    for(var i=0;i<8;i++){
+      var bb=document.createElement('div'); bb.className='bubble';
+      bb.style.left=(10+Math.random()*120)+'px';
+      bb.style.animationDelay=(Math.random()*2)+'s';
+      bb.style.animationDuration=(1.5+Math.random())+'s';
+      b.appendChild(bb);
+    }
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('combo').textContent=state.combo;
+  }
+
+  function startLevel(){
+    sequence=[]; playerSeq=[];
+    var len = 2 + state.level; // 序列长度随关卡增长
+    for(var i=0;i<len;i++){ sequence.push(Math.floor(Math.random()*9)); }
+    liquid.style.background = POTION_COLORS[state.level%POTION_COLORS.length];
+    state.phase='show';
+    document.getElementById('recipeDisplay').textContent = '记住顺序...';
+    buildDots(len);
+    disableGrid(true);
+    setTimeout(showSequence, 800);
+  }
+
+  function buildDots(len){
+    var d=document.getElementById('dots'); d.innerHTML='';
+    for(var i=0;i<len;i++){ var x=document.createElement('div'); x.className='dot'; d.appendChild(x); }
+  }
+  function markDot(idx, cls){
+    var dots=document.getElementById('dots').children;
+    if(dots[idx]) dots[idx].className='dot '+cls;
+  }
+
+  var showIdx=0;
+  function showSequence(){
+    if(showIdx>=sequence.length){
+      showIdx=0;
+      state.phase='input';
+      document.getElementById('recipeDisplay').textContent='按顺序投入材料！';
+      disableGrid(false);
+      markDot(0,'current');
+      return;
+    }
+    var idx=sequence[showIdx];
+    var el=document.getElementById('grid').children[idx];
+    el.classList.add('flash');
+    SFX.bubble();
+    markDot(showIdx,'current');
+    setTimeout(function(){ el.classList.remove('flash'); markDot(showIdx,'done'); showIdx++; setTimeout(showSequence, 250); }, 600);
+  }
+
+  function disableGrid(d){
+    var cells=document.getElementById('grid').children;
+    for(var i=0;i<cells.length;i++){ cells[i].classList.toggle('disabled',d); }
+  }
+
+  function onClick(i){
+    if(state.phase!=='input'||state.over) return;
+    var el=document.getElementById('grid').children[i];
+    var expected = sequence[playerSeq.length];
+    if(i===expected){
+      el.classList.add('right');
+      SFX.place(); SFX.bubble();
+      setTimeout(function(){ el.classList.remove('right'); }, 200);
+      playerSeq.push(i);
+      markDot(playerSeq.length-1,'done');
+      if(playerSeq.length<sequence.length) markDot(playerSeq.length,'current');
+      // 液体闪烁
+      liquid.style.filter='brightness(1.5)';
+      setTimeout(function(){ liquid.style.filter='brightness(1)'; }, 150);
+      if(playerSeq.length===sequence.length){
+        // 完成本轮
+        state.combo++;
+        var gain = sequence.length*20*state.combo;
+        state.score += gain;
+        state.level++;
+        state.phase='idle';
+        SFX.clear();
+        updateHud();
+        toast('炼制成功！+'+gain);
+        document.getElementById('recipeDisplay').textContent='🎉 成功！下一关...';
+        setTimeout(startLevel, 1500);
+      }
+    } else {
+      el.classList.add('wrong');
+      SFX.error();
+      setTimeout(function(){ el.classList.remove('wrong'); }, 400);
+      state.lives--; state.combo=0;
+      updateHud();
+      toast('材料错误！-1 ♥');
+      if(state.lives<=0){ gameOver(); }
+      else {
+        // 重置当前轮输入
+        playerSeq=[];
+        state.phase='show'; showIdx=0;
+        disableGrid(true);
+        document.getElementById('recipeDisplay').textContent='再试一次...';
+        buildDots(sequence.length);
+        setTimeout(showSequence, 1000);
+      }
+    }
+  }
+
+  function gameOver(){
+    state.over=true; state.running=false;
+    AOXSound.stopBGM(); SFX.lose();
+    document.getElementById('recipeDisplay').textContent='💀 炼药失败！最终得分:'+state.score;
+    disableGrid(true);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    init(); state.running=true;
+    AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+    toast('开始炼药！'); setTimeout(startLevel, 500);
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>毒蘑菇躲避 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a1a2e;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🍄 毒蘑菇躲避</h1>
+<p class="subtitle">躲毒蘑菇，接好蘑菇！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">得分</span><span id="score">0</span></div><div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="460" height="420"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">←→</span>或触摸移动 · 接🍄加分躲💀毒蘑菇</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,p,items,pts,tick,sp,keys;
+function init(){s={running:false,over:false,score:0,lives:3,best:getBest()};p={x:W/2,y:H-50,w:30,h:30};items=[];pts=[];tick=0;sp=2.5;keys={};updateHud();}
+function getBest(){return parseInt(localStorage.getItem('mpoison_best')||'0',10)}
+function setBest(v){localStorage.setItem('mpoison_best',v)}
+function updateHud(){document.getElementById('score').textContent=s.score;document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('best').textContent=s.best;}
+function spawn(){var poison=Math.random()<0.4;items.push({x:20+Math.random()*(W-40),y:-20,vy:sp+Math.random()*1.5,r:14,poison:poison,t:Math.random()*6})}
+function update(){if(!s.running||s.over)return;tick++;sp=2.5+s.score/200;
+if(keys['arrowleft']||keys['a'])p.x-=5;if(keys['arrowright']||keys['d'])p.x+=5;p.x=Math.max(15,Math.min(W-15,p.x));
+if(tick%Math.max(20,55-Math.floor(s.score/30))===0)spawn();
+items.forEach(function(i){i.y+=i.vy;i.t+=0.15});
+items=items.filter(function(i){if(i.y>H+20)return false;if(Math.abs(i.x-p.x)<22&&Math.abs(i.y-p.y)<24){if(i.poison){s.lives--;SFX.hurt();ex(i.x,i.y,'#9c27b0');if(s.lives<=0)over();}else{s.score+=10;SFX.coin();ex(i.x,i.y,'#e53935');}updateHud();return false;}return true;});
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0});}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();if(s.score>s.best){setBest(s.score);s.best=s.score}updateHud();}
+function draw(){
+x.fillStyle='#1a1a2e';x.fillRect(0,0,W,H);
+x.fillStyle='#2a2a4e';x.fillRect(0,H-40,W,40);
+items.forEach(function(i){var b=Math.sin(i.t)*2;if(i.poison){x.fillStyle='#9c27b0';x.fillRect(i.x-12,i.y-10+b,24,20);x.fillStyle='#fff';x.fillRect(i.x-6,i.y-6+b,4,4);x.fillRect(i.x+2,i.y-6+b,4,4);x.fillStyle='#000';x.fillRect(i.x-5,i.y-5+b,2,2);x.fillRect(i.x+3,i.y-5+b,2,2);x.fillStyle='#6b2a6b';x.fillRect(i.x-3,i.y+b,6,2);}else{x.fillStyle='#e53935';x.fillRect(i.x-12,i.y-10+b,24,20);x.fillStyle='#fff';x.fillRect(i.x-8,i.y-14+b,16,8);x.fillStyle='#e53935';x.fillRect(i.x-4,i.y-14+b,8,8);x.fillStyle='#fff';x.fillRect(i.x-5,i.y-5+b,3,3);x.fillRect(i.x+2,i.y-5+b,3,3);x.fillStyle='#000';x.fillRect(i.x-4,i.y-4+b,1,2);x.fillRect(i.x+3,i.y-4+b,1,2);}});
+// mario
+var px=p.x,py=p.y;x.fillStyle='#e53935';x.fillRect(px-10,py-6,20,16);x.fillStyle='#ff9800';x.fillRect(px-8,py-14,16,10);x.fillStyle='#e53935';x.fillRect(px-10,py-14,20,4);x.fillStyle='#fff';x.fillRect(px-5,py-10,3,3);x.fillRect(px+2,py-10,3,3);x.fillStyle='#000';x.fillRect(px-4,py-9,1,2);x.fillRect(px+3,py-9,1,2);x.fillStyle='#1565c0';x.fillRect(px-8,py+10,6,6);x.fillRect(px+2,py+10,6,6);
+pts.forEach(function(p){x.globalAlpha=p.life/20;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='24px "Press Start 2P",monospace';x.fillText('中毒了！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='14px "Press Start 2P",monospace';x.fillText('得分:'+s.score+' 最高:'+s.best,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+38);}else{x.fillStyle='#e53935';x.font='20px "Press Start 2P",monospace';x.fillText('准备就绪',W/2,H/2-8);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+c.addEventListener('touchmove',function(e){e.preventDefault();var r=c.getBoundingClientRect();p.x=(e.touches[0].clientX-r.left)*(W/r.width)},{passive:false});
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();p.x=(e.clientX-r.left)*(W/r.width)});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('躲毒蘑菇！')});
+init();loop();
+})();
+</script></body></html>

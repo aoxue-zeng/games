@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建筑大师 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .build-wrap { display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:18px;align-items:flex-start }
+  .build-grid { display:grid;gap:2px;background:#5d3a1a;padding:6px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #3d2817, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .build-cell { width:34px;height:34px;cursor:pointer;border:1px solid #000;display:flex;align-items:center;justify-content:center;user-select:none }
+  .build-cell.empty{background:#8b5a2b}.build-cell.empty:hover{background:#9c6b3b}
+  .palette { display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--mc-panel-dark);padding:10px;border:3px solid #000;max-width:180px }
+  .pal-cell { width:36px;height:36px;cursor:pointer;border:2px solid #000;display:flex;align-items:center;justify-content:center }
+  .pal-cell.sel{box-shadow:0 0 8px #ffd700;border-color:#ffd700}
+  .ref-box { background:var(--mc-panel-dark);padding:10px;border:3px solid #000;text-align:center }
+  .ref-box h3{font-family:'Press Start 2P',monospace;font-size:10px;color:#ffd700;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🏗️ 建筑大师</h1>
+  <p class="subtitle">照参考图复刻像素建筑！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">正确</span><span id="correct">0</span>%</div>
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+  </div>
+  <div class="build-wrap">
+    <div>
+      <div class="ref-box"><h3>参考图</h3><canvas id="refCanvas" width="136" height="136"></canvas></div>
+      <div class="palette" id="palette" style="margin-top:10px"></div>
+    </div>
+    <div class="build-grid" id="grid"></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="checkBtn">✓ 检查</button>
+    <button class="mc-btn gold" id="clearBtn">🗑 清空</button>
+    <button class="mc-btn" id="newBtn">🔄 下一关</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">选颜色→点格子建造→检查匹配度。100%通关</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SIZE=8,CELL=34,grid,target,palette,selColor,state;
+  var COLORS=['#8b5a2b','#7f7f7f','#5fb53f','#4dd0e1','#ffd700','#e53935','#2196f3','#fff','#000','#9c27b0','#ff9800','#3d8b2a','#e0c0a0','#6b4220','#2e7d32','#0d1b2a'];
+  // 预设建筑图案
+  var PATTERNS=[
+    // 小屋
+    [[3,3,3,3,3,3,3,3],[3,2,2,2,2,2,2,3],[3,2,2,2,2,2,2,3],[3,2,2,2,2,2,2,3],[0,0,0,7,7,0,0,0],[0,0,0,7,7,0,0,0],[0,0,0,7,7,0,0,0],[0,0,0,7,7,0,0,0]],
+    // 树
+    [[15,15,2,2,2,2,15,15],[15,2,2,2,2,2,2,15],[2,2,2,2,2,2,2,2],[2,2,2,2,2,2,2,2],[15,15,2,2,2,2,15,15],[15,15,15,0,0,15,15,15],[15,15,15,0,0,15,15,15],[15,15,15,0,0,15,15,15]],
+    // 蘑菇
+    [[15,15,15,15,15,15,15,15],[15,4,4,4,4,4,4,15],[15,4,15,4,4,15,4,15],[15,4,4,4,4,4,4,15],[15,4,15,4,4,15,4,15],[15,4,4,4,4,4,4,15],[15,15,15,0,0,15,15,15],[15,15,15,0,0,15,15,15]],
+    // 苦力怕脸
+    [[2,2,2,2,2,2,2,2],[2,2,2,2,2,2,2,2],[2,15,2,2,2,2,15,2],[2,15,2,2,2,2,15,2],[2,2,2,15,15,2,2,2],[2,2,15,15,15,15,2,2],[2,2,15,2,2,15,2,2],[2,2,2,2,2,2,2,2]]
+  ];
+  function init(lvl){
+    state={level:lvl||1,moves:0,over:false};
+    target=PATTERNS[(lvl-1)%PATTERNS.length];
+    grid=[];for(var r=0;r<SIZE;r++){grid.push([]);for(var c=0;c<SIZE;c++)grid[r].push(-1);}
+    selColor=0;buildPalette();drawRef();render();updateHud();
+  }
+  function updateHud(){document.getElementById('level').textContent=state.level;document.getElementById('moves').textContent=state.moves;document.getElementById('correct').textContent='0';}
+  function buildPalette(){var p=document.getElementById('palette');p.innerHTML='';COLORS.forEach(function(col,i){var d=document.createElement('div');d.className='pal-cell';d.style.background=col;if(i===selColor)d.classList.add('sel');d.addEventListener('click',function(){selColor=i;document.querySelectorAll('.pal-cell').forEach(function(x){x.classList.remove('sel');});d.classList.add('sel');SFX.click();});p.appendChild(d);});}
+  function drawRef(){var c=document.getElementById('refCanvas');var cx=c.getContext('2d');cx.clearRect(0,0,136,136);var s=136/SIZE;target.forEach(function(row,r){row.forEach(function(v,c2){cx.fillStyle=COLORS[v];cx.fillRect(c2*s,r*s,s,s);cx.strokeStyle='rgba(0,0,0,0.2)';cx.strokeRect(c2*s,r*s,s,s);});});}
+  function render(){var g=document.getElementById('grid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+SIZE+','+CELL+'px)';grid.forEach(function(row,r){row.forEach(function(v,c){var d=document.createElement('div');d.className='build-cell';d.style.background=v>=0?COLORS[v]:'#8b5a2b';d.addEventListener('click',function(){place(r,c);});d.addEventListener('contextmenu',function(e){e.preventDefault();grid[r][c]=-1;SFX.rotate();render();});g.appendChild(d);});});}
+  function place(r,c){if(state.over)return;AOXSound.ensure();grid[r][c]=selColor;state.moves++;SFX.place();render();checkLive();}
+  function checkLive(){var correct=0;for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){if(grid[r][c]===target[r][c])correct++;}var pct=Math.round(correct/(SIZE*SIZE)*100);document.getElementById('correct').textContent=pct;if(pct===100){state.over=true;SFX.win();toast('🎉 完美复刻！');}}
+  function check(){checkLive();if(!state.over)toast('再对照参考图');}
+  document.getElementById('checkBtn').addEventListener('click',function(){SFX.click();check();});
+  document.getElementById('clearBtn').addEventListener('click',function(){grid=[];for(var r=0;r<SIZE;r++){grid.push([]);for(var c=0;c<SIZE;c++)grid[r].push(-1);}SFX.rotate();render();document.getElementById('correct').textContent='0';});
+  document.getElementById('newBtn').addEventListener('click',function(){init(state.level+1);SFX.click();});
+  init(1);
+})();
+</script>
+</body>
+</html>

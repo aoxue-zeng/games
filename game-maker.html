@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏制作工坊 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .maker-app {
+    max-width: 820px; margin: 14px auto; background: var(--mc-panel-dark);
+    border: 4px solid var(--mc-black); padding: 20px;
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);
+  }
+  .step { display: none; }
+  .step.active { display: block; }
+  .agent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+  .agent-card {
+    background: #0d1b2a; border: 3px solid #000; padding: 14px; cursor: pointer; text-align: center;
+    box-shadow: inset 2px 2px 0 0 #2a3f5f; transition: all 0.1s; user-select: none;
+  }
+  .agent-card:hover { transform: translate(-2px,-2px); border-color: #4dd0e1; }
+  .agent-card.sel { border-color: #ffd700; box-shadow: inset 2px 2px 0 0 #2a3f5f, 0 0 12px #ffd700; }
+  .agent-card .a-icon { font-size: 36px; }
+  .agent-card .a-name { font-family: 'Press Start 2P', monospace; font-size: 9px; color: #ffd700; margin-top: 6px; text-shadow: 1px 1px 0 #000; }
+  .agent-card .a-desc { font-size: 13px; color: #888; margin-top: 4px; }
+  .type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 16px 0; }
+  .type-card {
+    background: #0d1b2a; border: 3px solid #000; padding: 12px; cursor: pointer; text-align: center;
+    box-shadow: inset 2px 2px 0 0 #2a3f5f; transition: all 0.1s; user-select: none;
+  }
+  .type-card:hover { transform: translate(-2px,-2px); border-color: #4dd0e1; }
+  .type-card.sel { border-color: #4caf50; box-shadow: inset 2px 2px 0 0 #2a3f5f, 0 0 12px #4caf50; }
+  .type-card .t-icon { font-size: 30px; }
+  .type-card .t-name { font-family: 'Press Start 2P', monospace; font-size: 9px; color: #fff; margin-top: 4px; }
+  .param-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; color: #ccc; font-size: 15px; }
+  .param-row label { min-width: 100px; font-family: 'Press Start 2P', monospace; font-size: 9px; color: #4dd0e1; }
+  .param-row input[type=range] { flex: 1; }
+  .param-row input[type=text] { flex: 1; background: #0d1b2a; color: #fff; border: 2px solid #000; padding: 8px; font-family: 'VT323', monospace; font-size: 16px; }
+  .param-row select { background: #0d1b2a; color: #4dd0e1; border: 2px solid #000; padding: 6px; font-family: 'Press Start 2P', monospace; font-size: 9px; }
+  .gen-log {
+    background: #000; border: 3px solid #000; padding: 14px; margin: 16px 0; min-height: 200px;
+    font-family: 'VT323', monospace; font-size: 17px; color: #4caf50; line-height: 1.6;
+    box-shadow: inset 3px 3px 0 0 #1a1a1a;
+  }
+  .gen-log .cursor { animation: blink 0.6s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .gen-bar { width: 100%; height: 20px; background: #0d1b2a; border: 2px solid #000; margin: 10px 0; overflow: hidden; }
+  .gen-bar-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #4dd0e1); width: 0; transition: width 0.3s; }
+  .nav-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="game-maker.html">🏭 制作工坊</a>
+    <a href="game-vault.html">📦 游戏仓库</a>
+    <a href="music.html">🎵 音乐</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🏭 游戏制作工坊</h1>
+  <p class="subtitle">选智能体，说想法，等待生成你的专属游戏！</p>
+
+  <div class="maker-app">
+    <!-- 步骤指示 -->
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;font-family:'Press Start 2P',monospace;font-size:9px">
+      <span id="step1" style="color:#ffd700">①选智能体</span>
+      <span style="color:#555">→</span>
+      <span id="step2" style="color:#555">②选类型</span>
+      <span style="color:#555">→</span>
+      <span id="step3" style="color:#555">③设参数</span>
+      <span style="color:#555">→</span>
+      <span id="step4" style="color:#555">④生成</span>
+      <span style="color:#555">→</span>
+      <span id="step5" style="color:#555">⑤试玩</span>
+    </div>
+
+    <!-- 步骤1: 选智能体 -->
+    <div class="step active" id="s1">
+      <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-align:center;margin-bottom:10px">🤖 选择你的制作智能体</h3>
+      <div class="agent-grid" id="agentGrid"></div>
+    </div>
+
+    <!-- 步骤2: 选类型 -->
+    <div class="step" id="s2">
+      <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4caf50;text-align:center;margin-bottom:10px">🎮 你想制作什么类型的游戏？</h3>
+      <div class="type-grid" id="typeGrid"></div>
+    </div>
+
+    <!-- 步骤3: 设参数 -->
+    <div class="step" id="s3">
+      <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4dd0e1;text-align:center;margin-bottom:10px">⚙️ 定制你的游戏</h3>
+      <div class="param-row"><label>游戏名称</label><input type="text" id="pName" placeholder="给游戏取个名..." value=""></div>
+      <div class="param-row"><label>难度</label><select id="pDiff"><option value="easy">简单</option><option value="normal" selected>普通</option><option value="hard">困难</option></select></div>
+      <div class="param-row"><label>速度</label><input type="range" id="pSpeed" min="1" max="5" value="3"><span id="pSpeedVal" style="color:#4dd0e1;font-family:'Press Start 2P',monospace;font-size:9px">3</span></div>
+      <div class="param-row"><label>玩家颜色</label><select id="pColor"><option value="#e53935">🔴 红</option><option value="#4caf50">🟢 绿</option><option value="#2196f3">🔵 蓝</option><option value="#ffd700">🟡 金</option><option value="#9c27b0">🟣 紫</option><option value="#ff9800">🟠 橙</option></select></div>
+      <div class="param-row"><label>主题色</label><select id="pTheme"><option value="#1a1a2e">夜空</option><option value="#5fb53f">草地</option><option value="#1565c0">海洋</option><option value="#4a148c">紫色</option><option value="#1a0a0a">火山</option></select></div>
+      <div class="param-row"><label>收集物</label><select id="pItem"><option value="💰">💰 金币</option><option value="💎">💎 钻石</option><option value="⭐">⭐ 星星</option><option value="🍄">🍄 蘑菇</option><option value="🍎">🍎 苹果</option></select></div>
+    </div>
+
+    <!-- 步骤4: 生成 -->
+    <div class="step" id="s4">
+      <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-align:center;margin-bottom:10px">🔨 智能体正在制作...</h3>
+      <div class="gen-bar"><div class="gen-bar-fill" id="genBar"></div></div>
+      <div class="gen-log" id="genLog">> 启动智能体...<span class="cursor">▋</span></div>
+    </div>
+
+    <!-- 步骤5: 试玩 -->
+    <div class="step" id="s5">
+      <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4caf50;text-align:center;margin-bottom:10px">🎉 你的游戏做好了！试玩：</h3>
+      <div style="text-align:center;margin-bottom:10px">
+        <span id="gameTitle" style="font-family:'Press Start 2P',monospace;font-size:14px;color:#ffd700"></span>
+      </div>
+      <div class="game-stage" style="text-align:center"><canvas id="playCanvas" width="400" height="400" style="background:#000"></canvas></div>
+      <div style="text-align:center;margin-top:8px;color:#fff;font-size:14px" id="playHint"></div>
+    </div>
+
+    <!-- 导航按钮 -->
+    <div class="nav-btns">
+      <button class="mc-btn" id="backBtn" style="display:none">← 上一步</button>
+      <button class="mc-btn green" id="nextBtn">下一步 →</button>
+      <button class="mc-btn green" id="playBtn" style="display:none">▶ 开始游戏</button>
+      <button class="mc-btn gold" id="saveBtn" style="display:none">📥 存入仓库</button>
+      <a href="game-vault.html" class="mc-btn" id="vaultBtn" style="display:none">📦 游戏仓库</a>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // ===== 智能体定义 =====
+  var AGENTS = [
+    {icon:'🤖', name:'全能工匠', desc:'什么都会做', spec:'all'},
+    {icon:'👾', name:'街机大师', desc:'擅长动作射击', spec:'action'},
+    {icon:'🧩', name:'益智博士', desc:'擅长解谜逻辑', spec:'puzzle'},
+    {icon:'🍄', name:'马里奥匠人', desc:'擅长平台跳跃', spec:'platform'},
+    {icon:'🎲', name:'休闲达人', desc:'擅长轻松小游戏', spec:'casual'}
+  ];
+  // ===== 游戏类型 =====
+  var TYPES = [
+    {icon:'🐍', name:'收集闯关', code:'collect', desc:'控制角色吃物品加分'},
+    {icon:'🧱', name:'躲避生存', code:'dodge', desc:'躲开掉落的障碍物'},
+    {icon:'🎯', name:'射击打靶', code:'shoot', desc:'射移动目标得分'},
+    {icon:'🟦', name:'方块下落', code:'fall', desc:'接住下落的方块'},
+    {icon:'🏃', name:'跑酷跳跃', code:'run', desc:'跳跃越过障碍'}
+  ];
+
+  var step = 1, selAgent = null, selType = null, gameConfig = null, game = null;
+
+  // 构建智能体卡片
+  var ag = document.getElementById('agentGrid');
+  AGENTS.forEach(function(a){
+    var d = document.createElement('div'); d.className = 'agent-card';
+    d.innerHTML = '<div class="a-icon">'+a.icon+'</div><div class="a-name">'+a.name+'</div><div class="a-desc">'+a.desc+'</div>';
+    d.addEventListener('click', function(){ document.querySelectorAll('.agent-card').forEach(function(x){x.classList.remove('sel');}); d.classList.add('sel'); selAgent = a; SFX.click(); });
+    ag.appendChild(d);
+  });
+  // 构建类型卡片
+  var tg = document.getElementById('typeGrid');
+  TYPES.forEach(function(t){
+    var d = document.createElement('div'); d.className = 'type-card';
+    d.innerHTML = '<div class="t-icon">'+t.icon+'</div><div class="t-name">'+t.name+'</div>';
+    d.title = t.desc;
+    d.addEventListener('click', function(){ document.querySelectorAll('.type-card').forEach(function(x){x.classList.remove('sel');}); d.classList.add('sel'); selType = t; SFX.click(); });
+    tg.appendChild(d);
+  });
+
+  // 参数实时显示
+  document.getElementById('pSpeed').addEventListener('input', function(){ document.getElementById('pSpeedVal').textContent = this.value; });
+
+  function showStep(n){
+    step = n;
+    for (var i = 1; i <= 5; i++) {
+      document.getElementById('s'+i).classList.toggle('active', i === n);
+      var ind = document.getElementById('step'+i);
+      if (ind) ind.style.color = (i <= n) ? '#ffd700' : '#555';
+    }
+    document.getElementById('backBtn').style.display = (n > 1 && n < 5) ? 'inline-block' : 'none';
+    document.getElementById('nextBtn').style.display = (n < 4) ? 'inline-block' : 'none';
+    document.getElementById('playBtn').style.display = (n === 5) ? 'inline-block' : 'none';
+    document.getElementById('saveBtn').style.display = (n === 5) ? 'inline-block' : 'none';
+    document.getElementById('vaultBtn').style.display = (n === 5) ? 'inline-block' : 'none';
+  }
+
+  document.getElementById('nextBtn').addEventListener('click', function(){
+    SFX.select();
+    if (step === 1 && !selAgent) { toast('请选一个智能体！'); return; }
+    if (step === 2 && !selType) { toast('请选一个游戏类型！'); return; }
+    if (step === 3) {
+      // 收集配置
+      var name = document.getElementById('pName').value.trim() || (selType.name + '大冒险');
+      gameConfig = {
+        name: name,
+        agent: selAgent.name,
+        type: selType.code,
+        typeName: selType.name,
+        difficulty: document.getElementById('pDiff').value,
+        speed: parseInt(document.getElementById('pSpeed').value, 10),
+        playerColor: document.getElementById('pColor').value,
+        themeColor: document.getElementById('pTheme').value,
+        item: document.getElementById('pItem').value,
+        date: new Date().toLocaleString('zh-CN')
+      };
+      // 开始生成
+      showStep(4);
+      generate();
+      return;
+    }
+    showStep(step + 1);
+  });
+  document.getElementById('backBtn').addEventListener('click', function(){ SFX.click(); showStep(step - 1); });
+
+  // ===== 生成动画 =====
+  var genSteps = [
+    '> 🤖 {agent} 已启动...',
+    '> 分析需求：{typeName}',
+    '> 设计游戏机制...',
+    '> 生成关卡数据...',
+    '> 配置玩家参数：颜色 {playerColor}',
+    '> 设置主题：{themeColor}',
+    '> 添加收集物：{item}',
+    '> 调整难度：{difficulty} (速度{speed})',
+    '> 编写游戏逻辑...',
+    '> 渲染像素画面...',
+    '> 添加音效系统...',
+    '> 测试运行中... ✓',
+    '> 🎉 游戏制作完成！'
+  ];
+  function generate(){
+    AOXSound.ensure();
+    var log = document.getElementById('genLog');
+    var bar = document.getElementById('genBar');
+    log.innerHTML = ''; var si = 0;
+    function next(){
+      if (si >= genSteps.length) {
+        log.innerHTML += '<br>> 正在加载游戏...';
+        setTimeout(function(){
+          showStep(5);
+          startGame();
+        }, 600);
+        return;
+      }
+      var line = genSteps[si].replace('{agent}', selAgent.name)
+        .replace('{typeName}', selType.name)
+        .replace('{playerColor}', gameConfig.playerColor)
+        .replace('{themeColor}', gameConfig.themeColor)
+        .replace('{item}', gameConfig.item)
+        .replace('{difficulty}', gameConfig.difficulty)
+        .replace('{speed}', gameConfig.speed);
+      log.innerHTML += line + '<br>';
+      log.innerHTML += '<span class="cursor">▋</span>';
+      bar.style.width = Math.round((si+1)/genSteps.length*100) + '%';
+      SFX.move();
+      si++;
+      setTimeout(next, 350 + Math.random() * 200);
+    }
+    next();
+  }
+
+  // ===== 生成的游戏引擎 =====
+  function startGame(){
+    document.getElementById('gameTitle').textContent = '🎮 ' + gameConfig.name;
+    var canvas = document.getElementById('playCanvas');
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    var speed = gameConfig.speed;
+    var diffMul = gameConfig.difficulty === 'easy' ? 0.7 : (gameConfig.difficulty === 'hard' ? 1.5 : 1);
+    var keys = {}, running = false, over = false, score = 0;
+
+    // 根据类型初始化
+    var player = {x: W/2, y: H-50, w: 20, h: 20, vx: 0, vy: 0};
+    var items = [], obstacles = [], bullets = [], particles = [];
+    var tick = 0, spawnT = 0;
+    var bg = gameConfig.themeColor;
+
+    var GRAVITY = 0.4, JUMP = -9;
+    var onGround = false;
+
+    // 提示文字
+    var hints = {
+      collect: '←→ 移动，吃 ' + gameConfig.item + ' 加分！',
+      dodge: '←→ 移动，躲开 💣 障碍物！',
+      shoot: '←→ 移动，空格射击 ' + gameConfig.item + '！',
+      fall: '←→ 移动，接住下落的 ' + gameConfig.item + '！',
+      run: '空格/↑ 跳跃，躲障碍前进！'
+    };
+    document.getElementById('playHint').textContent = hints[gameConfig.type] || '玩！';
+
+    // 键盘
+    document.onkeydown = function(e){
+      keys[e.key.toLowerCase()] = true;
+      if ([' ','arrowleft','arrowright','arrowup','arrowdown'].indexOf(e.key.toLowerCase()) >= 0) e.preventDefault();
+      if (gameConfig.type === 'shoot' && e.key === ' ') { bullets.push({x:player.x, y:player.y-10, vy:-7}); SFX.shoot(); }
+      if (gameConfig.type === 'run' && (e.key === ' ' || e.key === 'ArrowUp') && onGround) { player.vy = JUMP; onGround = false; SFX.jump(); }
+    };
+    document.onkeyup = function(e){ keys[e.key.toLowerCase()] = false; };
+    // 触屏
+    canvas.ontouchstart = function(e){
+      e.preventDefault();
+      if (gameConfig.type === 'run') { if (onGround) { player.vy = JUMP; onGround = false; SFX.jump(); } return; }
+      if (gameConfig.type === 'shoot') { bullets.push({x:player.x, y:player.y-10, vy:-7}); SFX.shoot(); return; }
+      var r = canvas.getBoundingClientRect();
+      var x = (e.touches[0].clientX - r.left) * (W / r.width);
+      if (x < W/2) keys['arrowleft'] = true; else keys['arrowright'] = true;
+    };
+    canvas.ontouchmove = function(e){
+      e.preventDefault();
+      var r = canvas.getBoundingClientRect();
+      var x = (e.touches[0].clientX - r.left) * (W / r.width);
+      keys['arrowleft'] = x < W/2; keys['arrowright'] = x >= W/2;
+    };
+    canvas.ontouchend = function(e){ e.preventDefault(); keys['arrowleft'] = false; keys['arrowright'] = false; };
+
+    function spawn(){
+      var sp = speed * diffMul;
+      if (gameConfig.type === 'collect' || gameConfig.type === 'fall') {
+        items.push({x: 20+Math.random()*(W-40), y: -20, vy: 1+sp, r: 12, t: Math.random()*6});
+      }
+      if (gameConfig.type === 'dodge') {
+        var bomb = Math.random() < 0.3;
+        obstacles.push({x: 20+Math.random()*(W-40), y: -20, vy: 1.5+sp, r: 14, bomb: bomb, t: 0});
+        if (!bomb) obstacles[obstacles.length-1].item = gameConfig.item;
+      }
+      if (gameConfig.type === 'shoot') {
+        items.push({x: Math.random()<0.5?-20:W+20, y: 50+Math.random()*(H-200), vx: (Math.random()<0.5?1:-1)*(1.5+sp), r: 12, t: 0});
+      }
+      if (gameConfig.type === 'run') {
+        obstacles.push({x: W+20, y: H-40, w: 20, h: 40, vx: 2+sp});
+      }
+    }
+
+    function update(){
+      if (!running || over) return;
+      tick++; spawnT++;
+      var interval = Math.max(20, 60 - speed * 5);
+      if (spawnT >= interval) { spawnT = 0; spawn(); }
+
+      // 玩家移动
+      if (gameConfig.type !== 'run') {
+        if (keys['arrowleft'] || keys['a']) player.x -= 4;
+        if (keys['arrowright'] || keys['d']) player.x += 4;
+        player.x = Math.max(15, Math.min(W-15, player.x));
+      } else {
+        // 跑酷：自动前进，左右不动，跳
+        player.vy += GRAVITY; player.y += player.vy;
+        if (player.y > H-50) { player.y = H-50; player.vy = 0; onGround = true; }
+      }
+
+      // 物品
+      items.forEach(function(it){
+        it.t += 0.15;
+        if (gameConfig.type === 'shoot') it.x += it.vx;
+        else it.y += it.vy;
+        // 碰撞
+        if (gameConfig.type === 'shoot') {
+          // 检查子弹打中
+          for (var i = bullets.length-1; i >= 0; i--) {
+            if (Math.hypot(bullets[i].x - it.x, bullets[i].y - it.y) < it.r + 6) {
+              score += 20; SFX.coin(); ex(it.x, it.y, '#ffd700');
+              bullets.splice(i, 1); it.dead = true;
+            }
+          }
+        } else {
+          if (Math.abs(it.x - player.x) < 20 && Math.abs(it.y - player.y) < 20) {
+            score += 10; SFX.coin(); ex(it.x, it.y, gameConfig.playerColor); it.dead = true;
+          }
+        }
+      });
+      items = items.filter(function(it){ return !it.dead && it.y < H+30 && it.x > -30 && it.x < W+30; });
+
+      // 障碍
+      obstacles.forEach(function(o){
+        if (gameConfig.type === 'run') o.x -= o.vx;
+        else o.y += o.vy; o.t += 0.15;
+        if (gameConfig.type === 'run') {
+          if (player.x + 10 > o.x && player.x - 10 < o.x + o.w && player.y + 10 > o.y) {
+            over = true; SFX.lose();
+          }
+        } else {
+          if (Math.abs(o.x - player.x) < 20 && Math.abs(o.y - player.y) < 20) {
+            if (o.bomb) { over = true; SFX.lose(); ex(player.x, player.y, '#e53935'); }
+            else { score += 5; SFX.coin(); o.dead = true; }
+          }
+        }
+      });
+      obstacles = obstacles.filter(function(o){ return !o.dead && o.y < H+30 && o.x > -50; });
+
+      // 子弹
+      bullets.forEach(function(b){ b.y += b.vy; });
+      bullets = bullets.filter(function(b){ return b.y > -10; });
+
+      // 粒子
+      particles = particles.filter(function(p){ p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; return p.life > 0; });
+
+      // 跑酷：障碍到左边移除
+      if (gameConfig.type === 'run') {
+        obstacles = obstacles.filter(function(o){ return o.x > -50; });
+        if (tick % 10 === 0) score++;
+      }
+    }
+    function ex(x, y, c) { for (var i = 0; i < 8; i++) { var a = Math.random()*7, s = 1+Math.random()*3; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3}); } }
+
+    function draw(){
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      // 地面
+      ctx.fillStyle = '#3d8b2a'; ctx.fillRect(0, H-30, W, 30);
+      // 玩家
+      ctx.fillStyle = gameConfig.playerColor;
+      ctx.fillRect(player.x - 10, player.y - 10, 20, 20);
+      ctx.fillStyle = '#fff'; ctx.fillRect(player.x - 5, player.y - 6, 3, 3); ctx.fillRect(player.x + 2, player.y - 6, 3, 3);
+      ctx.fillStyle = '#000'; ctx.fillRect(player.x - 4, player.y - 5, 1, 2); ctx.fillRect(player.x + 3, player.y - 5, 1, 2);
+      // 物品
+      items.forEach(function(it){
+        var b = Math.sin(it.t) * 2;
+        ctx.font = '20px serif'; ctx.textAlign = 'center';
+        ctx.fillText(gameConfig.item, it.x, it.y + b + 8);
+      });
+      // 障碍
+      obstacles.forEach(function(o){
+        if (gameConfig.type === 'run') { ctx.fillStyle = '#7f7f7f'; ctx.fillRect(o.x, o.y, o.w, o.h); }
+        else { ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText(o.bomb ? '💣' : gameConfig.item, o.x, o.y + 8); }
+      });
+      // 子弹
+      bullets.forEach(function(b){ ctx.fillStyle = '#ffd700'; ctx.fillRect(b.x - 2, b.y - 6, 4, 8); });
+      // 粒子
+      particles.forEach(function(p){ ctx.globalAlpha = p.life / 20; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.size, p.size); ctx.globalAlpha = 1; });
+      // 分数
+      ctx.fillStyle = '#fff'; ctx.font = '16px "Press Start 2P", monospace'; ctx.textAlign = 'left'; ctx.fillText('得分:' + score, 10, 28);
+      // 结算
+      if (over) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#e53935'; ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('游戏结束', W/2, H/2 - 20); ctx.fillStyle = '#ffd700'; ctx.font = '14px "Press Start 2P", monospace'; ctx.fillText('得分:' + score, W/2, H/2 + 15); ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P", monospace'; ctx.fillText('点开始重玩', W/2, H/2 + 45); }
+      else if (!running) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#4caf50'; ctx.font = '20px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText('准备就绪', W/2, H/2 - 10); ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P", monospace'; ctx.fillText('点开始游戏', W/2, H/2 + 20); }
+    }
+
+    function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+    // 暴露给按钮
+    window._makerGame = {
+      start: function(){
+        running = true; over = false; score = 0;
+        player.x = W/2; player.y = H-50; player.vy = 0;
+        items = []; obstacles = []; bullets = []; particles = []; tick = 0; spawnT = 0;
+        AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
+      },
+      getConfig: function(){ return gameConfig; },
+      getScore: function(){ return score; }
+    };
+
+    loop();
+  }
+
+  // 开始游戏按钮
+  document.getElementById('playBtn').addEventListener('click', function(){
+    if (window._makerGame) window._makerGame.start();
+  });
+
+  // 存入仓库
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    if (!gameConfig) return;
+    var vault = JSON.parse(localStorage.getItem('game_vault') || '[]');
+    vault.push(gameConfig);
+    localStorage.setItem('game_vault', JSON.stringify(vault));
+    SFX.win();
+    toast('🎮 已存入仓库！共 ' + vault.length + ' 个游戏');
+  });
+
+  showStep(1);
+})();
+</script>
+</body>
+</html>

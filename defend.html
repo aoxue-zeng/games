@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>苦力怕防御 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#3d2817; touch-action:none; cursor:crosshair; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;color:#5fb53f;">🧟 苦力怕防御</h1>
+  <p class="subtitle">点击引爆苦力怕，保护村庄！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">村庄血量</span><span id="hp">100</span></div>
+    <div class="hud-item"><span class="label">击杀</span><span id="kills">0</span></div>
+    <div class="hud-item"><span class="label">波次</span><span id="wave">1</span></div>
+    <div class="hud-item"><span class="label">TNT</span><span id="tnt">5</span>🧨</div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="380"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px;">
+    <span class="key">点击</span> 苦力怕引爆 · <span class="key">空格</span> 丢TNT范围炸 · 挡住别让它们到村庄
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;var VILLAGE_X=40;
+  var state,creepers,particles,explosions,tick,spawnTick,keys,mouse;
+  function init(){state={running:false,over:false,hp:100,kills:0,wave:1,tnt:5,inWave:5,spawned:0};creepers=[];particles=[];explosions=[];tick=0;spawnTick=0;keys={};mouse={x:0,y:0};updateHud();}
+  function updateHud(){document.getElementById('hp').textContent=Math.max(0,state.hp);document.getElementById('kills').textContent=state.kills;document.getElementById('wave').textContent=state.wave;document.getElementById('tnt').textContent=state.tnt;}
+  function spawnCreeper(){
+    var r=Math.floor(Math.random()*4);
+    var types=[{hp:1,speed:0.5,col:'#5fb53f',size:18},{hp:2,speed:0.7,col:'#3d8b2a',size:16},{hp:3,speed:0.4,col:'#2e7d32',size:22}];
+    var t=types[r%types.length];
+    creepers.push({x:W-20,y:60+r*70,hp:t.hp,maxhp:t.hp,speed:t.speed+state.wave*0.05,col:t.col,size:t.size,fuse:0,flash:0,anim:Math.random()*6});
+    state.spawned++;
+  }
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    if(state.spawned<state.inWave){spawnTick++;if(spawnTick>=Math.max(40,90-state.wave*5)){spawnTick=0;spawnCreeper();}}
+    else if(creepers.length===0){state.wave++;state.inWave=5+state.wave*2;state.spawned=0;state.tnt+=2;state.hp=Math.min(100,state.hp+10);SFX.levelUp();toast('波次 '+state.wave+'！+2TNT');updateHud();}
+    creepers.forEach(function(c){
+      c.anim+=0.1;c.x-=c.speed;c.flash=Math.floor(c.fuse/3)%2;
+      if(c.x<VILLAGE_X+30){c.fuse++;if(c.fuse>40){state.hp-=15;SFX.boom();explode(c.x,c.y,'#e53935',20);c.hp=0;} }
+    });
+    creepers=creepers.filter(function(c){if(c.hp<=0){state.kills++;if(c.x>=VILLAGE_X+30){state.tnt++;}return false;}return true;});
+    if(keys[' ']&&state.tnt>0){state.tnt--;SFX.boom();for(var i=creepers.length-1;i>=0;i--){if(creepers[i].x<W-100){explode(creepers[i].x,creepers[i].y,'#ff9800',12);creepers.splice(i,1);state.kills++;}}keys[' ']=false;updateHud();}
+    particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});
+    explosions=explosions.filter(function(e){e.r+=4;e.life--;return e.life>0;});
+    updateHud();
+    if(state.hp<=0){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}
+  }
+  function explode(x,y,c,n){explosions.push({x:x,y:y,r:5,life:20,c:c});for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=2+Math.random()*4;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25,c:c,size:2+Math.random()*3});}}
+  function handleClick(e){
+    if(!state.running||state.over)return;
+    var r=canvas.getBoundingClientRect();
+    var x=(e.clientX!==undefined?e.clientX-r.left:e.touches[0].clientX-r.left)*(W/r.width);
+    var y=(e.clientY!==undefined?e.clientY-r.top:e.touches[0].clientY-r.top)*(H/r.height);
+    AOXSound.ensure();
+    for(var i=creepers.length-1;i>=0;i--){var c=creepers[i];if(Math.hypot(c.x-x,c.y-y)<c.size+6){SFX.boom();explode(c.x,c.y,'#e53935',14);creepers.splice(i,1);state.kills++;updateHud();return;}}
+    SFX.error();
+  }
+  function draw(){
+    ctx.fillStyle='#3d2817';ctx.fillRect(0,0,W,H);
+    // 路径
+    ctx.fillStyle='#5d3a1a';ctx.fillRect(VILLAGE_X+40,0,W-VILLAGE_X-40,H);
+    // 村庄
+    ctx.fillStyle='#8b5a2b';ctx.fillRect(0,40,VILLAGE_X+40,H-40);
+    ctx.fillStyle='#6b4220';ctx.fillRect(0,40,VILLAGE_X+40,8);
+    // 房子
+    for(var h=0;h<3;h++){var hx=5,hy=70+h*100;ctx.fillStyle='#7f7f7f';ctx.fillRect(hx,hy,30,40);ctx.fillStyle='#555';ctx.fillRect(hx,hy,30,4);ctx.fillStyle='#4a2c12';ctx.fillRect(hx+10,hy+20,10,20);}
+    // 村庄血条
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(5,H-20,VILLAGE_X+30,8);ctx.fillStyle='#e53935';ctx.fillRect(5,H-20,(VILLAGE_X+30)*(state.hp/100),8);
+    // 苦力怕
+    creepers.forEach(function(c){
+      var col=c.flash&&c.fuse>0?'#fff':c.col;
+      ctx.fillStyle=col;ctx.fillRect(c.x-c.size/2,c.y-c.size,c.size,c.size*1.5);
+      ctx.fillStyle='#000';ctx.fillRect(c.x-6,c.y-c.size+4,4,6);ctx.fillRect(c.x+2,c.y-c.size+4,4,6);
+      ctx.fillRect(c.x-4,c.y-c.size+14,8,2);ctx.fillRect(c.x-2,c.y-c.size+16,4,6);
+      ctx.fillStyle=col;ctx.fillRect(c.x-c.size/2-2,c.y-c.size+10,4,8);ctx.fillRect(c.x+c.size/2-2,c.y-c.size+10,4,8);
+      // 血条
+      if(c.hp<c.maxhp){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(c.x-c.size/2,c.y-c.size-6,c.size,3);ctx.fillStyle='#4caf50';ctx.fillRect(c.x-c.size/2,c.y-c.size-6,c.size*(c.hp/c.maxhp),3);}
+      // 引信闪烁警告
+      if(c.fuse>0){ctx.fillStyle='rgba(229,57,53,'+(0.3+Math.sin(tick*0.5)*0.2)+')';ctx.fillRect(c.x-c.size,c.y-c.size-10,c.size*2,c.size*2);}
+    });
+    // 爆炸环
+    explosions.forEach(function(e){ctx.globalAlpha=e.life/20;ctx.strokeStyle=e.c;ctx.lineWidth=3;ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,7);ctx.stroke();ctx.globalAlpha=1;});
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/25;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    if(!state.running){ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('村庄被毁！',W/2,H/2-25);ctx.fillStyle='#ffd700';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('击杀:'+state.kills+' 波次:'+state.wave,W/2,H/2+10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('按 R 重玩',W/2,H/2+40);}
+      else{ctx.fillStyle='#5fb53f';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备防御',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始',W/2,H/2+25);}}
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(k===' ')e.preventDefault();if(k==='r'){init();state.running=true;AOXSound.ensure();}});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  canvas.addEventListener('click',handleClick);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();handleClick(e);},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('保护村庄！');});
+  init();loop();
+})();
+</script>
+</body>
+</html>

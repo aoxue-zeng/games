@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打地鼠 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .whack-board { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:fit-content; margin:18px auto 0; }
+  .hole { width:110px; height:110px; background:radial-gradient(ellipse at center bottom,#3d2817,#1a0e05); border:4px solid #000; border-radius:50%; position:relative; overflow:hidden; cursor:pointer; box-shadow:inset 0 8px 12px rgba(0,0,0,0.6); }
+  .hole .mole { position:absolute; bottom:-100%; left:50%; transform:translateX(-50%); width:70px; height:70px; transition:bottom 0.15s ease; font-size:56px; display:flex; align-items:flex-end; justify-content:center; }
+  .hole .mole.up { bottom:10px; }
+  .hole .mole.hit { animation:hit 0.3s; }
+  @keyframes hit { 0%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.3) rotate(15deg)} 100%{transform:translateX(-50%) scale(0)} }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐹 打地鼠</h1>
+  <p class="subtitle">快速敲打冒出来的地鼠！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">30</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="whack-board" id="board"></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:14px;">点击/触摸地鼠得分 · 金色地鼠 +30 · 30秒挑战</p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var HOLES=9, state, moles, timerInt, spawnInt;
+  function init(){
+    state={running:false,over:false,score:0,combo:0,time:30,best:getBest()}; moles=[];
+    var board=document.getElementById('board'); board.innerHTML='';
+    for(var i=0;i<HOLES;i++){ (function(idx){ var h=document.createElement('div'); h.className='hole'; var m=document.createElement('div'); m.className='mole'; h.appendChild(m);
+      h.addEventListener('click',function(){ hit(idx); }); h.addEventListener('touchstart',function(e){ e.preventDefault(); hit(idx); },{passive:false});
+      h.dataset.idx=idx; board.appendChild(h); })(i); }
+    updateHud();
+  }
+  function getBest(){return parseInt(localStorage.getItem('whack_best')||'0',10);}
+  function setBest(v){localStorage.setItem('whack_best',v);}
+  function updateHud(){ document.getElementById('score').textContent=state.score; document.getElementById('combo').textContent=state.combo; document.getElementById('time').textContent=state.time; document.getElementById('best').textContent=state.best; }
+  function popMole(){ if(!state.running)return; var idx=Math.floor(Math.random()*HOLES); var holes=document.getElementById('board').children;
+    if(moles[idx])return; var gold=Math.random()<0.15; moles[idx]={up:true,gold:gold,t:0};
+    holes[idx].querySelector('.mole').textContent=gold?'🌟':'🐹'; holes[idx].querySelector('.mole').classList.add('up');
+    SFX.bubble();
+    var upTime=gold?900:1200+Math.random()*600- (30-state.time)*15;
+    setTimeout(function(){ if(moles[idx]&&moles[idx].up){ moles[idx].up=false; holes[idx].querySelector('.mole').classList.remove('up'); state.combo=0; updateHud(); setTimeout(function(){moles[idx]=null;},200); } }, Math.max(500,upTime));
+  }
+  function hit(idx){ if(!state.running||state.over)return; if(!moles[idx]||!moles[idx].up)return; AOXSound.ensure();
+    var holes=document.getElementById('board').children; var m=holes[idx].querySelector('.mole'); m.classList.add('hit');
+    state.combo++; var pts=(moles[idx].gold?30:10)*(1+Math.floor(state.combo/5)); state.score+=pts;
+    if(moles[idx].gold)SFX.gem(); else SFX.hit();
+    moles[idx].up=false;
+    setTimeout(function(){ m.classList.remove('up'); m.classList.remove('hit'); moles[idx]=null; },250);
+    updateHud(); toast('+'+pts);
+  }
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); toast('开始！');
+    timerInt=setInterval(function(){ state.time--; updateHud(); SFX.tick(); if(state.time<=0){ endGame(); } },1000);
+    spawnInt=setInterval(popMole,800);
+    popMole();
+  }
+  function endGame(){ state.over=true; state.running=false; clearInterval(timerInt); clearInterval(spawnInt); AOXSound.stopBGM(); SFX.win(); if(state.score>state.best){setBest(state.score);state.best=state.best;} updateHud(); toast('时间到！得分'+state.score); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆翻牌 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .mem-board {
+    display:grid; gap:10px; margin:18px auto 0; width:fit-content;
+    perspective:600px;
+  }
+  .mem-card {
+    width:84px; height:84px; cursor:pointer; position:relative;
+    transform-style:preserve-3d; transition:transform 0.4s;
+  }
+  .mem-card.flipped { transform:rotateY(180deg); }
+  .mem-card.matched { transform:rotateY(180deg); }
+  .mem-card .face {
+    position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-size:40px; border:3px solid #000; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2), inset -2px -2px 0 0 rgba(0,0,0,0.4);
+  }
+  .mem-card .front {
+    background:linear-gradient(135deg,#5fb53f,#3d8b2a);
+    transform:rotateY(180deg);
+  }
+  .mem-card .front .q { font-family:'Press Start 2P',monospace; font-size:28px; color:#fff; text-shadow:2px 2px 0 #000; }
+  .mem-card .back {
+    background:var(--mc-night);
+  }
+  .mem-card.matched .front { background:linear-gradient(135deg,#ffd700,#b8860b); animation:matchGlow 0.6s; }
+  .mem-card.wrong .front { background:linear-gradient(135deg,#e53935,#b71c1c); }
+  @keyframes matchGlow { 0%,100%{box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2), 0 0 0 #ffd700} 50%{box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.4), 0 0 24px #ffd700} }
+  .diff-btn {
+    font-family:'Press Start 2P',monospace; font-size:10px; padding:8px 12px;
+    background:var(--mc-panel); border:3px solid var(--mc-black);
+    box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);
+    cursor:pointer; color:#1a1a1a;
+  }
+  .diff-btn.active { background:var(--mc-grass); color:#fff; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="snake-neon.html">霓虹蛇</a>
+    <a href="snake-maze.html">障碍蛇</a>
+    <a href="2048.html">2048</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="practice.html">练打字</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="match3.html">三消</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🃏 记忆翻牌</h1>
+  <p class="subtitle">找出相同的方块配对！</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">翻牌数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">已配对</span><span id="matched">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+
+  <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="diff-btn active" data-diff="easy">简单 4×3</button>
+    <button class="diff-btn" data-diff="medium">中等 4×4</button>
+    <button class="diff-btn" data-diff="hard">困难 6×4</button>
+  </div>
+
+  <div class="mem-board" id="board"></div>
+
+  <div style="margin-top:18px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 重新开始</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    点击方块翻开，找出两个相同图案配对。用最少步数完成！
+  </p>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var ICONS = ['⛏','💎','🌳','🔥','💧','☀️','🌙','⭐','🍄','💀','🧨','🟦'];
+  var DIFFS = { easy:{cols:4,rows:3,pairs:6}, medium:{cols:4,rows:4,pairs:8}, hard:{cols:6,rows:4,pairs:12} };
+  var cfg, cards, flipped, matched, moves, state, timerInt, startTime, lock;
+
+  function start(diff){
+    AOXSound.ensure(); SFX.click();
+    cfg = DIFFS[diff];
+    var deck=[];
+    for(var i=0;i<cfg.pairs;i++){ deck.push(ICONS[i]); deck.push(ICONS[i]); }
+    // 洗牌
+    for(var j=deck.length-1;j>0;j--){ var k=Math.floor(Math.random()*(j+1)); var t=deck[j];deck[j]=deck[k];deck[k]=t; }
+    cards = deck.map(function(icon, idx){ return {idx:idx, icon:icon, matched:false}; });
+    flipped=[]; matched=0; moves=0; lock=false; state={over:false,won:false};
+    clearInterval(timerInt); startTime=0;
+    document.getElementById('timer').textContent='0';
+    updateHud(); render(diff);
+  }
+
+  function updateHud(){
+    document.getElementById('moves').textContent=moves;
+    document.getElementById('matched').textContent=matched+'/'+cfg.pairs;
+    var bestKey='mem_best_'+cfg.cols+'x'+cfg.rows;
+    var best=localStorage.getItem(bestKey);
+    document.getElementById('best').textContent=best?best+'步':'—';
+  }
+
+  function startTimer(){
+    if(startTime) return;
+    startTime=Date.now();
+    timerInt=setInterval(function(){ document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000); },500);
+  }
+
+  function render(diff){
+    var board=document.getElementById('board');
+    board.innerHTML='';
+    board.style.gridTemplateColumns='repeat('+cfg.cols+', 84px)';
+    cards.forEach(function(card){
+      var d=document.createElement('div');
+      d.className='mem-card';
+      d.dataset.idx=card.idx;
+      d.innerHTML='<div class="face back"><span style="font-family:\'Press Start 2P\',monospace;font-size:24px;color:#5fb53f;text-shadow:2px 2px 0 #000;">?</span></div><div class="face front"><span class="q">'+card.icon+'</span></div>';
+      d.addEventListener('click', function(){ flip(card.idx); });
+      board.appendChild(d);
+    });
+  }
+
+  function flip(idx){
+    if(lock||state.over) return;
+    var card=cards[idx];
+    if(card.matched) return;
+    if(flipped.indexOf(idx)>=0) return; // 已翻开
+    AOXSound.ensure(); SFX.flip?SFX.flip():SFX.select();
+    startTimer();
+    var el=document.querySelector('.mem-card[data-idx="'+idx+'"]');
+    el.classList.add('flipped');
+    flipped.push(idx);
+    if(flipped.length===2){
+      moves++; updateHud();
+      var a=cards[flipped[0]], b=cards[flipped[1]];
+      lock=true;
+      if(a.icon===b.icon){
+        // 配对
+        setTimeout(function(){
+          a.matched=true; b.matched=true; matched++;
+          document.querySelector('.mem-card[data-idx="'+a.idx+'"]').classList.add('matched');
+          document.querySelector('.mem-card[data-idx="'+b.idx+'"]').classList.add('matched');
+          SFX.gem();
+          flipped=[]; lock=false; updateHud();
+          if(matched>=cfg.pairs) win();
+        }, 400);
+      } else {
+        // 不配对
+        setTimeout(function(){
+          document.querySelector('.mem-card[data-idx="'+a.idx+'"]').classList.remove('flipped');
+          document.querySelector('.mem-card[data-idx="'+b.idx+'"]').classList.remove('flipped');
+          SFX.error();
+          flipped=[]; lock=false;
+        }, 850);
+      }
+    }
+  }
+
+  function win(){
+    state.won=true; state.over=true;
+    clearInterval(timerInt);
+    AOXSound.stopBGM(); SFX.win();
+    var bestKey='mem_best_'+cfg.cols+'x'+cfg.rows;
+    var old=localStorage.getItem(bestKey);
+    if(!old||moves<parseInt(old,10)){ localStorage.setItem(bestKey, moves); }
+    var t=Math.floor((Date.now()-startTime)/1000);
+    toast('🎉 全部配对！'+moves+'步  用时'+t+'秒');
+    updateHud();
+  }
+
+  document.querySelectorAll('.diff-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');
+      start(b.dataset.diff);
+    });
+  });
+  document.getElementById('startBtn').addEventListener('click', function(){
+    var active=document.querySelector('.diff-btn.active');
+    start(active.dataset.diff);
+  });
+
+  start('easy');
+})();
+</script>
+</body>
+</html>

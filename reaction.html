@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>反应测试 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .react-box {
+    width:420px;max-width:90vw;height:300px;margin:20px auto;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    border:4px solid var(--mc-black);cursor:pointer;user-select:none;
+    box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.1), inset -4px -4px 0 0 rgba(0,0,0,0.4), 8px 8px 0 0 rgba(0,0,0,0.3);
+    transition:background 0.1s; text-align:center;
+  }
+  .react-box.idle{background:#2196f3}
+  .react-box.wait{background:#e53935}
+  .react-box.go{background:#4caf50}
+  .react-box.result{background:#9c27b0}
+  .react-box.early{background:#ff9800}
+  .react-box h2{font-family:'Press Start 2P',monospace;font-size:24px;color:#fff;text-shadow:3px 3px 0 #000;margin-bottom:12px}
+  .react-box p{font-size:18px;color:#fff;text-shadow:2px 2px 0 #000}
+  .react-box .big{font-family:'Press Start 2P',monospace;font-size:40px;color:#ffd700;text-shadow:3px 3px 0 #000;margin:10px 0}
+  .hist{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .hist span{background:var(--mc-night);border:2px solid #000;padding:6px 10px;font-family:'Press Start 2P',monospace;font-size:10px;color:#4dd0e1}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚡ 反应测试</h1>
+  <p class="subtitle">变绿瞬间点击！测你的反应速度</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">平均</span><span id="avg">—</span>ms</div>
+    <div class="hud-item"><span class="label">最快</span><span id="best">—</span>ms</div>
+    <div class="hud-item"><span class="label">轮次</span><span id="round">0</span></div>
+  </div>
+  <div class="react-box idle" id="box">
+    <h2>准备就绪</h2>
+    <p>点击开始</p>
+  </div>
+  <div class="hist" id="hist"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="resetBtn">🔄 重置统计</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    红屏时等变绿，绿屏立刻点！提前点算失败
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var box=document.getElementById('box');
+  var state={phase:'idle',startTime:0,timer:null,rounds:[],best:null};
+  function updateHud(){
+    var avg=state.rounds.length?Math.round(state.rounds.reduce(function(a,b){return a+b;},0)/state.rounds.length):null;
+    document.getElementById('avg').textContent=avg?avg:'—';
+    document.getElementById('best').textContent=state.best?state.best:'—';
+    document.getElementById('round').textContent=state.rounds.length;
+    var h=document.getElementById('hist');h.innerHTML='';
+    state.rounds.slice(-8).forEach(function(r){var s=document.createElement('span');s.textContent=r+'ms';if(r===state.best)s.style.color='#ffd700';h.appendChild(s);});
+  }
+  function setIdle(msg,sub){box.className='react-box idle';box.innerHTML='<h2>'+(msg||'准备就绪')+'</h2><p>'+(sub||'点击开始一轮')+'</p>';}
+  function wait(){state.phase='wait';box.className='react-box wait';box.innerHTML='<h2>等待...</h2><p>变绿再点！</p>';var delay=1500+Math.random()*3000;state.timer=setTimeout(function(){go();},delay);}
+  function go(){state.phase='go';state.startTime=Date.now();box.className='react-box go';box.innerHTML='<h2>点击！</h2>';SFX.coin();}
+  function tooEarly(){clearTimeout(state.timer);state.phase='idle';box.className='react-box early';box.innerHTML='<h2>太早了！</h2><p>点击重试</p>';SFX.error();}
+  function result(rt){state.rounds.push(rt);if(!state.best||rt<state.best)state.best=rt;state.phase='idle';box.className='react-box result';box.innerHTML='<h2>'+rt+' ms</h2><p>'+(rt<200?'⚡ 超快！':rt<300?'👍 不错！':rt<400?'😊 还行':'🐢 再练练')+'</p><p style="margin-top:8px;font-size:14px">点击再来一轮</p>';SFX.select();updateHud();}
+  function handle(){
+    AOXSound.ensure();
+    if(state.phase==='idle'){wait();}
+    else if(state.phase==='wait'){tooEarly();}
+    else if(state.phase==='go'){var rt=Date.now()-state.startTime;result(rt);}
+    else if(state.phase==='result'){wait();}
+  }
+  box.addEventListener('click',handle);
+  box.addEventListener('touchstart',function(e){e.preventDefault();handle();},{passive:false});
+  document.getElementById('resetBtn').addEventListener('click',function(){state.rounds=[];state.best=null;updateHud();setIdle();SFX.click();});
+  updateHud();setIdle();
+})();
+</script>
+</body>
+</html>

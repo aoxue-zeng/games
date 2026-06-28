@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>红石电路 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .rs-grid { display:grid;gap:3px;margin:18px auto;width:fit-content;background:#3d2817;padding:8px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a1a0a, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .rs-cell { width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid #000;user-select:none;transition:background 0.1s }
+  .rs-cell.empty{background:#5d3a1a}.rs-cell.empty:hover{background:#6d4a2a}
+  .rs-cell.wire{background:#5d3a1a}.rs-cell.wire.on{background:#e53935;box-shadow:inset 0 0 10px #ff5252}
+  .rs-cell.source{background:#e53935;box-shadow:inset 0 0 12px #ff5252}
+  .rs-cell.lamp{background:#3d2817}.rs-cell.lamp.on{background:#ffd700;box-shadow:inset 0 0 15px #ffeb3b,0 0 8px #ffd700}
+  .rs-cell.rock{background:#7f7f7f;cursor:default}
+  .tool-btn{font-family:'Press Start 2P',monospace;font-size:10px;padding:10px;border:3px solid #000;cursor:pointer;margin:3px;box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);user-select:none }
+  .tool-btn.sel{background:var(--mc-grass);color:#fff}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;color:#e53935;text-shadow:3px 3px 0 #b71c1c;">⚡ 红石电路</h1>
+  <p class="subtitle">铺设红石，点亮所有灯！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">灯亮</span><span id="lit">0</span>/<span id="total">0</span></div>
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+    <button class="tool-btn sel" data-t="wire">🔴 红石</button>
+    <button class="tool-btn" data-t="erase">🧹 擦除</button>
+  </div>
+  <div class="rs-grid" id="grid"></div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="powerBtn">⚡ 通电</button>
+    <button class="mc-btn gold" id="newBtn">🔄 下一关</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">铺红石连接电源到所有灯，点通电验证</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var SIZE=6,grid,state,tool,sources,lamps,rocks;
+  function genLevel(lvl){
+    grid=[];sources=[];lamps=[];rocks=[];
+    for(var r=0;r<SIZE;r++){grid.push([]);for(var c=0;c<SIZE;c++)grid[r].push({type:'empty',on:false});}
+    // 电源
+    var sr=Math.floor(SIZE/2),sc=0;grid[sr][sc]={type:'source',on:true};sources.push({r:sr,c:sc});
+    // 灯（数量随关卡）
+    var nl=Math.min(5,2+Math.floor(lvl/2));
+    for(var i=0;i<nl;i++){var lr,lc;do{lr=Math.floor(Math.random()*SIZE);lc=2+Math.floor(Math.random()*(SIZE-2));}while(grid[lr][lc].type!=='empty');grid[lr][lc]={type:'lamp',on:false};lamps.push({r:lr,c:lc});}
+    // 石头障碍
+    var nrock=Math.min(6,lvl*2);
+    for(var j=0;j<nrock;j++){var rr,rc;do{rr=Math.floor(Math.random()*SIZE);rc=Math.floor(Math.random()*SIZE);}while(grid[rr][rc].type!=='empty');grid[rr][rc]={type:'rock',on:false};rocks.push({r:rr,c:rc});}
+    state={level:lvl,moves:0};updateHud();render();
+  }
+  function updateHud(){document.getElementById('level').textContent=state.level;document.getElementById('moves').textContent=state.moves;var lit=lamps.filter(function(l){return grid[l.r][l.c].on;}).length;document.getElementById('lit').textContent=lit;document.getElementById('total').textContent=lamps.length;}
+  function render(){
+    var g=document.getElementById('grid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+SIZE+',52px)';
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      (function(r,c){var cell=grid[r][c];var d=document.createElement('div');d.className='rs-cell '+cell.type+(cell.on?' on':'');
+        if(cell.type==='source')d.textContent='⚡';else if(cell.type==='lamp')d.textContent=cell.on?'💡':'🪔';else if(cell.type==='rock')d.textContent='🪨';
+        d.addEventListener('click',function(){place(r,c);});
+        g.appendChild(d);
+      })(r,c);
+    }
+  }
+  function place(r,c){
+    var cell=grid[r][c];
+    if(cell.type==='source'||cell.type==='rock')return;
+    if(tool==='wire'){if(cell.type==='empty'||cell.type==='wire'){cell.type='wire';cell.on=false;state.moves++;SFX.place();}else if(cell.type==='lamp'){return;}}
+    else if(tool==='erase'){if(cell.type==='wire'){cell.type='empty';cell.on=false;state.moves++;SFX.rotate();}}
+    updateHud();render();
+  }
+  function power(){
+    // BFS 从电源传播
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){if(grid[r][c].type!=='source')grid[r][c].on=false;}
+    var queue=sources.slice();var visited={};sources.forEach(function(s){visited[s.r+'_'+s.c]=true;});
+    while(queue.length){
+      var cur=queue.shift();var dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+      dirs.forEach(function(d){var nr=cur.r+d[0],nc=cur.c+d[1];if(nr<0||nr>=SIZE||nc<0||nc>=SIZE)return;var key=nr+'_'+nc;if(visited[key])return;var nb=grid[nr][nc];if(nb.type==='rock'||nb.type==='empty')return;visited[key]=true;nb.on=true;queue.push({r:nr,c:nc});});
+    }
+    SFX.clear();render();updateHud();
+    var lit=lamps.filter(function(l){return grid[l.r][l.c].on;}).length;
+    if(lit===lamps.length){SFX.win();toast('🎉 全部点亮！');setTimeout(function(){genLevel(state.level+1);},1000);}
+    else{toast('还有 '+(lamps.length-lit)+' 盏没亮');}
+  }
+  document.querySelectorAll('.tool-btn').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tool-btn').forEach(function(x){x.classList.remove('sel');});b.classList.add('sel');tool=b.dataset.t;SFX.click();});});
+  document.getElementById('powerBtn').addEventListener('click',power);
+  document.getElementById('newBtn').addEventListener('click',function(){genLevel(state.level+1);SFX.click();});
+  tool='wire';genLevel(1);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数独 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .sudoku-board { display:grid; grid-template-columns:repeat(9,1fr); gap:0; width:fit-content; margin:16px auto 0; background:#000; border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); }
+  .scell { width:42px; height:42px; display:flex; align-items:center; justify-content:center; font-family:'VT323',monospace; font-size:26px; cursor:pointer; background:#e8e8e8; border:1px solid #999; color:#1a1a1a; user-select:none; }
+  .scell.bold-right { border-right:2px solid #000; } .scell.bold-bottom { border-bottom:2px solid #000; }
+  .scell.given { background:#bbb; color:#000; font-weight:bold; cursor:default; }
+  .scell.selected { background:#ffd700 !important; }
+  .scell.same { background:#a5d6a7; }
+  .scell.error { color:#e53935; }
+  .num-pad { display:flex; gap:6px; justify-content:center; margin-top:14px; flex-wrap:wrap; }
+  .num-btn { width:42px; height:42px; background:var(--mc-panel); border:3px solid var(--mc-black); box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow); font-family:'Press Start 2P',monospace; font-size:16px; cursor:pointer; color:#1a1a1a; }
+  .num-btn:hover{ transform:translate(-1px,-1px); }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧩 数独</h1>
+  <p class="subtitle">填入1-9，每行每列每宫不重复！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">错误</span><span id="errors">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+    <div class="hud-item"><span class="label">难度</span><span id="diff">中等</span></div>
+  </div>
+  <div class="sudoku-board" id="board"></div>
+  <div class="num-pad" id="numpad"></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点格子选中，按数字键或点数字填入 · <span class="key">1-9</span> 填数 <span class="key">0/Del</span> 清除</p>
+  <div style="margin-top:14px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="newBtn">▶ 新游戏</button>
+    <button class="mc-btn gold diff-btn" data-d="easy">简单</button>
+    <button class="mc-btn diff-btn" data-d="medium">中等</button>
+    <button class="mc-btn redstone diff-btn" data-d="hard">困难</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var solution, puzzle, given, selected, errors, state, timerInt, startTime, difficulty='medium';
+  function gen(){
+    // 生成完整解（用回溯）
+    var b=[]; for(var i=0;i<81;i++)b.push(0);
+    solve(b,0);
+    solution=b.slice();
+    // 挖洞
+    var holes = difficulty==='easy'?35:(difficulty==='medium'?45:55);
+    puzzle=solution.slice(); given=[];
+    var idxs=[]; for(var j=0;j<81;j++)idxs.push(j);
+    for(var k=idxs.length-1;k>0;k--){var r=Math.floor(Math.random()*(k+1));var t=idxs[k];idxs[k]=idxs[r];idxs[r]=t;}
+    for(var h=0;h<holes;h++)puzzle[idxs[h]]=0;
+    for(var g=0;g<81;g++)given[g]=puzzle[g]!==0;
+  }
+  function solve(b,pos){ if(pos>=81)return true; if(b[pos]!==0)return solve(b,pos+1); var nums=[1,2,3,4,5,6,7,8,9]; for(var i=nums.length-1;i>0;i--){var r=Math.floor(Math.random()*(i+1));var t=nums[i];nums[i]=nums[r];nums[r]=t;} for(var n=0;n<nums.length;n++){ if(valid(b,pos,nums[n])){ b[pos]=nums[n]; if(solve(b,pos+1))return true; b[pos]=0; } } return false; }
+  function valid(b,pos,num){ var r=Math.floor(pos/9),c=pos%9; for(var i=0;i<9;i++){ if(b[r*9+i]===num)return false; if(b[i*9+c]===num)return false; } var br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3; for(var x=0;x<3;x++)for(var y=0;y<3;y++){ if(b[(br+x)*9+(bc+y)]===num)return false; } return true; }
+  function init(){
+    gen(); selected=-1; errors=0; state={over:false,won:false}; startTime=0; clearInterval(timerInt); document.getElementById('timer').textContent='0';
+    document.getElementById('errors').textContent='0'; document.getElementById('diff').textContent=difficulty==='easy'?'简单':(difficulty==='medium'?'中等':'困难');
+    render(); buildNumpad();
+  }
+  function render(){
+    var board=document.getElementById('board'); board.innerHTML='';
+    for(var i=0;i<81;i++){ (function(idx){ var d=document.createElement('div'); d.className='scell'; var r=Math.floor(idx/9),c=idx%9;
+      if((c+1)%3===0&&c<8)d.classList.add('bold-right'); if((r+1)%3===0&&r<8)d.classList.add('bold-bottom');
+      if(given[idx])d.classList.add('given');
+      if(puzzle[idx]!==0)d.textContent=puzzle[idx];
+      if(idx===selected)d.classList.add('selected');
+      // 高亮同行同列同宫相同数
+      if(selected>=0&&idx!==selected){ var sr=Math.floor(selected/9),sc=selected%9; if(r===sr||c===sc||(Math.floor(r/3)===Math.floor(sr/3)&&Math.floor(c/3)===Math.floor(sc/3)))d.classList.add('same'); if(puzzle[idx]!==0&&puzzle[idx]===puzzle[selected])d.classList.add('same'); }
+      // 错误标红
+      if(!given[idx]&&puzzle[idx]!==0&&puzzle[idx]!==solution[idx])d.classList.add('error');
+      d.addEventListener('click',function(){ selected=idx; if(!startTime){startTime=Date.now();timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);} SFX.click(); render(); });
+      board.appendChild(d); })(i); }
+  }
+  function buildNumpad(){ var np=document.getElementById('numpad'); np.innerHTML='';
+    for(var n=1;n<=9;n++){ (function(num){ var b=document.createElement('button'); b.className='num-btn'; b.textContent=num; b.addEventListener('click',function(){ input(num); }); np.appendChild(b); })(n); }
+    var clr=document.createElement('button'); clr.className='num-btn'; clr.textContent='✕'; clr.addEventListener('click',function(){ input(0); }); np.appendChild(clr);
+  }
+  function input(num){ if(selected<0||state.over)return; if(given[selected])return; AOXSound.ensure();
+    puzzle[selected]=num; if(num!==0&&num!==solution[selected]){ errors++; SFX.error(); } else if(num!==0){ SFX.place(); }
+    document.getElementById('errors').textContent=errors; render(); checkWin();
+  }
+  function checkWin(){ for(var i=0;i<81;i++)if(puzzle[i]!==solution[i])return; state.won=true; state.over=true; clearInterval(timerInt); AOXSound.stopBGM(); SFX.win(); var t=Math.floor((Date.now()-startTime)/1000); toast('🎉 完成！错误'+errors+'次 用时'+t+'秒'); }
+  document.addEventListener('keydown',function(e){ var k=e.key; if(k>='1'&&k<='9')input(parseInt(k,10)); else if(k==='0'||k==='Delete'||k==='Backspace')input(0); });
+  document.getElementById('newBtn').addEventListener('click',function(){ AOXSound.ensure(); SFX.select(); init(); });
+  document.querySelectorAll('.diff-btn').forEach(function(b){ b.addEventListener('click',function(){ difficulty=b.dataset.d; init(); SFX.click(); }); });
+  init();
+})();
+</script>
+</body>
+</html>

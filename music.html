@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音乐工作站 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .music-app {
+    max-width: 920px; margin: 14px auto; background: var(--mc-panel-dark);
+    border: 4px solid var(--mc-black); padding: 16px;
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);
+  }
+  /* 工具栏 */
+  .m-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .m-toolbar .sep { width:2px; height:24px; background:#444; margin:0 4px; }
+  .m-btn {
+    font-family:'Press Start 2P',monospace; font-size:10px; padding:8px 12px;
+    background:var(--mc-panel); border:2px solid #000; cursor:pointer; color:#1a1a1a;
+    box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);
+    user-select:none; white-space:nowrap;
+  }
+  .m-btn:hover { transform:translate(-1px,-1px); }
+  .m-btn.active { background:var(--mc-grass); color:#fff; }
+  .m-btn.red { background:var(--mc-redstone); color:#fff; }
+  .m-select {
+    font-family:'Press Start 2P',monospace; font-size:9px; padding:8px;
+    background:#0d1b2a; color:#4dd0e1; border:2px solid #000;
+  }
+  /* 轨道编辑区 */
+  .m-track-area {
+    background:#0d1b2a; border:3px solid #000; overflow-x:auto; margin-bottom:10px;
+    max-height: 340px;
+  }
+  .m-track {
+    display:flex; align-items:stretch; border-bottom:1px solid #1a2a3a; min-width: fit-content;
+  }
+  .m-track-label {
+    width:64px; min-width:64px; display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P',monospace; font-size:8px; color:#fff; text-shadow:1px 1px 0 #000;
+    border-right:2px solid #000; flex-shrink:0;
+  }
+  .m-cells { display:flex; }
+  .m-cell {
+    width:28px; min-width:28px; height:28px; border:1px solid #1a2a3a; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:11px; position:relative;
+    transition:background 0.05s;
+  }
+  .m-cell:hover { background:rgba(255,215,0,0.15); }
+  .m-cell.beat { border-left:2px solid #2a4a6a; }
+  .m-cell.bar { border-left:3px solid #4dd0e1; }
+  .m-cell.playing { background:rgba(255,215,0,0.4); }
+  .m-cell.note { border-radius:3px; }
+  /* 调色盘/音符选择 */
+  .m-palette { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .m-note-btn {
+    width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P',monospace; font-size:10px; cursor:pointer; border:2px solid #000;
+    color:#fff; text-shadow:1px 1px 0 #000; user-select:none; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2);
+  }
+  .m-note-btn.sel { box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.4), 0 0 8px #ffd700; border-color:#ffd700; }
+  /* 信息栏 */
+  .m-info { font-family:'Press Start 2P',monospace; font-size:9px; color:#4dd0e1; display:flex; gap:16px; flex-wrap:wrap; margin:8px 0; }
+  .m-drop {
+    border:3px dashed #4dd0e1; padding:20px; text-align:center; margin:10px 0;
+    color:#4dd0e1; font-family:'Press Start 2P',monospace; font-size:11px; border-radius:8px;
+    transition:all 0.2s;
+  }
+  .m-drop.over { background:rgba(77,208,225,0.2); border-color:#ffd700; color:#ffd700; }
+  input[type=file] { display:none; }
+  .m-tempo { display:flex; align-items:center; gap:8px; color:#fff; font-family:'Press Start 2P',monospace; font-size:9px; }
+  .m-tempo input[type=range] { width:100px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="music.html">🎵 音乐</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="m-brawl.html">大乱斗</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🎵 音乐工作站</h1>
+  <p class="subtitle">播放预设歌曲、自己编曲、拖入文件导入！</p>
+
+  <div class="music-app">
+    <!-- 工具栏 -->
+    <div class="m-toolbar">
+      <button class="m-btn" id="playBtn">▶ 播放</button>
+      <button class="m-btn" id="stopBtn">⏹ 停止</button>
+      <div class="sep"></div>
+      <select class="m-select" id="songSel">
+        <option value="">— 选预设歌曲 —</option>
+        <option value="mario">🍄 马里奥主题</option>
+        <option value="zelda">🗡️ 塞尔达传说</option>
+        <option value="tetris">🟦 俄罗斯方块</option>
+        <option value="starwars">⭐ 星球大战</option>
+        <option value="ode">🎶 欢乐颂</option>
+        <option value="twinkle">✨ 小星星</option>
+      </select>
+      <div class="sep"></div>
+      <div class="m-tempo">速度<input type="range" id="tempo" min="60" max="240" value="120"><span id="tempoVal">120</span></div>
+      <div class="sep"></div>
+      <button class="m-btn" id="clearBtn">🗑 清空</button>
+      <button class="m-btn" id="saveBtn" style="background:var(--mc-grass);color:#fff">📥 存入仓库</button>
+      <button class="m-btn" id="vaultBtn">📦 音乐仓库</button>
+      <button class="m-btn" id="exportBtn">💾 导出</button>
+      <button class="m-btn red" id="importBtn">📁 导入</button>
+      <input type="file" id="fileInput" accept=".json,.txt">
+    </div>
+
+    <!-- 音符调色盘 -->
+    <div class="m-palette" id="palette"></div>
+
+    <!-- 轨道编辑区 -->
+    <div class="m-track-area" id="trackArea"></div>
+
+    <!-- 拖拽区 -->
+    <div class="m-drop" id="dropZone">
+      🎵 把歌曲文件（.json）拖到这里导入<br>
+      <span style="font-size:9px;opacity:0.7">或点「导入」按钮选择文件</span>
+    </div>
+
+    <!-- 信息 -->
+    <div class="m-info">
+      <span>音符: <span id="noteCount">0</span></span>
+      <span>小节: <span id="bars">4</span></span>
+      <span>状态: <span id="status">就绪</span></span>
+      <span>提示: 点调色盘选音符→点格子放置→再点删除</span>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px">
+    选音符→点格子放音→播放试听。可调速度、导出JSON、拖文件导入
+  </p>
+</div>
+
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // ===== 音符定义（频率Hz）=====
+  var NOTES = [
+    {n:'C4', f:261.63, c:'#e53935'}, {n:'D4', f:293.66, c:'#ff9800'},
+    {n:'E4', f:329.63, c:'#ffd700'}, {n:'F4', f:349.23, c:'#4caf50'},
+    {n:'G4', f:392.00, c:'#2196f3'}, {n:'A4', f:440.00, c:'#9c27b0'},
+    {n:'B4', f:493.88, c:'#e91e63'}, {n:'C5', f:523.25, c:'#00bcd4'},
+    {n:'D5', f:587.33, c:'#8bc34a'}, {n:'E5', f:659.25, c:'#ff5722'},
+    {n:'rest', f:0, c:'#555', label:'休'}
+  ];
+  var TRACKS = ['C4','D4','E4','F4','G4','A4','B4','C5','D5','E5'];
+  var BARS = 8, BEATS = 4, SUB = 2; // 8小节×4拍×2=64格/轨
+  var COLS = BARS * BEATS * SUB;
+
+  var grid, selNote, playing, playCol, tempo, timer;
+
+  function init(){
+    grid = [];
+    for (var t = 0; t < TRACKS.length; t++) {
+      var row = [];
+      for (var c = 0; c < COLS; c++) row.push(null);
+      grid.push(row);
+    }
+    selNote = NOTES[2]; // 默认E4
+    playing = false; playCol = 0; tempo = 120;
+    buildPalette(); buildTracks(); updateInfo();
+  }
+
+  // ===== 调色盘 =====
+  function buildPalette(){
+    var p = document.getElementById('palette'); p.innerHTML = '';
+    NOTES.forEach(function(nt){
+      var b = document.createElement('div');
+      b.className = 'm-note-btn'; b.style.background = nt.c;
+      b.textContent = nt.n === 'rest' ? '休' : nt.n;
+      b.dataset.note = nt.n;
+      if (nt.n === selNote.n) b.classList.add('sel');
+      b.addEventListener('click', function(){
+        selNote = nt;
+        document.querySelectorAll('.m-note-btn').forEach(function(x){x.classList.remove('sel');});
+        b.classList.add('sel');
+        SFX.click();
+        // 预览听一下
+        playTone(nt.f, 0.2);
+      });
+      p.appendChild(b);
+    });
+  }
+
+  // ===== 轨道编辑区 =====
+  function buildTracks(){
+    var area = document.getElementById('trackArea'); area.innerHTML = '';
+    grid.forEach(function(row, ti){
+      var track = document.createElement('div'); track.className = 'm-track';
+      var label = document.createElement('div'); label.className = 'm-track-label';
+      label.style.background = NOTES[ti].c;
+      label.textContent = TRACKS[ti];
+      track.appendChild(label);
+      var cells = document.createElement('div'); cells.className = 'm-cells';
+      row.forEach(function(cell, ci){
+        var d = document.createElement('div'); d.className = 'm-cell';
+        if (ci % (BEATS*SUB) === 0) d.classList.add('bar');
+        else if (ci % SUB === 0) d.classList.add('beat');
+        d.dataset.track = ti; d.dataset.col = ci;
+        if (cell) {
+          d.classList.add('note');
+          d.style.background = NOTES[cell.trackIdx].c;
+          d.textContent = '●';
+        }
+        d.addEventListener('click', function(){ toggleCell(ti, ci); });
+        cells.appendChild(d);
+      });
+      track.appendChild(cells);
+      area.appendChild(track);
+    });
+  }
+
+  function toggleCell(ti, ci){
+    AOXSound.ensure();
+    if (grid[ti][ci]) {
+      // 已有音符，删除
+      grid[ti][ci] = null; SFX.back();
+    } else {
+      // 放置选中的音符
+      var noteIdx = NOTES.findIndex(function(n){return n.n === TRACKS[ti];});
+      grid[ti][ci] = { note: TRACKS[ti], freq: NOTES[noteIdx].f, trackIdx: ti };
+      SFX.place();
+      playTone(NOTES[noteIdx].f, 0.2);
+    }
+    buildTracks(); updateInfo();
+  }
+
+  function updateInfo(){
+    var cnt = 0;
+    grid.forEach(function(row){ row.forEach(function(c){ if (c) cnt++; }); });
+    document.getElementById('noteCount').textContent = cnt;
+    document.getElementById('bars').textContent = BARS;
+  }
+
+  // ===== 播放 =====
+  function playTone(freq, dur){
+    if (!freq || !window.AOXSound) return;
+    var c = AOXSound.ensure(); if (!c) return;
+    AOXSound.tone(freq, dur || 0.2, 'square', 0.25);
+  }
+
+  function play(){
+    if (playing) return;
+    AOXSound.ensure();
+    playing = true; playCol = 0;
+    document.getElementById('status').textContent = '播放中';
+    document.getElementById('playBtn').textContent = '⏸ 暂停';
+    var stepDur = 60000 / tempo / SUB; // 每格毫秒
+    timer = setInterval(function(){
+      // 高亮当前列
+      document.querySelectorAll('.m-cell.playing').forEach(function(c){c.classList.remove('playing');});
+      // 播放当前列所有音符
+      var any = false;
+      grid.forEach(function(row, ti){
+        if (row[playCol]) { playTone(row[playCol].freq, stepDur/1000*0.9); any = true; }
+        var cell = document.querySelector('.m-cell[data-track="'+ti+'"][data-col="'+playCol+'"]');
+        if (cell) cell.classList.add('playing');
+      });
+      playCol++;
+      if (playCol >= COLS) { playCol = 0; } // 循环
+    }, stepDur);
+  }
+
+  function stop(){
+    playing = false; clearInterval(timer);
+    document.querySelectorAll('.m-cell.playing').forEach(function(c){c.classList.remove('playing');});
+    document.getElementById('status').textContent = '就绪';
+    document.getElementById('playBtn').textContent = '▶ 播放';
+  }
+
+  // ===== 预设歌曲 =====
+  var SONGS = {
+    mario: "E5 E5 - E5 - C5 E5 - G4 - - - G4 - - - C5 - - G4 - - E4 - - A4 - B4 - A#4 A4 - G4 E5 G5 A5 F5 G5 - E5 - C5 D5 B4 - - -",
+    zelda: "G4 - D5 - C5 B4 - A4 - G4 - A4 B4 - C5 D5 - E5 - D5 C5 - B4 - A4 - G4 - - - - - - - - - - - - - - - - - - - - - - - -",
+    tetris: "E5 B4 C5 D5 - C5 B4 A4 A4 C5 E5 - D5 C5 B4 B4 C5 D5 E5 - C5 A4 A4 - - - - - - - - - - - - - - - - - - - - - - - -",
+    starwars: "C4 G4 C5 - G4 C5 - G4 E5 - D5 C5 - G4 C5 - G4 C5 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -",
+    ode: "E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 E4 - D4 D4 E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 D4 - C4 C4 - - - - - - - -",
+    twinkle: "C4 C4 G4 G4 A4 A4 G4 - F4 F4 E4 E4 D4 D4 C4 - G4 G4 F4 F4 E4 E4 D4 - G4 G4 F4 F4 E4 E4 D4 - - - - - - - -"
+  };
+  var SONG_NAMES = {mario:'马里奥主题',zelda:'塞尔达',tetris:'俄罗斯方块',starwars:'星球大战',ode:'欢乐颂',twinkle:'小星星'};
+
+  function loadSong(str){
+    init();
+    var tokens = str.split(/\s+/).filter(function(t){return t.length>0;});
+    var col = 0;
+    tokens.forEach(function(tok){
+      if (tok === '-') { col++; return; }
+      if (col >= COLS) return;
+      var idx = NOTES.findIndex(function(n){return n.n === tok;});
+      if (idx >= 0 && idx < TRACKS.length) {
+        var ti = idx;
+        grid[ti][col] = { note: TRACKS[ti], freq: NOTES[idx].f, trackIdx: ti };
+      }
+      col++;
+    });
+    buildTracks(); updateInfo();
+  }
+
+  // ===== 导出/导入 =====
+  function exportSong(){
+    var data = { version:1, tempo:tempo, bars:BARS, notes:[] };
+    grid.forEach(function(row, ti){
+      row.forEach(function(cell, ci){
+        if (cell) data.notes.push({ track: ti, col: ci, note: cell.note });
+      });
+    });
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'my-song.json';
+    a.click();
+    SFX.select();
+    toast('已导出 my-song.json');
+  }
+
+  function importSong(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var data = JSON.parse(e.target.result);
+        init();
+        if (data.tempo) { tempo = data.tempo; document.getElementById('tempo').value = tempo; document.getElementById('tempoVal').textContent = tempo; }
+        if (data.notes) {
+          data.notes.forEach(function(n){
+            if (n.track < grid.length && n.col < COLS) {
+              var idx = NOTES.findIndex(function(x){return x.n === n.note;});
+              if (idx >= 0) grid[n.track][n.col] = { note: n.note, freq: NOTES[idx].f, trackIdx: n.track };
+            }
+          });
+        }
+        buildTracks(); updateInfo();
+        SFX.win();
+        toast('🎉 导入成功！' + (data.notes ? data.notes.length : 0) + ' 个音符');
+      } catch(err) {
+        // 尝试当文本解析（空格分隔音符名）
+        try {
+          var txt = e.target.result;
+          if (typeof txt === 'string' && txt.length > 0) {
+            loadSong(txt);
+            toast('已导入文本歌曲');
+          }
+        } catch(e2) { SFX.error(); toast('导入失败：格式错误'); }
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ===== 保存到仓库（localStorage）=====
+  function getCurrentSongData(name){
+    var data = { version:1, tempo:tempo, bars:BARS, notes:[], name: name || '未命名', date: new Date().toLocaleString('zh-CN') };
+    grid.forEach(function(row, ti){
+      row.forEach(function(cell, ci){
+        if (cell) data.notes.push({ track: ti, col: ci, note: cell.note });
+      });
+    });
+    return data;
+  }
+
+  function saveToVault(){
+    var cnt = 0;
+    grid.forEach(function(row){ row.forEach(function(c){ if(c) cnt++; }); });
+    if (cnt === 0) { toast('没有音符，无法保存！'); SFX.error(); return; }
+    // 弹出输入框取名
+    var name = prompt('给这首歌取个名字：', '我的歌曲 ' + new Date().toLocaleDateString('zh-CN'));
+    if (!name) return;
+    var data = getCurrentSongData(name);
+    var vault = getVault();
+    vault.push(data);
+    localStorage.setItem('music_vault', JSON.stringify(vault));
+    SFX.win();
+    toast('🎵 已存入仓库！共 ' + vault.length + ' 首');
+  }
+
+  function getVault(){
+    try { return JSON.parse(localStorage.getItem('music_vault') || '[]'); }
+    catch(e) { return []; }
+  }
+
+  // 从仓库加载歌曲
+  window.loadFromVault = function(index){
+    var vault = getVault();
+    if (index < 0 || index >= vault.length) return;
+    var data = vault[index];
+    init();
+    if (data.tempo) { tempo = data.tempo; document.getElementById('tempo').value = tempo; document.getElementById('tempoVal').textContent = tempo; }
+    if (data.notes) {
+      data.notes.forEach(function(n){
+        if (n.track < grid.length && n.col < COLS) {
+          var idx = NOTES.findIndex(function(x){return x.n === n.note;});
+          if (idx >= 0) grid[n.track][n.col] = { note: n.note, freq: NOTES[idx].f, trackIdx: n.track };
+        }
+      });
+    }
+    buildTracks(); updateInfo();
+    SFX.select();
+    toast('已加载：' + (data.name || '未命名'));
+  }
+
+  // ===== 事件绑定 =====
+  document.getElementById('playBtn').addEventListener('click', function(){
+    if (playing) stop(); else { play(); SFX.click(); }
+  });
+  document.getElementById('stopBtn').addEventListener('click', function(){ stop(); SFX.click(); });
+  document.getElementById('songSel').addEventListener('change', function(){
+    var v = this.value;
+    if (v && SONGS[v]) {
+      loadSong(SONGS[v]);
+      toast('已加载：' + SONG_NAMES[v]);
+      SFX.select();
+    }
+  });
+  document.getElementById('tempo').addEventListener('input', function(){
+    tempo = parseInt(this.value, 10);
+    document.getElementById('tempoVal').textContent = tempo;
+    if (playing) { stop(); play(); } // 重启以新速度
+  });
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    if (playing) stop();
+    init(); SFX.rotate(); toast('已清空');
+  });
+  document.getElementById('exportBtn').addEventListener('click', exportSong);
+  document.getElementById('saveBtn').addEventListener('click', function(){ AOXSound.ensure(); saveToVault(); });
+  document.getElementById('vaultBtn').addEventListener('click', function(){ SFX.click(); window.location.href = 'music-vault.html'; });
+  document.getElementById('importBtn').addEventListener('click', function(){
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', function(e){
+    if (e.target.files[0]) importSong(e.target.files[0]);
+  });
+
+  // 拖拽导入
+  var drop = document.getElementById('dropZone');
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('over'); });
+  drop.addEventListener('drop', function(e){
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) importSong(e.dataTransfer.files[0]);
+  });
+  // 整个app区域都能拖入
+  document.querySelector('.music-app').addEventListener('dragover', function(e){ e.preventDefault(); });
+  document.querySelector('.music-app').addEventListener('drop', function(e){
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) importSong(e.dataTransfer.files[0]);
+  });
+
+  init();
+
+  // 检查是否从仓库加载
+  var loadIdx = sessionStorage.getItem('music_load_idx');
+  if (loadIdx !== null) {
+    sessionStorage.removeItem('music_load_idx');
+    loadFromVault(parseInt(loadIdx, 10));
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音乐仓库 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .vault-app {
+    max-width: 760px; margin: 14px auto; background: var(--mc-panel-dark);
+    border: 4px solid var(--mc-black); padding: 20px;
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);
+  }
+  .vault-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .vault-item {
+    background: #0d1b2a; border: 3px solid #000; padding: 14px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    box-shadow: inset 2px 2px 0 0 #2a3f5f;
+    transition: transform 0.05s;
+  }
+  .vault-item:hover { transform: translateX(-2px); border-color: #4dd0e1; }
+  .vault-item .v-icon { font-size: 32px; }
+  .vault-item .v-info { flex: 1; min-width: 140px; }
+  .vault-item .v-name { font-family: 'Press Start 2P', monospace; font-size: 12px; color: #ffd700; text-shadow: 1px 1px 0 #000; margin-bottom: 4px; }
+  .vault-item .v-meta { font-size: 14px; color: #888; }
+  .vault-item .v-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .v-btn {
+    font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 8px 10px;
+    border: 2px solid #000; cursor: pointer; color: #fff; text-shadow: 1px 1px 0 #000;
+    box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2); user-select: none;
+  }
+  .v-btn:hover { transform: translate(-1px,-1px); }
+  .v-btn.load { background: #4caf50; }
+  .v-btn.export { background: #2196f3; }
+  .v-btn.del { background: #e53935; }
+  .v-empty { text-align: center; padding: 40px; color: #666; font-family: 'Press Start 2P', monospace; font-size: 12px; }
+  .vault-drop {
+    border: 3px dashed #4dd0e1; padding: 24px; text-align: center; margin-bottom: 16px;
+    color: #4dd0e1; font-family: 'Press Start 2P', monospace; font-size: 10px; border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .vault-drop.over { background: rgba(77,208,225,0.2); border-color: #ffd700; color: #ffd700; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="music.html">🎵 音乐工作站</a>
+    <a href="music-vault.html">📦 音乐仓库</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">📦 音乐仓库</h1>
+  <p class="subtitle">你保存的所有歌曲都在这里！</p>
+
+  <div class="vault-app">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4dd0e1">
+        📦 仓库中共有 <span id="vaultCount" style="color:#ffd700">0</span> 首歌
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="mc-btn green" id="importBtn" style="font-size:11px;padding:10px">📁 导入文件</button>
+        <a href="music.html" class="mc-btn" style="font-size:11px;padding:10px">🎵 去编曲</a>
+        <input type="file" id="fileInput" accept=".json,.txt,.mp3,.wav,.ogg,.m4a" multiple>
+      </div>
+    </div>
+
+    <!-- 拖拽导入区 -->
+    <div class="vault-drop" id="dropZone">
+      🎵 把歌曲文件或音乐文件拖到这里，自动存入仓库<br>
+      <span style="font-size:9px;opacity:0.7">支持 .json 歌曲谱 / .mp3 .wav .ogg 音频文件，可多选</span>
+    </div>
+
+    <!-- 歌曲列表 -->
+    <div class="vault-list" id="vaultList"></div>
+  </div>
+
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="music.html" class="mc-btn green">🎵 回音乐工作站</a>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px">
+    在音乐工作站点"存入仓库"保存歌曲，或拖文件到这里导入。不会丢失！
+  </p>
+</div>
+
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  function getVault(){
+    try { return JSON.parse(localStorage.getItem('music_vault') || '[]'); }
+    catch(e) { return []; }
+  }
+  function setVault(v){ localStorage.setItem('music_vault', JSON.stringify(v)); }
+
+  function render(){
+    var vault = getVault();
+    document.getElementById('vaultCount').textContent = vault.length;
+    var list = document.getElementById('vaultList');
+    if (vault.length === 0) {
+      list.innerHTML = '<div class="v-empty">📦 仓库是空的<br><br>去音乐工作站编一首歌，点"存入仓库"<br>或把音乐文件拖到这里导入</div>';
+      return;
+    }
+    list.innerHTML = '';
+    vault.forEach(function(song, i){
+      var item = document.createElement('div');
+      item.className = 'vault-item';
+      var isAudio = song.audio; // 音频文件
+      var icon = isAudio ? '🎶' : '🎵';
+      var meta = isAudio ? ('音频文件 · ' + (song.audioType||'') + ' · ' + (song.date||'')) : (song.notes.length + ' 个音符 · 速度 ' + (song.tempo||120) + ' · ' + (song.date||''));
+      var actions = '';
+      if (isAudio) {
+        actions = '<button class="v-btn load" data-act="play-audio" data-idx="'+i+'">▶ 播放</button>' +
+          '<button class="v-btn del" data-act="del" data-idx="'+i+'">🗑 删除</button>';
+      } else {
+        actions = '<button class="v-btn load" data-act="load" data-idx="'+i+'">▶ 加载</button>' +
+          '<button class="v-btn export" data-act="export" data-idx="'+i+'">💾 导出</button>' +
+          '<button class="v-btn del" data-act="del" data-idx="'+i+'">🗑 删除</button>';
+      }
+      item.innerHTML =
+        '<div class="v-icon">' + icon + '</div>' +
+        '<div class="v-info">' +
+          '<div class="v-name">' + (i+1) + '. ' + (song.name || '未命名') + '</div>' +
+          '<div class="v-meta">' + meta + '</div>' +
+        '</div>' +
+        '<div class="v-actions">' + actions + '</div>';
+      // 音频播放器
+      if (isAudio) {
+        var au = document.createElement('audio');
+        au.controls = true; au.style.cssText = 'width:100%;margin-top:6px';
+        au.src = song.audio;
+        item.appendChild(au);
+      }
+      list.appendChild(item);
+    });
+    // 绑定按钮
+    list.querySelectorAll('.v-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var act = btn.dataset.act, idx = parseInt(btn.dataset.idx, 10);
+        var vault = getVault();
+        if (idx < 0 || idx >= vault.length) return;
+        var song = vault[idx];
+        AOXSound.ensure();
+        if (act === 'load') {
+          sessionStorage.setItem('music_load_idx', idx);
+          window.location.href = 'music.html';
+        } else if (act === 'play-audio') {
+          var au = btn.closest('.vault-item').querySelector('audio');
+          if (au) { if (au.paused) { au.play(); SFX.select(); } else { au.pause(); } }
+        } else if (act === 'export') {
+          var json = JSON.stringify(song, null, 2);
+          var blob = new Blob([json], {type:'application/json'});
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = (song.name || 'song') + '.json';
+          a.click();
+          SFX.select(); toast('已导出 ' + (song.name||''));
+        } else if (act === 'del') {
+          if (confirm('确定删除「' + (song.name||'未命名') + '」吗？')) {
+            vault.splice(idx, 1);
+            setVault(vault);
+            SFX.error(); toast('已删除');
+            render();
+          }
+        }
+      });
+    });
+  }
+
+  // 导入文件到仓库（支持 json/txt 歌谱 + mp3/wav 音频）
+  function importToVault(file){
+    var fname = file.name.toLowerCase();
+    var isAudio = /\.(mp3|wav|ogg|m4a|aac|flac)$/.test(fname);
+    if (isAudio) {
+      // 音频文件：读为 base64 存储（注意 localStorage 5MB 限制）
+      if (file.size > 3 * 1024 * 1024) {
+        toast('⚠️ 文件太大(>3MB)，localStorage 可能存不下。小文件可以。');
+      }
+      var ar = new FileReader();
+      ar.onload = function(e){
+        var data = {
+          name: file.name.replace(/\.[^.]+$/, ''),
+          audio: e.target.result,
+          audioType: file.type || fname.split('.').pop(),
+          date: new Date().toLocaleString('zh-CN')
+        };
+        var vault = getVault();
+        vault.push(data);
+        try {
+          setVault(vault);
+          SFX.win(); toast('🎶 已导入音频：' + data.name);
+          render();
+        } catch(err) {
+          vault.pop(); setVault(vault);
+          SFX.error(); toast('❌ 存储失败，文件太大。localStorage 限制约5MB');
+        }
+      };
+      ar.readAsDataURL(file);
+      return;
+    }
+    // 歌谱文件
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        var data;
+        var txt = e.target.result;
+        if (fname.endsWith('.json')) {
+          data = JSON.parse(txt);
+          if (!data.notes) throw new Error('no notes');
+        } else {
+          // 文本格式
+          data = { version:1, tempo:120, bars:4, notes:[], name: file.name.replace(/\.[^.]+$/, ''), date: new Date().toLocaleString('zh-CN') };
+          var NOTES_ARR = ['C4','D4','E4','F4','G4','A4','B4','C5','D5','E5'];
+          var tokens = txt.split(/\s+/).filter(function(t){return t.length>0;});
+          var col = 0;
+          tokens.forEach(function(tok){
+            if (tok === '-') { col++; return; }
+            var ti = NOTES_ARR.indexOf(tok);
+            if (ti >= 0 && col < 32) data.notes.push({ track: ti, col: col, note: tok });
+            col++;
+          });
+        }
+        data.name = data.name || file.name;
+        data.date = data.date || new Date().toLocaleString('zh-CN');
+        var vault = getVault();
+        vault.push(data);
+        setVault(vault);
+        SFX.win();
+        render();
+      } catch(err) {
+        SFX.error(); toast('导入失败：' + file.name);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // 文件选择
+  document.getElementById('importBtn').addEventListener('click', function(){
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', function(e){
+    var files = e.target.files;
+    for (var i = 0; i < files.length; i++) importToVault(files[i]);
+    e.target.value = '';
+  });
+
+  // 拖拽
+  var drop = document.getElementById('dropZone');
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('over'); });
+  drop.addEventListener('drop', function(e){
+    e.preventDefault(); drop.classList.remove('over');
+    var files = e.dataTransfer.files;
+    var cnt = 0;
+    for (var i = 0; i < files.length; i++) { importToVault(files[i]); cnt++; }
+    if (cnt > 0) toast('导入 ' + cnt + ' 个文件');
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

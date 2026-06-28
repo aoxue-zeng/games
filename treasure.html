@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寻宝探险 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#8b5a2b; touch-action:none; cursor:crosshair; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="lumberjack.html">伐木</a>
+    <a href="crafting.html">合成台</a>
+    <a href="redstone.html">红石</a>
+    <a href="nether.html">下界</a>
+    <a href="defend.html">苦力怕防御</a>
+    <a href="fishing.html">钓鱼</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="farm.html">农场</a>
+    <a href="builder.html">建筑</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🗺️ 寻宝探险</h1>
+  <p class="subtitle">罗盘指引，挖出宝藏！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">宝藏</span><span id="found">0</span>/<span id="total">5</span></div>
+    <div class="hud-item"><span class="label">挖掘</span><span id="digs">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="500" height="400"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px;">
+    <span class="key">点击</span> 挖掘 · 罗盘红针指向最近宝藏 · 越近针越红
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,treasures,dug,particles,tick;
+  var COLS=10,ROWS=8,CELL=46,OFFX=20,OFFY=20;
+  function init(lvl){
+    state={score:0,level:lvl||1,digs:0,found:0,total:5,over:false};
+    treasures=[];dug=[];for(var r=0;r<ROWS;r++)dug.push(new Array(COLS).fill(false));
+    var n=Math.min(8,4+state.level);
+    state.total=n;
+    for(var i=0;i<n;i++){var tr,tc;do{tr=Math.floor(Math.random()*ROWS);tc=Math.floor(Math.random()*COLS);}while(treasures.some(function(t){return t.r===tr&&t.c===tc;}));treasures.push({r:tr,c:tc,type:['💎','.gold','💎','⭐','🏆'][i%5],val:[100,50,100,200,300][i%5],found:false});}
+    particles=[];tick=0;updateHud();
+  }
+  function updateHud(){document.getElementById('score').textContent=state.score;document.getElementById('found').textContent=state.found;document.getElementById('total').textContent=state.total;document.getElementById('digs').textContent=state.digs;document.getElementById('level').textContent=state.level;}
+  function nearestTreasure(){
+    var best=null,bd=999;
+    treasures.forEach(function(t){if(t.found)return;var d=Math.hypot(t.r-2,t.c-2);if(d<bd){bd=d;best=t;}});
+    return best?{t:best,d:bd}:null;
+  }
+  function dig(r,c){
+    if(state.over||dug[r][c])return;
+    AOXSound.ensure();dug[r][c]=true;state.digs++;SFX.dig();
+    var hit=treasures.find(function(t){return t.r===r&&t.c===c&&!t.found;});
+    if(hit){hit.found=true;state.found++;state.score+=hit.val;SFX.gem();explode(OFFX+c*CELL+CELL/2,OFFY+r*CELL+CELL/2,'#ffd700',14);toast('找到 '+hit.type+'！+'+hit.val);
+      if(state.found>=state.total){SFX.win();toast('🎉 全部找到！');setTimeout(function(){init(state.level+1);},1500);}
+    }else{
+      for(var i=0;i<4;i++)particles.push({x:OFFX+c*CELL+CELL/2,y:OFFY+r*CELL+CELL/2,vx:(Math.random()-0.5)*3,vy:-1-Math.random()*2,life:20,c:'#6b4220',size:3});
+    }
+    updateHud();
+  }
+  function explode(x,y,c,n){for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=2+Math.random()*4;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,c:c,size:2+Math.random()*3});}}
+  function update(){if(!state.running)return;tick++;particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});}
+  function draw(){
+    // 地面网格
+    ctx.fillStyle='#8b5a2b';ctx.fillRect(0,0,W,H);
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+      var x=OFFX+c*CELL,y=OFFY+r*CELL;
+      ctx.fillStyle=(r+c)%2===0?'#8b5a2b':'#7d5028';ctx.fillRect(x,y,CELL,CELL);
+      ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.strokeRect(x,y,CELL,CELL);
+      if(dug[r][c]){ctx.fillStyle='#5d3a1a';ctx.fillRect(x+4,y+4,CELL-8,CELL-8);ctx.fillStyle='#3d2817';ctx.fillRect(x+CELL/2-3,y+CELL/2-3,6,6);}
+      var hit=treasures.find(function(t){return t.r===r&&t.c===c&&t.found;});
+      if(hit){ctx.font='28px serif';ctx.textAlign='center';ctx.fillText(hit.type,x+CELL/2,y+CELL/2+10);}
+    }
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/30;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 罗盘（右上）
+    var cx=W-50,cy=50;var near=nearestTreasure();
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.beginPath();ctx.arc(cx,cy,30,0,7);ctx.fill();
+    ctx.strokeStyle='#ffd700';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,30,0,7);ctx.stroke();
+    if(near){
+      var ang=Math.atan2(near.t.r-2,near.t.c-2);var intensity=1-Math.min(1,near.d/8);
+      ctx.fillStyle=intensity>0.5?'#e53935':'#ff9800';
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*24,cy+Math.sin(ang)*24);ctx.lineTo(cx+Math.cos(ang+0.3)*8,cy+Math.sin(ang+0.3)*8);ctx.lineTo(cx+Math.cos(ang-0.3)*8,cy+Math.sin(ang-0.3)*8);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,3,0,7);ctx.fill();
+    }
+    if(!state.running){ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备寻宝',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始',W/2,H/2+25);}
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function handle(e){
+    if(!state.running)return;var r=canvas.getBoundingClientRect();
+    var x=(e.clientX!==undefined?e.clientX-r.left:e.touches[0].clientX-r.left)*(W/r.width);
+    var y=(e.clientY!==undefined?e.clientY-r.top:e.touches[0].clientY-r.top)*(H/r.height);
+    var c=Math.floor((x-OFFX)/CELL),rr=Math.floor((y-OFFY)/CELL);
+    if(rr>=0&&rr<ROWS&&c>=0&&c<COLS)dig(rr,c);
+  }
+  canvas.addEventListener('click',handle);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();handle(e);},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init(1);state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('跟着罗盘挖！');});
+  init(1);state.running=false;loop();
+})();
+</script>
+</body>
+</html>

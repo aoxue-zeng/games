@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>金币射击 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#0d1b2a;touch-action:none;cursor:crosshair}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="m-poison.html">毒蘑菇</a><a href="m-parachute.html">降落伞</a><a href="m-coins.html">金币射击</a><a href="m-escape.html">城堡逃脱</a><a href="m-rocket.html">火箭马里奥</a><a href="m-1up.html">1-Up</a><a href="m-circus.html">马戏</a><a href="m-puzzle.html">拼图</a><a href="m-mega.html">超级蘑菇</a><a href="m-rhythm.html">节奏</a><a href="m-dig.html">挖洞</a><a href="m-brawl.html">大乱斗</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">💰 金币射击</h1>
+<p class="subtitle">射飞行的金币，别打炸弹！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">得分</span><span id="score">0</span></div><div class="hud-item"><span class="label">弹药</span><span id="ammo">10</span></div><div class="hud-item"><span class="label">最高</span><span id="best">0</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="500" height="400"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">点击</span>射击 · 金币+10补弹 · 炸弹扣分 · <span class="key">R</span>重开</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var s,targets,bullets,pts,tick,mouse;
+function init(){s={running:false,over:false,score:0,ammo:10,best:getBest()};targets=[];bullets=[];pts=[];tick=0;mouse={x:W/2,y:H/2};updateHud();}
+function getBest(){return parseInt(localStorage.getItem('mcoins_best')||'0',10)}
+function setBest(v){localStorage.setItem('mcoins_best',v)}
+function updateHud(){document.getElementById('score').textContent=s.score;document.getElementById('ammo').textContent=s.ammo;document.getElementById('best').textContent=s.best;}
+function spawn(){var bomb=Math.random()<0.25;targets.push({x:bomb?W+20:Math.random()*W,y:Math.random()*(H-100)+20,vx:(bomb?-2.5:(Math.random()-0.5)*3),vy:(Math.random()-0.5)*2,r:bomb?14:12,bomb:bomb,t:Math.random()*6})}
+function shoot(){if(s.ammo<=0||s.over)return;s.ammo--;SFX.shoot();bullets.push({x:40,y:H-30,tx:mouse.x,ty:mouse.y,t:0,dur:12});updateHud();}
+function update(){if(!s.running||s.over)return;tick++;
+if(tick%45===0)spawn();
+targets.forEach(function(t){t.x+=t.vx;t.y+=t.vy+Math.sin(t.t)*0.5;t.t+=0.1;if(t.y<10||t.y>H-50)t.vy*=-1;if(t.x<-30)t.x=W+20;if(t.x>W+30)t.x=-20});
+bullets.forEach(function(b){b.t++;var p=b.t/b.dur;b.x=40+(b.tx-40)*p;b.y=(H-30)+(b.ty-(H-30))*p-Math.sin(p*Math.PI)*40;});
+for(var i=bullets.length-1;i>=0;i--){var b=bullets[i];if(b.t>=b.dur){for(var j=targets.length-1;j>=0;j--){var t=targets[j];if(Math.hypot(b.x-t.x,b.y-t.y)<t.r+6){if(t.bomb){s.score=Math.max(0,s.score-15);SFX.error();ex(t.x,t.y,'#333')}else{s.score+=10;s.ammo=Math.min(20,s.ammo+2);SFX.coin();ex(t.x,t.y,'#ffd700')}targets.splice(j,1);updateHud();break;}}bullets.splice(i,1);}}
+pts=pts.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0});
+if(s.ammo<=0&&bullets.length===0){over();}}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;pts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3})}}
+function over(){s.over=true;s.running=false;AOXSound.stopBGM();SFX.lose();if(s.score>s.best){setBest(s.score);s.best=s.score}updateHud();}
+function draw(){
+x.fillStyle='#0d1b2a';x.fillRect(0,0,W,H);x.fillStyle='rgba(255,255,255,0.1)';for(var i=0;i<30;i++)x.fillRect((i*37)%W,(i*53)%H,1,1);
+targets.forEach(function(t){var b=Math.sin(t.t)*2;if(t.bomb){x.fillStyle='#333';x.beginPath();x.arc(t.x,t.y,t.r,0,7);x.fill();x.fillStyle='#ff9800';x.fillRect(t.x-2,t.y-t.r-4,4,4);x.fillStyle='#ffeb3b';x.fillRect(t.x-1,t.y-t.r-6,2,3)}else{x.fillStyle='#ffd700';x.beginPath();x.arc(t.x,t.y,t.r,0,7);x.fill();x.fillStyle='#b8860b';x.fillRect(t.x-3,t.y-3,6,6);x.fillStyle='rgba(255,255,255,0.5)';x.fillRect(t.x-4,t.y-5,3,3)}});
+// 炮台+马里奥
+x.fillStyle='#7f7f7f';x.fillRect(20,H-40,40,30);x.fillStyle='#e53935';x.fillRect(30,H-50,20,16);x.fillStyle='#ff9800';x.fillRect(32,H-58,16,10);x.fillStyle='#e53935';x.fillRect(32,H-58,16,3);
+// 瞄准
+x.strokeStyle='rgba(255,215,0,0.3)';x.setLineDash([4,4]);x.beginPath();x.moveTo(40,H-30);x.lineTo(mouse.x,mouse.y);x.stroke();x.setLineDash([]);x.strokeStyle='#ffd700';x.lineWidth=2;x.beginPath();x.arc(mouse.x,mouse.y,12,0,7);x.stroke();x.beginPath();x.moveTo(mouse.x-16,mouse.y);x.lineTo(mouse.x+16,mouse.y);x.moveTo(mouse.x,mouse.y-16);x.lineTo(mouse.x,mouse.y+16);x.stroke();x.lineWidth=1;
+bullets.forEach(function(b){x.fillStyle='#ff9800';x.shadowColor='#ff9800';x.shadowBlur=8;x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill();x.shadowBlur=0});
+pts.forEach(function(p){x.globalAlpha=p.life/20;x.fillStyle=p.c;x.fillRect(p.x,p.y,p.size,p.size);x.globalAlpha=1});
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('弹药耗尽！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('得分:'+s.score+' 最高:'+s.best,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#ffd700';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();mouse.x=(e.clientX-r.left)*(W/r.width);mouse.y=(e.clientY-r.top)*(H/r.height)});
+c.addEventListener('click',function(){AOXSound.ensure();shoot()});
+c.addEventListener('touchstart',function(e){e.preventDefault();var r=c.getBoundingClientRect();mouse.x=(e.touches[0].clientX-r.left)*(W/r.width);mouse.y=(e.touches[0].clientY-r.top)*(H/r.height);shoot()},{passive:false});
+c.addEventListener('touchmove',function(e){e.preventDefault();var r=c.getBoundingClientRect();mouse.x=(e.touches[0].clientX-r.left)*(W/r.width);mouse.y=(e.touches[0].clientY-r.top)*(H/r.height)},{passive:false});
+document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('打金币！')});
+init();loop();
+})();
+</script></body></html>

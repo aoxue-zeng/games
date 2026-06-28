@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单词搜索 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .ws-wrap { display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:18px;align-items:flex-start }
+  .ws-grid { display:grid;gap:2px;background:var(--mc-night);padding:8px;border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4) }
+  .ws-cell { width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:13px;cursor:pointer;background:#5fb53f;border:2px solid #000;color:#fff;text-shadow:1px 1px 0 #000;user-select:none }
+  .ws-cell:hover{background:#4ea035}
+  .ws-cell.sel{background:#ffd700;color:#000}
+  .ws-cell.found{background:#4dd0e1;color:#000}
+  .ws-words { background:var(--mc-panel-dark);padding:16px;border:3px solid #000;min-width:140px }
+  .ws-words h3{font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;margin-bottom:12px;text-shadow:1px 1px 0 #000}
+  .ws-words li{list-style:none;font-family:'Press Start 2P',monospace;font-size:12px;color:#fff;margin:8px 0;text-shadow:1px 1px 0 #000}
+  .ws-words li.found{color:#4caf50;text-decoration:line-through}
+  .diff-btn{font-family:'Press Start 2P',monospace;font-size:10px;padding:8px 12px;background:var(--mc-panel);border:3px solid var(--mc-black);box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);cursor:pointer;color:#1a1a1a}
+  .diff-btn.active{background:var(--mc-grass);color:#fff}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🔍 单词搜索</h1>
+  <p class="subtitle">在字母网格里圈出隐藏单词！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">已找到</span><span id="found">0</span>/<span id="total">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="timer">0</span>s</div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="diff-btn active" data-d="easy">简单</button>
+    <button class="diff-btn" data-d="medium">中等</button>
+    <button class="diff-btn" data-d="hard">困难</button>
+  </div>
+  <div class="ws-wrap">
+    <div class="ws-grid" id="grid"></div>
+    <div class="ws-words"><h3>找这些词</h3><ul id="wordlist"></ul></div>
+  </div>
+  <div style="margin-top:18px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 新一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">按住拖动选字母，横竖斜方向都有</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var WORDSETS={easy:['CAT','DOG','SUN','PIG','BEE'],medium:['MINE','CRAFT','BLOCK','GOLD','TREE'],hard:['DIAMOND','CREEPER','ZOMBIE','PORTAL','SWORD']};
+  var SIZE={easy:8,medium:10,hard:12};
+  var diff,grid,words,foundWords,selecting,selStart,selCells,timerInt,startTime;
+  function start(d){
+    AOXSound.ensure();SFX.click();diff=d;var N=SIZE[d];words=WORDSETS[d].slice();foundWords=[];
+    grid=[];for(var r=0;r<N;r++)grid.push(new Array(N).fill(''));
+    // 放词
+    words.forEach(function(w){placeWord(w,N);});
+    // 填充随机字母
+    var letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for(var rr=0;rr<N;rr++)for(var cc=0;cc<N;cc++)if(grid[rr][cc]==='')grid[rr][cc]=letters[Math.floor(Math.random()*26)];
+    startTime=Date.now();clearInterval(timerInt);timerInt=setInterval(function(){document.getElementById('timer').textContent=Math.floor((Date.now()-startTime)/1000);},500);
+    document.getElementById('total').textContent=words.length;document.getElementById('found').textContent=0;
+    renderWords();render();
+  }
+  function placeWord(w,N){
+    var dirs=[[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]];
+    for(var tries=0;tries<100;tries++){
+      var d=dirs[Math.floor(Math.random()*dirs.length)];var r=Math.floor(Math.random()*N),c=Math.floor(Math.random()*N);
+      var er=r+d[0]*(w.length-1),ec=c+d[1]*(w.length-1);
+      if(er<0||er>=N||ec<0||ec>=N)continue;
+      var ok=true;for(var i=0;i<w.length;i++){var cr=r+d[0]*i,cc=c+d[1]*i;if(grid[cr][cc]!==''&&grid[cr][cc]!==w[i]){ok=false;break;}}
+      if(ok){for(var j=0;j<w.length;j++){grid[r+d[0]*j][c+d[1]*j]=w[j];}return;}
+    }
+  }
+  function renderWords(){
+    var ul=document.getElementById('wordlist');ul.innerHTML='';
+    words.forEach(function(w){
+      var li=document.createElement('li');li.textContent=w;li.dataset.w=w;
+      if(foundWords.indexOf(w)>=0)li.classList.add('found');
+      ul.appendChild(li);
+    });
+  }
+  function render(){
+    var g=document.getElementById('grid');g.innerHTML='';g.style.gridTemplateColumns='repeat('+SIZE[diff]+',34px)';
+    var N=SIZE[diff];
+    for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+      (function(r,c){
+        var d=document.createElement('div');d.className='ws-cell';d.textContent=grid[r][c];d.dataset.r=r;d.dataset.c=c;
+        if(selCells&&selCells.some(function(s){return s[0]===r&&s[1]===c;}))d.classList.add('sel');
+        d.addEventListener('mousedown',function(e){startSel(r,c);});
+        d.addEventListener('mouseenter',function(e){moveSel(r,c);});
+        d.addEventListener('touchstart',function(e){e.preventDefault();startSel(r,c);},{passive:false});
+        d.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];var el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.classList.contains('ws-cell'))moveSel(parseInt(el.dataset.r),parseInt(el.dataset.c));},{passive:false});
+        g.appendChild(d);
+      })(r,c);
+    }
+  }
+  function startSel(r,c){selecting=true;selStart=[r,c];selCells=[[r,c]];document.addEventListener('mouseup',endSel);document.addEventListener('touchend',endSel);render();}
+  function moveSel(r,c){
+    if(!selecting)return;
+    var sr=selStart[0],sc=selStart[1];var dr=r-sr,dc=c-sc;
+    var isLine=(dr===0||dc===0||Math.abs(dr)===Math.abs(dc));
+    if(!isLine){selCells=[[sr,sc]];render();return;}
+    var steps=Math.max(Math.abs(dr),Math.abs(dc));var sdr=dr===0?0:dr/Math.abs(dr);var sdc=dc===0?0:dc/Math.abs(dc);
+    selCells=[];for(var i=0;i<=steps;i++)selCells.push([sr+sdr*i,sc+sdc*i]);
+    render();
+  }
+  function endSel(){
+    if(!selecting)return;selecting=false;
+    var word=selCells.map(function(s){return grid[s[0]][s[1]];}).join('');
+    var rev=word.split('').reverse().join('');
+    var match=words.find(function(w){return (w===word||w===rev)&&foundWords.indexOf(w)<0;});
+    if(match){
+      foundWords.push(match);SFX.gem();toast('找到 '+match+'！');
+      // 标记
+      selCells.forEach(function(s){var el=document.querySelector('.ws-cell[data-r="'+s[0]+'"][data-c="'+s[1]+'"]');if(el)el.classList.add('found');});
+      document.getElementById('found').textContent=foundWords.length;
+      renderWords();
+      if(foundWords.length>=words.length){clearInterval(timerInt);SFX.win();toast('🎉 全部找到！');}
+    }else{SFX.error();}
+    selCells=null;render();
+  }
+  document.querySelectorAll('.diff-btn').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});b.classList.add('active');start(b.dataset.d);});});
+  document.getElementById('newBtn').addEventListener('click',function(){start(document.querySelector('.diff-btn.active').dataset.d);});
+  start('easy');
+})();
+</script>
+</body>
+</html>

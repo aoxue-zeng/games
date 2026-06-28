@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爬梯子 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a2a3a; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+  .prompt-key { display:inline-block;width:60px;font-family:'Press Start 2P',monospace;font-size:28px;color:#fff;text-shadow:3px 3px 0 #000;padding:8px;margin:4px;border:3px solid #000;box-shadow:inset 3px 3px 0 0 rgba(255,255,255,0.2) }
+  .prompt-key.ok{background:#4caf50}.prompt-key.err{background:#e53935;animation:shake 0.3s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="penguin.html">企鹅</a>
+    <a href="dice.html">骰子</a>
+    <a href="ladder.html">爬梯</a>
+    <a href="jigsaw.html">拼图</a>
+    <a href="goldmine.html">金矿</a>
+    <a href="catch.html">接贝壳</a>
+    <a href="darts.html">飞镖</a>
+    <a href="castle.html">城堡</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🪜 爬梯子</h1>
+  <p class="subtitle">快速按提示键往上爬！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">高度</span><span id="height">0</span>m</div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span>m</div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="420" height="460"></canvas></div>
+  <div style="margin-top:10px"><span class="prompt-key" id="promptKey">?</span></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:10px;">
+    按 <span class="key">W A S D</span> 或 <span class="key">↑←↓→</span> 对应方向爬 · 按错下滑 · <span class="key">R</span> 重开
+  </p>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var DIRS=[{k:'↑',key:'arrowup',alt:'w',dx:0,dy:-1},{k:'→',key:'arrowright',alt:'d',dx:1,dy:0},{k:'↓',key:'arrowdown',alt:'s',dx:0,dy:1},{k:'←',key:'arrowleft',alt:'a',dx:-1,dy:0}];
+  var state,player,curPrompt,particles,scrollY,flash;
+  function init(){
+    state={running:false,over:false,height:0,combo:0,best:getBest(),decay:0};
+    player={x:W/2,y:H-100,anim:0};curPrompt=null;particles=[];scrollY=0;flash=0;
+    nextPrompt();updateHud();
+  }
+  function getBest(){return parseInt(localStorage.getItem('ladder_best')||'0',10);}
+  function setBest(v){localStorage.setItem('ladder_best',v);}
+  function updateHud(){document.getElementById('height').textContent=Math.floor(state.height);document.getElementById('combo').textContent=state.combo;document.getElementById('best').textContent=state.best;}
+  function nextPrompt(){curPrompt=DIRS[Math.floor(Math.random()*4)];var el=document.getElementById('promptKey');el.textContent=curPrompt.k;el.className='prompt-key';}
+  function climb(){
+    state.height+=1+state.combo*0.1;state.combo++;scrollY+=8;
+    SFX.move();if(state.combo%10===0)SFX.coin();
+    player.anim=10;
+    for(var i=0;i<5;i++){particles.push({x:player.x+(Math.random()-0.5)*20,y:player.y+20,vx:(Math.random()-0.5)*2,vy:1+Math.random()*2,life:20,c:'#ffd700'});}
+    nextPrompt();updateHud();
+    if(state.height>state.best){setBest(Math.floor(state.height));state.best=Math.floor(state.height);}
+  }
+  function slip(){state.height=Math.max(0,state.height-3);state.combo=0;state.decay=15;SFX.error();
+    var el=document.getElementById('promptKey');el.className='prompt-key err';setTimeout(function(){el.className='prompt-key';},300);
+    for(var i=0;i<8;i++){particles.push({x:player.x,y:player.y,vx:(Math.random()-0.5)*3,vy:-1-Math.random()*2,life:20,c:'#e53935'});}
+    updateHud();
+  }
+  function update(){
+    if(!state.running||state.over)return;
+    // 下滑（必须持续按键才能保持高度）
+    state.height-=0.05;state.decay=Math.max(0,state.decay-1);
+    if(state.height<0){state.height=0;gameOver();}
+    player.anim=Math.max(0,player.anim-1);
+    scrollY*=0.9;
+    particles=particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;return p.life>0;});
+    if(flash>0)flash--;
+    updateHud();
+  }
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}
+  function draw(){
+    // 背景（滚动云）
+    ctx.fillStyle='#87ceeb';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    for(var i=0;i<5;i++){var cy=((i*120-scrollY*0.3)%H+H)%H;ctx.fillRect((i*90)%W,cy,60,16);ctx.fillRect((i*90)%W+10,cy-10,40,12);}
+    // 梯子
+    ctx.fillStyle='#8b5a2b';
+    var lx=W/2-40,rx=W/2+40;
+    for(var y=-20;y<H+20;y+=30){
+      var sy=y-(scrollY%30);
+      ctx.fillRect(lx,sy,8,18);ctx.fillRect(rx,sy,8,18);
+    }
+    ctx.fillStyle='#6b4220';ctx.fillRect(lx,0,8,H);ctx.fillRect(rx,0,8,H);
+    // 玩家（史蒂夫爬梯）
+    var px=player.x,py=player.y;
+    var bob=player.anim>0?Math.sin(player.anim)*4:0;
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(px-10,py-14+bob,20,20); // 身体
+    ctx.fillStyle='#f0c8a0';ctx.fillRect(px-8,py-26+bob,16,14); // 头
+    ctx.fillStyle='#4a2c12';ctx.fillRect(px-8,py-26+bob,16,4); // 头发
+    ctx.fillStyle='#fff';ctx.fillRect(px-5,py-20+bob,4,4);ctx.fillRect(px+1,py-20+bob,4,4);
+    ctx.fillStyle='#000';ctx.fillRect(px-4,py-19+bob,2,2);ctx.fillRect(px+2,py-19+bob,2,2);
+    // 手抓梯
+    ctx.fillStyle='#f0c8a0';ctx.fillRect(px-14,py-8+bob,6,12);ctx.fillRect(px+8,py-8+bob,6,12);
+    // 腿
+    ctx.fillStyle='#1565c0';ctx.fillRect(px-8,py+6+bob,6,8);ctx.fillRect(px+2,py+6+bob,6,8);
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,3,3);ctx.globalAlpha=1;});
+    // 高度标尺
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(W-50,10,40,H-20);
+    ctx.fillStyle='#ffd700';ctx.font='10px "Press Start 2P",monospace';ctx.textAlign='center';
+    for(var h=0;h<10;h++){var hy=H-30-h*(H-40)/10;ctx.fillRect(W-40,hy,20,2);ctx.fillText(h*10, W-20, hy-2);}
+    ctx.fillStyle='#4caf50';ctx.fillRect(W-44,H-30-state.height*(H-40)/100,28,4);
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('掉下来了！',W/2,H/2-30);ctx.fillStyle='#ffd700';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('高度:'+Math.floor(state.height)+'m 最高:'+state.best+'m',W/2,H/2+5);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('按 R 重玩',W/2,H/2+35);}
+      else{ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备就绪',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('按提示方向键爬升',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){
+    if(!state.running||state.over){if(e.key.toLowerCase()==='r'){init();state.running=true;AOXSound.ensure();}return;}
+    var k=e.key.toLowerCase();
+    var match=DIRS.find(function(d){return k===d.key||k===d.alt;});
+    if(match){e.preventDefault();
+      if(match.k===curPrompt.k)climb();else slip();
+    }
+  });
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true});toast('快按方向键爬！');});
+  init();loop();
+})();
+</script>
+</body>
+</html>

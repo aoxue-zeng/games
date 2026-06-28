@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打砖块 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0d1b2a; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="reaction.html">反应</a>
+    <a href="math.html">算术</a>
+    <a href="slide.html">华容道</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="wordsearch.html">找单词</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧱 打砖块</h1>
+  <p class="subtitle">弹球消除所有砖块！</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">砖块</span><span id="bricks">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←→</span> 或鼠标/触摸 移动挡板 · <span class="key">空格</span> 发球 · <span class="key">R</span> 重开
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state, paddle, ball, bricks, particles, keys, launched, mouse;
+  var BCOLS=10, BROWS=6, BW=48, BH=18;
+  var COLORS=['#e53935','#ff9800','#ffd700','#4caf50','#2196f3','#9c27b0'];
+
+  function init(){
+    state={running:false,over:false,won:false,score:0,lives:3,level:1};
+    paddle={x:W/2-45,y:H-24,w:90,h:12,speed:7};
+    ball={x:W/2,y:H-40,r:7,vx:0,vy:0,speed:5};
+    bricks=[]; particles=[]; keys={}; launched=false; mouse={x:W/2};
+    buildBricks(); updateHud();
+  }
+  function buildBricks(){
+    bricks=[];
+    var offX=(W-BCOLS*BW)/2;
+    for(var r=0;r<BROWS;r++) for(var c=0;c<BCOLS;c++){
+      bricks.push({x:offX+c*BW, y:50+r*BH, w:BW, h:BH, color:COLORS[r%COLORS.length], hp: r<2?2:1, maxhp: r<2?2:1, alive:true});
+    }
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('bricks').textContent=bricks.filter(function(b){return b.alive;}).length;
+  }
+  function launchBall(){
+    if(launched) return;
+    launched=true;
+    var ang=-Math.PI/2+(Math.random()-0.5)*0.6;
+    ball.vx=Math.cos(ang)*ball.speed; ball.vy=Math.sin(ang)*ball.speed;
+    SFX.shoot();
+  }
+  function update(){
+    if(!state.running||state.over) return;
+    // 挡板移动
+    if(keys['arrowleft']||keys['a']) paddle.x-=paddle.speed;
+    if(keys['arrowright']||keys['d']) paddle.x+=paddle.speed;
+    if(mouse.x>0) paddle.x += (mouse.x-paddle.w/2-paddle.x)*0.3;
+    paddle.x=Math.max(0,Math.min(W-paddle.w,paddle.x));
+    if(!launched){ ball.x=paddle.x+paddle.w/2; ball.y=paddle.y-ball.r-2; }
+    else {
+      ball.x+=ball.vx; ball.y+=ball.vy;
+      // 墙
+      if(ball.x-ball.r<0){ball.x=ball.r;ball.vx*=-1;SFX.move();}
+      if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx*=-1;SFX.move();}
+      if(ball.y-ball.r<0){ball.y=ball.r;ball.vy*=-1;SFX.move();}
+      // 挡板
+      if(ball.y+ball.r>=paddle.y && ball.y+ball.r<=paddle.y+paddle.h+8 && ball.x>=paddle.x && ball.x<=paddle.x+paddle.w && ball.vy>0){
+        ball.y=paddle.y-ball.r;
+        var rel=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
+        var ang=rel*Math.PI/3 - Math.PI/2;
+        ball.vx=Math.cos(ang)*ball.speed; ball.vy=Math.sin(ang)*ball.speed;
+        SFX.hit();
+      }
+      // 掉底
+      if(ball.y-ball.r>H){ state.lives--; launched=false; SFX.hurt(); updateHud(); if(state.lives<=0) gameOver(); }
+      // 砖块
+      for(var i=0;i<bricks.length;i++){
+        var b=bricks[i]; if(!b.alive) continue;
+        if(ball.x+ball.r>b.x && ball.x-ball.r<b.x+b.w && ball.y+ball.r>b.y && ball.y-ball.r<b.y+b.h){
+          // 判断碰撞方向
+          var ovX=Math.min(ball.x+ball.r-b.x, b.x+b.w-(ball.x-ball.r));
+          var ovY=Math.min(ball.y+ball.r-b.y, b.y+b.h-(ball.y-ball.r));
+          if(ovX<ovY) ball.vx*=-1; else ball.vy*=-1;
+          b.hp--;
+          if(b.hp<=0){ b.alive=false; state.score+=10; explode(b.x+b.w/2,b.y+b.h/2,b.color); SFX.clear(); }
+          else SFX.hit();
+          updateHud();
+          break;
+        }
+      }
+      // 通关
+      if(bricks.every(function(b){return !b.alive;})){
+        state.level++; ball.speed+=0.5; state.score+=100; SFX.levelUp();
+        buildBricks(); launched=false; updateHud(); toast('关卡 '+state.level+'！');
+      }
+    }
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function explode(x,y,color){for(var i=0;i<10;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*4;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25,color:color,size:2+Math.random()*3});}}
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}
+
+  function draw(){
+    ctx.fillStyle='#0d1b2a'; ctx.fillRect(0,0,W,H);
+    // 星空
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    for(var s=0;s<30;s++) ctx.fillRect((s*37)%W,(s*53)%H,1,1);
+    // 砖块
+    bricks.forEach(function(b){ if(!b.alive)return; ctx.fillStyle=b.color; ctx.fillRect(b.x,b.y,b.w,b.h);
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(b.x,b.y,b.w,3); ctx.fillRect(b.x,b.y,3,b.h);
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(b.x,b.y+b.h-3,b.w,3); ctx.fillRect(b.x+b.w-3,b.y,3,b.h);
+      if(b.hp<b.maxhp){ ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(b.x+b.w/2-1,b.y+2,2,b.h-4); }
+    });
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/25;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 挡板
+    ctx.fillStyle='#4dd0e1'; ctx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(paddle.x,paddle.y,paddle.w,3);
+    ctx.fillStyle='#00838f'; ctx.fillRect(paddle.x,paddle.y+paddle.h-3,paddle.w,3);
+    // 球
+    ctx.fillStyle='#ffd700'; ctx.shadowColor='#ffd700'; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,7); ctx.fill(); ctx.shadowBlur=0;
+    if(!launched){ ctx.fillStyle='#fff'; ctx.font='10px "Press Start 2P",monospace'; ctx.textAlign='center'; ctx.fillText('空格发球',W/2,H-50); }
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('游戏结束',W/2,H/2-20); ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P",monospace'; ctx.fillText('得分:'+state.score+' 关卡:'+state.level,W/2,H/2+15); }
+      else { ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('准备就绪',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点击开始按钮',W/2,H/2+25); }
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();if(k===' ')launchBall();if(k==='r'){init();state.running=true;AOXSound.ensure();}});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  canvas.addEventListener('mousemove',function(e){var r=canvas.getBoundingClientRect();mouse.x=(e.clientX-r.left)*(W/r.width);});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();var r=canvas.getBoundingClientRect();mouse.x=(e.touches[0].clientX-r.left)*(W/r.width);},{passive:false});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();var r=canvas.getBoundingClientRect();mouse.x=(e.touches[0].clientX-r.left)*(W/r.width);launchBall();},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('空格或点击发球！');});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

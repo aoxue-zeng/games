@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>极限挑战·AI队友 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+#gameCanvas{background:#0a0a14;touch-action:none}
+.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}
+.lobby{background:var(--mc-panel-dark);border:4px solid var(--mc-black);padding:20px;max-width:440px;margin:14px auto;text-align:center;box-shadow:inset 4px 4px 0 0 #2a3f5f,inset -4px -4px 0 0 #000,8px 8px 0 0 rgba(0,0,0,0.4)}
+.lobby input{font-family:'Press Start 2P',monospace;font-size:14px;padding:10px;background:#0d1b2a;color:#4dd0e1;border:2px solid #000;width:60px;text-align:center;margin:6px}
+.ai-count-box{display:inline-flex;align-items:center;gap:6px;margin:10px 0;font-family:'Press Start 2P',monospace;font-size:11px;color:#4dd0e1}
+.ai-count-box input{width:50px}
+.diff-warn{color:#e53935;font-size:12px;margin:10px 0;font-family:'Press Start 2P',monospace}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="pf-extreme.html">极限挑战</a><a href="pf-jungle.html">联机闯关</a><a href="mario.html">冒险</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:28px;color:#e53935">💀 极限挑战·AI队友</h1>
+<p class="subtitle">超难关卡！带AI队友一起闯关</p>
+<div class="hud" style="margin-top:14px">
+<div class="hud-item"><span class="label">生命</span><span id="hp">♥♥♥</span></div>
+<div class="hud-item"><span class="label">金币</span><span id="coins">0</span></div>
+<div class="hud-item"><span class="label">钥匙</span><span id="keys">0/3</span></div>
+<div class="hud-item" style="color:#9c27b0"><span class="label">队友</span><span id="allyCount">0</span></div>
+</div>
+<div class="lobby" id="lobby">
+<h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;margin-bottom:12px">💀 极限挑战</h3>
+<div class="diff-warn">⚠️ 超高难度！尖刺/熔岩/移动平台/怪物</div>
+<div class="ai-count-box">🤖 AI队友数量：<input type="number" id="aiNum" value="2" min="0" max="5"> 个（0-5）</div>
+<div style="color:#888;font-size:13px;margin:8px 0">AI队友会跟着你跑、帮你打怪、收集道具</div>
+<button class="mc-btn green" id="startBtn" style="font-size:14px;padding:16px 28px">▶ 开始挑战</button>
+</div>
+<div class="game-stage" style="margin-top:14px;display:none" id="gameStage"><canvas id="gameCanvas" width="640" height="400"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:8px" id="gameHint">
+<span class="key">←→</span>移动 <span class="key">空格</span>跳 <span class="key">X</span>攻击 · 收集3把钥匙🔑+金币💰到终点🏁
+</p>
+<div style="margin-top:10px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="index.html" class="mc-btn">← 返回</a></div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var W=640,H=400,WORLD_W=3200,GRAVITY=0.5,JUMP=-11,MOVE=3.2;
+// ===== 超难关卡设计 =====
+// 平台类型：ground地面 brick砖块 spike尖刺 lava熔岩 move移动平台
+var LEVEL=[
+// 起始平台
+{x:0,y:340,w:120,h:60,t:'ground'},
+// 第一段：尖刺地带（需精准跳）
+{x:160,y:340,w:30,h:60,t:'spike'},{x:220,y:340,w:30,h:60,t:'spike'},{x:280,y:340,w:30,h:60,t:'spike'},
+{x:120,y:280,w:60,h:16,t:'brick'},{x:210,y:240,w:50,h:16,t:'brick'},{x:300,y:200,w:50,h:16,t:'brick'},
+{x:380,y:340,w:60,h:60,t:'ground'},
+// 第二段：熔岩+移动平台
+{x:470,y:340,w:200,h:60,t:'lava'},
+{x:490,y:290,w:50,h:14,t:'move',mx:490,mr:650,ms:1.5},
+{x:680,y:260,w:50,h:14,t:'move',mx:680,mr:800,ms:2,vert:false},
+{x:820,y:340,w:80,h:60,t:'ground'},
+// 第三段：高空跳跃
+{x:940,y:300,w:40,h:16,t:'brick'},{x:1010,y:250,w:40,h:16,t:'brick'},{x:1080,y:200,w:40,h:16,t:'brick'},
+{x:1150,y:150,w:60,h:16,t:'brick'},{x:1240,y:200,w:40,h:16,t:'brick'},{x:1310,y:250,w:40,h:16,t:'brick'},
+{x:1380,y:340,w:80,h:60,t:'ground'},
+// 第四段：尖刺+熔岩混合
+{x:1500,y:340,w:40,h:60,t:'spike'},{x:1560,y:340,w:60,h:60,t:'lava'},{x:1660,y:340,w:40,h:60,t:'spike'},
+{x:1500,y:280,w:40,h:14,t:'brick'},{x:1570,y:240,w:40,h:14,t:'brick'},{x:1640,y:280,w:40,h:14,t:'brick'},
+{x:1720,y:340,w:60,h:60,t:'ground'},
+// 第五段：长距离移动平台
+{x:1820,y:340,w:180,h:60,t:'lava'},
+{x:1840,y:300,w:50,h:14,t:'move',mx:1840,mr:1960,ms:1.8},
+{x:2020,y:280,w:50,h:14,t:'move',mx:2020,mr:2140,ms:2.2},
+{x:2200,y:300,w:50,h:14,t:'move',mx:2200,mr:2320,ms:1.5},
+{x:2380,y:340,w:80,h:60,t:'ground'},
+// 第六段：最终冲刺
+{x:2500,y:300,w:40,h:14,t:'brick'},{x:2570,y:260,w:40,h:14,t:'brick'},{x:2640,y:220,w:40,h:14,t:'brick'},
+{x:2710,y:340,w:30,h:60,t:'spike'},{x:2770,y:340,w:60,h:60,t:'ground'},
+{x:2870,y:300,w:200,h:100,t:'ground'}
+];
+var FLAG={x:2980,y:200};
+// 钥匙位置
+var KEYS_POS=[{x:230,y:215},{x:1170,y:125},{x:2020,y:250}];
+// 金币
+var COINS_POS=[[150,310],[335,175],[520,260],[840,310],[1060,175],[1175,120],[1330,225],[1520,255],[1840,270],[2220,270],[2520,275],[2640,195],[2900,275]];
+// 怪物
+var ENEMY_POS=[{x:400,y:318,range:60},{x:850,y:318,range:50},{x:1400,y:318,range:60},{x:1750,y:318,range:40},{x:2400,y:318,range:60},{x:2850,y:278,range:80}];
+// 特殊道具（无敌星）
+var STAR_POS={x:690,y:230};
+
+var state=null,p=null,allies=[],enemies=[],coins=[],keys=[],star={x:0,y:0,got:true,t:0},cam={x:0},keys_={},particles=[],tick=0,attackCd=0,invincible=0,hp=3,keyCount=0,coinCount=0,won=0,over=false;
+var ALLY_COLORS=['#4caf50','#2196f3','#ff9800','#9c27b0','#00bcd4'];
+
+document.getElementById('startBtn').addEventListener('click',function(){
+  var n=parseInt(document.getElementById('aiNum').value)||0;
+  n=Math.max(0,Math.min(5,n));
+  AOXSound.ensure();SFX.select();
+  document.getElementById('lobby').style.display='none';
+  document.getElementById('gameStage').style.display='inline-block';
+  document.getElementById('allyCount').textContent=n;
+  startGame(n);
+  if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'⏏',key:' ',color:'rgba(229,57,53,0.85)',big:true},{label:'⚔',key:'x',color:'rgba(229,57,53,0.85)'}]});
+});
+
+function startGame(numAllies){
+  state={running:true,over:false};
+  p={x:30,y:290,w:22,h:30,vx:0,vy:0,onG:false,dir:1,anim:0,inv:0};
+  allies=[];
+  for(var i=0;i<numAllies;i++){
+    allies.push({x:30+i*25,y:250,w:22,h:30,vx:0,vy:0,onG:false,dir:1,anim:0,inv:0,color:ALLY_COLORS[i],target:0,tick:i*10,hit:0});
+  }
+  enemies=ENEMY_POS.map(function(e){return{x:e.x,y:e.y,w:24,h:22,vx:-1,range:e.range,origX:e.x,hp:2,alive:true,anim:0};});
+  coins=COINS_POS.map(function(c){return{x:c[0],y:c[1],got:false,t:Math.random()*6};});
+  keys=KEYS_POS.map(function(k){return{x:k.x,y:k.y,got:false,t:Math.random()*6};});
+  star={x:STAR_POS.x,y:STAR_POS.y,got:false,t:0};
+  cam={x:0};keys_={};particles=[];tick=0;attackCd=0;invincible=0;hp=3;keyCount=0;coinCount=0;won=0;over=false;
+  // 重置移动平台到初始位置
+  LEVEL.forEach(function(pl){if(pl.t==='move'){pl.x=pl.mx;pl.dir=1;}});
+  updateHud();
+}
+function updateHud(){
+  document.getElementById('hp').textContent='♥'.repeat(Math.max(0,hp))||'—';
+  document.getElementById('coins').textContent=coinCount;
+  document.getElementById('keys').textContent=keyCount+'/3';
+}
+function rectCollide(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+function isSolid(t){return t==='ground'||t==='brick'||t==='move';}
+function isDanger(t){return t==='spike'||t==='lava';}
+
+function update(){
+  if(!state||!p||!state.running||state.over)return;
+  tick++;
+  // 移动平台
+  LEVEL.forEach(function(pl){if(pl.t==='move'){pl.x+=pl.ms*pl.dir;if(pl.x>=pl.mr){pl.x=pl.mr;pl.dir=-1;}if(pl.x<=pl.mx){pl.x=pl.mx;pl.dir=1;}}});
+  // 玩家
+  if(keys_['arrowleft']||keys_['a']){p.vx=-MOVE;p.dir=-1;}
+  else if(keys_['arrowright']||keys_['d']){p.vx=MOVE;p.dir=1;}
+  else p.vx*=0.8;
+  if((keys_[' ']||keys_['arrowup']||keys_['w'])&&p.onG){p.vy=JUMP;p.onG=false;SFX.jump();}
+  if(attackCd>0)attackCd--;
+  if(keys_['x']&&attackCd<=0){attackCd=20;SFX.hit();attack();}
+  p.vy+=GRAVITY;if(p.vy>14)p.vy=14;
+  // 水平
+  p.x+=p.vx;if(p.x<0)p.x=0;if(p.x>WORLD_W-p.w)p.x=WORLD_W-p.w;
+  for(var i=0;i<LEVEL.length;i++){var pl=LEVEL[i];if(!isSolid(pl.t))continue;if(rectCollide(p,pl)){if(p.vx>0)p.x=pl.x-p.w;else if(p.vx<0)p.x=pl.x+pl.w;p.vx=0;}}
+  // 垂直
+  p.y+=p.vy;p.onG=false;
+  for(var j=0;j<LEVEL.length;j++){var lp=LEVEL[j];if(!isSolid(lp.t))continue;if(rectCollide(p,lp)){if(p.vy>0){p.y=lp.y-p.h;p.vy=0;p.onG=true;}else if(p.vy<0){p.y=lp.y+lp.h;p.vy=0;}}}
+  p.anim+=Math.abs(p.vx)*0.2;
+  if(p.inv>0)p.inv--;
+  if(invincible>0)invincible--;
+  // 危险物
+  for(var k=0;k<LEVEL.length;k++){var dp=LEVEL[k];if(!isDanger(dp.t))continue;if(rectCollide(p,dp)){if(invincible<=0&&p.inv<=0){hp--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(hp<=0)gameOver();updateHud();}}}
+  // 怪物
+  enemies.forEach(function(e){if(!e.alive)return;e.anim+=0.1;e.x+=e.vx;if(e.x<e.origX-e.range||e.x>e.origX+e.range)e.vx*=-1;
+    // 碰玩家
+    if(p.inv<=0&&invincible<=0&&rectCollide(p,e)){hp--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(hp<=0)gameOver();updateHud();}
+  });
+  // 金币
+  coins.forEach(function(c){c.t+=0.15;if(!c.got&&Math.abs(p.x+p.w/2-c.x)<16&&Math.abs(p.y+p.h/2-c.y)<16){c.got=true;coinCount++;SFX.coin();ex(c.x,c.y,'#ffd700');updateHud();}});
+  // 钥匙
+  keys.forEach(function(k){k.t+=0.15;if(!k.got&&Math.abs(p.x+p.w/2-k.x)<18&&Math.abs(p.y+p.h/2-k.y)<18){k.got=true;keyCount++;SFX.gem();ex(k.x,k.y,'#ffd700');toast('🔑 钥匙 '+keyCount+'/3');updateHud();}});
+  // 无敌星
+  star.t+=0.15;
+  if(!star.got&&Math.abs(p.x+p.w/2-star.x)<18&&Math.abs(p.y+p.h/2-star.y)<18){star.got=true;invincible=300;SFX.levelUp();toast('⭐ 无敌星！5秒无敌');}
+  // 终点（需要3钥匙）
+  if(p.x+p.w>FLAG.x&&Math.abs(p.y-FLAG.y)<80){
+    if(keyCount>=3){won=1;state.over=true;SFX.win();}
+    else{toast('需要3把钥匙！当前'+keyCount);}
+  }
+  // AI队友
+  allies.forEach(function(a,i){updateAlly(a,i);});
+  // 摄像机
+  var tc=p.x-250;if(tc<0)tc=0;if(tc>WORLD_W-W)tc=WORLD_W-W;cam.x+=(tc-cam.x)*0.1;
+  particles=particles.filter(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;pp.vy+=0.2;pp.life--;return pp.life>0;});
+  // 掉出地图
+  if(p.y>H+60){hp--;p.x=Math.max(30,p.x-100);p.y=200;p.vy=0;p.inv=60;SFX.hurt();if(hp<=0)gameOver();updateHud();}
+}
+function attack(){
+  var ax=p.x+p.dir*30,ay=p.y;
+  enemies.forEach(function(e){if(!e.alive)return;if(Math.abs(e.x-ax)<30&&Math.abs(e.y-ay)<25){e.hp--;ex(e.x,e.y,'#fff');if(e.hp<=0){e.alive=false;SFX.clear();coinCount+=5;updateHud();}}});
+  // AI队友也攻击
+  allies.forEach(function(a){var aax=a.x+a.dir*25;if(a.hit>0){enemies.forEach(function(e){if(!e.alive)return;if(Math.abs(e.x-aax)<28&&Math.abs(e.y-a.y)<24){e.hp--;if(e.hp<=0){e.alive=false;coinCount+=3;updateHud();}}});}});
+}
+// ===== AI队友逻辑 =====
+function updateAlly(a,idx){
+  a.tick++;a.anim+=0.1;if(a.inv>0)a.inv--;if(a.inv<0)a.inv=0;if(a.hit>0)a.hit--;
+  // 跟随玩家，保持距离
+  var targetX=p.x-(idx+1)*35*p.dir; // 跟在玩家后面
+  var dx=targetX-a.x;var dy=p.y-a.y;
+  // 物理
+  a.vy+=GRAVITY;if(a.vy>14)a.vy=14;a.y+=a.vy;a.onG=false;
+  for(var j=0;j<LEVEL.length;j++){var lp=LEVEL[j];if(!isSolid(lp.t))continue;if(rectCollide(a,lp)){if(a.vy>0){a.y=lp.y-a.h;a.vy=0;a.onG=true;}else if(a.vy<0){a.y=lp.y+lp.h;a.vy=0;}}}
+  // 水平移动
+  if(Math.abs(dx)>8){a.x+=dx>0?2.8:-2.8;a.dir=dx>0?1:-1;a.x=Math.max(0,Math.min(WORLD_W-a.w,a.x));
+    for(var i=0;i<LEVEL.length;i++){var pl=LEVEL[i];if(!isSolid(pl.t))continue;if(rectCollide(a,pl)){if(dx>0)a.x=pl.x-a.w;else a.x=pl.x+pl.w;}}}
+  // 跳跃
+  if(a.onG&&a.tick%10===0){
+    var needJump=false;
+    // 前方有障碍
+    for(var i=0;i<LEVEL.length;i++){var lp2=LEVEL[i];if(a.dir>0&&lp2.x>a.x+a.w&&lp2.x<a.x+a.w+25&&lp2.y<a.y+8&&isSolid(lp2.t)){needJump=true;break;}if(a.dir<0&&lp2.x+lp2.w<a.x&&lp2.x+lp2.w>a.x-25&&lp2.y<a.y+8&&isSolid(lp2.t)){needJump=true;break;}}
+    // 前方有危险
+    for(var j=0;j<LEVEL.length;j++){var dp=LEVEL[j];if(!isDanger(dp.t))continue;if(a.dir>0&&dp.x>a.x&&dp.x<a.x+40&&dp.y<a.y+20){needJump=true;break;}if(a.dir<0&&dp.x+dp.w<a.x&&dp.x+dp.w>a.x-40&&dp.y<a.y+20){needJump=true;break;}}
+    // 玩家在上方
+    if(dy<-25)needJump=true;
+    if(needJump){a.vy=JUMP;a.onG=false;}
+  }
+  // 危险物：队友不受伤但会弹开（避免卡在尖刺里永久闪烁）
+  for(var k=0;k<LEVEL.length;k++){var dpg=LEVEL[k];if(!isDanger(dpg.t))continue;if(rectCollide(a,dpg)){
+    // 弹回安全方向
+    if(a.dir>0){a.x-=4;a.dir=-1;}else{a.x+=4;a.dir=1;}
+    a.vy=JUMP*0.6;a.onG=false;
+  }}
+  // 怪物碰撞-队友攻击（不受伤，只攻击+弹开）
+  enemies.forEach(function(e){if(!e.alive)return;if(rectCollide(a,e)){a.hit=10;a.dir=e.x>a.x?1:-1;e.hp--;if(e.hp<=0){e.alive=false;coinCount+=2;updateHud();SFX.clear();}a.x-=a.dir*3;}});
+  // 收集金币
+  coins.forEach(function(c){if(!c.got&&Math.abs(a.x+a.w/2-c.x)<16&&Math.abs(a.y+a.h/2-c.y)<16){c.got=true;coinCount++;SFX.coin();updateHud();}});
+  // 收集钥匙
+  keys.forEach(function(kk){if(!kk.got&&Math.abs(a.x+a.w/2-kk.x)<18&&Math.abs(a.y+a.h/2-kk.y)<18){kk.got=true;keyCount++;SFX.gem();toast('🔑 队友捡到钥匙！'+keyCount+'/3');updateHud();}});
+  // 掉出地图：重置到玩家附近安全位置
+  if(a.y>H+60){a.x=p.x-40;a.y=p.y-20;a.vy=0;a.tick=0;}
+}
+function ex(x,y,c){for(var i=0;i<8;i++){var a=Math.random()*7,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3});}}
+function gameOver(){over=true;state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}
+
+var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+function draw(){
+  // 背景始终画
+  var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0a0a14');g.addColorStop(1,'#1a0a2a');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.3)';for(var s=0;s<30;s++){var sx=(s*73)%W;ctx.fillRect(sx,(s*47)%H,1,1);}
+  // 游戏未开始则只显示背景+提示
+  if(!state){return;}
+  if(!p){return;}
+  // 平台
+  LEVEL.forEach(function(pl){var sx=pl.x-cam.x;if(sx+pl.w<0||sx>W)return;
+    if(pl.t==='ground'){ctx.fillStyle='#5d3a1a';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.fillStyle='#7f4a2a';ctx.fillRect(sx,pl.y,pl.w,4);ctx.fillStyle='#3d2817';for(var d=0;d<pl.w;d+=16)ctx.fillRect(sx+d+6,pl.y+8,2,pl.h-8);}
+    else if(pl.t==='brick'){ctx.fillStyle='#8b5a2b';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.strokeStyle='#5d3a1a';ctx.lineWidth=2;ctx.strokeRect(sx,pl.y,pl.w,pl.h);}
+    else if(pl.t==='spike'){ctx.fillStyle='#aaa';for(var sp=0;sp<pl.w;sp+=10){ctx.beginPath();ctx.moveTo(sx+sp,pl.y+pl.h);ctx.lineTo(sx+sp+5,pl.y+4);ctx.lineTo(sx+sp+10,pl.y+pl.h);ctx.fill();}ctx.fillStyle='#666';ctx.fillRect(sx,pl.y+pl.h-8,pl.w,8);}
+    else if(pl.t==='lava'){var f=Math.sin(tick*0.1+pl.x)*3;ctx.fillStyle='#e55300';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.fillStyle='rgba(255,200,0,0.6)';ctx.fillRect(sx,pl.y+f,pl.w,6);ctx.fillStyle='rgba(255,80,0,0.4)';ctx.fillRect(sx,pl.y+pl.h-6,pl.w,6);}
+    else if(pl.t==='move'){ctx.fillStyle='#4dd0e1';ctx.fillRect(sx,pl.y,pl.w,pl.h);ctx.fillStyle='#00838f';ctx.fillRect(sx,pl.y,pl.w,3);ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(sx+4,pl.y+4,pl.w-8,3);}
+  });
+  // 金币
+  coins.forEach(function(c){if(c.got)return;var sx=c.x-cam.x;if(sx<-10||sx>W+10)return;var b=Math.sin(c.t)*3;ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=6;ctx.fillRect(sx-5,c.y-5+b,10,10);ctx.shadowBlur=0;});
+  // 钥匙
+  keys.forEach(function(k){if(k.got)return;var sx=k.x-cam.x;if(sx<-15||sx>W+15)return;var b=Math.sin(k.t)*3;ctx.font='20px serif';ctx.textAlign='center';ctx.fillText('🔑',sx,k.y+b+8);});
+  // 无敌星
+  if(!star.got){var sx=star.x-cam.x;if(sx>-15&&sx<W+15){var b=Math.sin(star.t)*4;ctx.font='22px serif';ctx.textAlign='center';ctx.fillText('⭐',sx,star.y+b+8);}}
+  // 怪物
+  enemies.forEach(function(e){if(!e.alive)return;var sx=e.x-cam.x;if(sx<-30||sx>W+30)return;var bob=Math.sin(e.anim)*2;ctx.fillStyle='#9c27b0';ctx.fillRect(sx-2,e.y-8+bob,e.w+4,e.h+8);ctx.fillStyle='#6a1b9a';ctx.fillRect(sx-2,e.y+e.h-4+bob,e.w+4,4);ctx.fillStyle='#fff';ctx.fillRect(sx+3,e.y-2+bob,4,4);ctx.fillRect(sx+e.w-7,e.y-2+bob,4,4);ctx.fillStyle='#000';ctx.fillRect(sx+4,e.y-1+bob,2,2);ctx.fillRect(sx+e.w-6,e.y-1+bob,2,2);ctx.fillStyle='#000';ctx.fillRect(sx+5,e.y+6+bob,e.w-10,2);});
+  // 终点旗
+  var fx=FLAG.x-cam.x;if(fx>-20&&fx<W+20){ctx.fillStyle='#7f7f7f';ctx.fillRect(fx,FLAG.y,4,100);ctx.fillStyle=keyCount>=3?'#4caf50':'#888';var wv=Math.sin(Date.now()/200)*4;ctx.beginPath();ctx.moveTo(fx+4,FLAG.y+10);ctx.lineTo(fx+30+wv,FLAG.y+18);ctx.lineTo(fx+4,FLAG.y+30);ctx.fill();ctx.fillStyle='#fff';ctx.font='10px "Press Start 2P",monospace';ctx.textAlign='center';if(keyCount<3)ctx.fillText('🔒需3钥匙',fx+20,FLAG.y-8);}
+  // AI队友
+  allies.forEach(function(a){drawChar(a,a.color);});
+  // 玩家
+  drawChar(p,'#e53935');
+  if(invincible>0){ctx.fillStyle='rgba(255,215,0,'+(0.2+Math.sin(tick*0.3)*0.15)+')';ctx.fillRect(p.x-cam.x-15,p.y-15,50,50);}
+  // 粒子
+  particles.forEach(function(pp){ctx.globalAlpha=pp.life/20;ctx.fillStyle=pp.c;ctx.fillRect(pp.x-cam.x,pp.y,pp.size,pp.size);ctx.globalAlpha=1;});
+  // HUD：无敌提示
+  if(invincible>0){ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='left';ctx.fillText('⭐无敌 '+Math.ceil(invincible/60)+'s',10,20);}
+  // 结算
+  if(state.over){
+    ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+    if(won===1){ctx.fillStyle='#4caf50';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('🎉 通关！',W/2,H/2-30);ctx.fillStyle='#ffd700';ctx.font='14px "Press Start 2P",monospace';ctx.fillText('金币:'+coinCount+' 钥匙:'+keyCount+'/3',W/2,H/2);ctx.fillStyle='#fff';ctx.font='10px "Press Start 2P",monospace';ctx.fillText('队友:'+allies.length+' | 按R重玩',W/2,H/2+30);}
+    else{ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('💀 失败！',W/2,H/2-20);ctx.fillStyle='#fff';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('金币:'+coinCount+' 钥匙:'+keyCount+'/3',W/2,H/2+10);ctx.font='10px "Press Start 2P",monospace';ctx.fillText('按R重试',W/2,H/2+35);}
+  }
+}
+function drawChar(ch,col){
+  var sx=ch.x-cam.x;if(sx<-30||sx>W+30)return;
+  if(ch.inv>0&&Math.floor(ch.inv/4)%2===0)return;
+  var bob=ch.onG?Math.sin(ch.anim)*1.5:0;
+  ctx.fillStyle=col;ctx.fillRect(sx+2,ch.y+8+bob,18,16);
+  ctx.fillStyle='#f0c8a0';ctx.fillRect(sx+4,ch.y-2+bob,14,12);ctx.fillStyle='#4a2c12';ctx.fillRect(sx+4,ch.y-2+bob,14,3);
+  ctx.fillStyle='#fff';ctx.fillRect(sx+(ch.dir>0?11:6),ch.y+3+bob,3,3);ctx.fillStyle='#000';ctx.fillRect(sx+(ch.dir>0?12:7),ch.y+4+bob,1,2);
+  ctx.fillStyle='#1565c0';ctx.fillRect(sx+3,ch.y+24,6,6);ctx.fillRect(sx+13,ch.y+24,6,6);
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys_[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){document.getElementById('lobby').style.display='block';document.getElementById('gameStage').style.display='none';}});
+document.addEventListener('keyup',function(e){keys_[e.key.toLowerCase()]=false;});
+loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>温度计猜数 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .thermo-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:20px;max-width:440px;margin:18px auto;text-align:center }
+  .thermo { width:60px;height:280px;background:#0d1b2a;border:3px solid #000;margin:0 auto 16px;border-radius:30px;position:relative;overflow:hidden }
+  .thermo-fill { position:absolute;bottom:0;left:0;right:0;transition:height 0.4s,background 0.4s;border-radius:0 0 27px 27px }
+  .thermo-bulb { position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);width:50px;height:50px;border-radius:50%;border:3px solid #000;transition:background 0.4s }
+  .guess-input { font-family:'Press Start 2P',monospace;font-size:20px;text-align:center;background:#0d1b2a;color:#ffd700;border:3px solid var(--mc-gold);padding:12px;width:120px }
+  .hint { font-family:'Press Start 2P',monospace;font-size:14px;margin:10px 0;min-height:20px }
+  .range { font-size:16px;color:#4dd0e1;margin:6px 0 }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="rocket.html">火箭</a>
+    <a href="pipes.html">水管</a>
+    <a href="burger.html">汉堡</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="slots.html">老虎机</a>
+    <a href="24points.html">24点</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🌡️ 温度计猜数</h1>
+  <p class="subtitle">猜数字，温度计告诉你冷热！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">次数</span><span id="tries">0</span></div>
+    <div class="hud-item"><span class="label">范围</span><span id="range">1-100</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div class="thermo-stage">
+    <div class="thermo"><div class="thermo-fill" id="fill" style="height:50%;background:#ffd700"></div></div>
+    <div class="thermo-bulb" id="bulb" style="background:#ffd700"></div>
+    <div class="hint" id="hint" style="color:#fff">输入 1-100 的数字</div>
+    <div class="range" id="rangeText">范围: 1 ~ 100</div>
+    <input type="number" class="guess-input" id="guessInput" min="1" max="100" placeholder="?">
+    <div style="margin-top:12px"><button class="mc-btn green" id="guessBtn">🔥 猜！</button></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="newBtn">🔄 新一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">越接近红色越热（接近），蓝色越冷（远）</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var state,lo,hi;
+  function init(){state={target:1+Math.floor(Math.random()*100),tries:0,over:false};lo=1;hi=100;updateHud();document.getElementById('hint').textContent='输入 1-100 的数字';document.getElementById('hint').style.color='#fff';document.getElementById('rangeText').textContent='范围: 1 ~ 100';document.getElementById('guessInput').value='';setThermo(50,'#ffd700');}
+  function getBest(){return parseInt(localStorage.getItem('thermo_best')||'999',10);}
+  function setBest(v){localStorage.setItem('thermo_best',v);}
+  function updateHud(){document.getElementById('tries').textContent=state.tries;document.getElementById('range').textContent=lo+'-'+hi;var b=getBest();document.getElementById('best').textContent=b<999?b+'次':'—';}
+  function setThermo(pct,color){document.getElementById('fill').style.height=pct+'%';document.getElementById('fill').style.background=color;document.getElementById('bulb').style.background=color;}
+  function guess(){
+    if(state.over)return;
+    var v=parseInt(document.getElementById('guessInput').value,10);
+    if(!v||v<1||v>100){toast('输入 1-100！');return;}
+    AOXSound.ensure();state.tries++;
+    if(v===state.target){state.over=true;SFX.win();var b=getBest();if(state.tries<b)setBest(state.tries);document.getElementById('hint').textContent='🎉 答对！就是 '+v;document.getElementById('hint').style.color='#4caf50';setThermo(100,'#e53935');updateHud();toast('🎉 '+state.tries+'次猜中！');return;}
+    var diff=Math.abs(v-state.target);
+    var closeness=100-diff; // 越大越接近
+    var pct=Math.max(5,Math.min(95,closeness));
+    var color,desc;
+    if(diff<=3){color='#e53935';desc='🔥 极热！';}
+    else if(diff<=8){color='#ff5722';desc='🔴 很热！';}
+    else if(diff<=15){color='#ff9800';desc='🟠 温热';}
+    else if(diff<=25){color='#ffd700';desc='🟡 微温';}
+    else if(diff<=40){color='#4dd0e1';desc='🟦 凉';}
+    else{color='#2196f3';desc='❄️ 冰冷';}
+    setThermo(pct,color);
+    document.getElementById('hint').textContent=desc+' 差了 '+diff;
+    document.getElementById('hint').style.color=color;
+    if(v<state.target)lo=Math.max(lo,v+1);else hi=Math.min(hi,v-1);
+    document.getElementById('rangeText').textContent='范围: '+lo+' ~ '+hi;
+    SFX.move();updateHud();
+    document.getElementById('guessInput').value='';document.getElementById('guessInput').focus();
+  }
+  document.getElementById('guessBtn').addEventListener('click',guess);
+  document.getElementById('guessInput').addEventListener('keydown',function(e){if(e.key==='Enter')guess();});
+  document.getElementById('newBtn').addEventListener('click',function(){init();SFX.click();});
+  init();
+})();
+</script>
+</body>
+</html>

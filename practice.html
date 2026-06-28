@@ -1,0 +1,420 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打字练习 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ===== 虚拟键盘 ===== */
+  .keyboard {
+    background: var(--mc-night);
+    border: 4px solid var(--mc-black);
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);
+    padding: 18px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    max-width: 880px; margin: 0 auto;
+  }
+  .kb-row { display: flex; gap: 6px; justify-content: center; }
+  .kb-key {
+    flex: 1; min-width: 38px; height: 48px;
+    background: linear-gradient(180deg,#8b8b8b,#6a6a6a);
+    border: 2px solid #000;
+    box-shadow: inset 2px 2px 0 0 #aaa, inset -2px -2px 0 0 #555;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: 'Press Start 2P', monospace; font-size: 13px;
+    color: #1a1a1a; user-select: none; position: relative;
+    transition: all 0.05s; border-radius: 2px;
+  }
+  .kb-key .finger { font-size: 7px; color: #555; margin-top: 3px; opacity:0.7; }
+  .kb-key.wide { flex: 1.5; min-width: 56px; }
+  .kb-key.xwide { flex: 2.5; min-width: 90px; }
+  .kb-key.space { flex: 8; min-width: 200px; }
+  /* 指法颜色（每根手指一种颜色）*/
+  .kb-key.f-LP { border-top: 4px solid #e53935; }   /* 左小指 红 */
+  .kb-key.f-LR { border-top: 4px solid #ff9800; }   /* 左无名指 橙 */
+  .kb-key.f-LM { border-top: 4px solid #ffd700; }   /* 左中指 黄 */
+  .kb-key.f-LI { border-top: 4px solid #4caf50; }   /* 左食指 绿 */
+  .kb-key.f-RI { border-top: 4px solid #2196f3; }   /* 右食指 蓝 */
+  .kb-key.f-RM { border-top: 4px solid #9c27b0; }   /* 右中指 紫 */
+  .kb-key.f-RR { border-top: 4px solid #00bcd4; }   /* 右无名指 青 */
+  .kb-key.f-RP { border-top: 4px solid #e91e63; }   /* 右小指 粉 */
+  .kb-key.f-T  { border-top: 4px solid #7f7f7f; }   /* 拇指 灰 */
+  /* 高亮当前要按的键 */
+  .kb-key.next {
+    background: linear-gradient(180deg,#ffd700,#ff9800);
+    transform: translateY(3px) scale(1.08);
+    box-shadow: inset 2px 2px 0 0 #fff, inset -2px -2px 0 0 #b8860b, 0 0 16px #ffd700;
+    animation: kbPulse 0.6s infinite alternate;
+    z-index: 2;
+  }
+  .kb-key.pressed {
+    background: linear-gradient(180deg,#4caf50,#2e7d32);
+    transform: translateY(3px);
+    color: #fff;
+  }
+  .kb-key.wrong {
+    background: linear-gradient(180deg,#e53935,#b71c1c);
+    color: #fff;
+    animation: kbShake 0.3s;
+  }
+  @keyframes kbPulse { from{ box-shadow: inset 2px 2px 0 0 #fff, inset -2px -2px 0 0 #b8860b, 0 0 8px #ffd700; } to{ box-shadow: inset 2px 2px 0 0 #fff, inset -2px -2px 0 0 #b8860b, 0 0 22px #ffd700; } }
+  @keyframes kbShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+
+  /* ===== 文字显示区 ===== */
+  .text-display {
+    background: var(--mc-night);
+    border: 4px solid var(--mc-black);
+    box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000;
+    padding: 28px 24px;
+    font-family: 'VT323', monospace; font-size: 34px; line-height: 1.5;
+    min-height: 130px; text-align: center; letter-spacing: 2px;
+    max-width: 880px; margin: 0 auto 18px;
+    color: #ccc;
+  }
+  .text-display .done { color: #4caf50; }
+  .text-display .current { background: #ffd700; color: #000; padding: 0 2px; }
+  .text-display .rest { color: #555; }
+  .text-display .err { color: #e53935; text-decoration: underline wavy #e53935; }
+
+  /* ===== 模式/关卡选择 ===== */
+  .mode-btn {
+    font-family:'Press Start 2P',monospace; font-size:11px; padding:10px 14px;
+    background:var(--mc-panel); border:3px solid var(--mc-black);
+    box-shadow: inset 3px 3px 0 0 var(--mc-highlight), inset -3px -3px 0 0 var(--mc-shadow), 4px 4px 0 0 rgba(0,0,0,0.3);
+    cursor:pointer; color:#1a1a1a; transition:transform 0.05s;
+  }
+  .mode-btn:hover { transform: translate(-2px,-2px); }
+  .mode-btn.active { background: var(--mc-grass); color:#fff; box-shadow: inset 3px 3px 0 0 #6fc94a, inset -3px -3px 0 0 #2e7d32, 4px 4px 0 0 rgba(0,0,0,0.3); }
+
+  .hint-box {
+    background: var(--mc-panel-dark); padding: 14px 18px; max-width:880px; margin: 14px auto 0;
+    font-size: 18px; color:#e0e0e0; line-height:1.5;
+  }
+  .hint-box .next-key-hint { color: var(--mc-gold); font-family:'Press Start 2P',monospace; font-size:13px; }
+  .finger-legend { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:10px; font-size:14px; }
+  .finger-legend span { display:inline-flex; align-items:center; gap:6px; }
+  .finger-legend i { width:14px; height:14px; display:inline-block; border:2px solid #000; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="practice.html">练打字</a>
+    <a href="typing.html">打字大作战</a>
+    <a href="mario.html">冒险</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="mining.html">挖矿</a>
+    <a href="sweeper.html">扫雷</a>
+    <a href="match3.html">三消</a>
+    <a href="dragon.html">末影龙</a>
+    <a href="potion.html">炼药</a>
+    <a href="tnt.html">打靶</a>
+  </nav>
+</div>
+
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⌨️ 打字练习</h1>
+  <p class="subtitle">慢慢来，没有压力！跟着键盘提示练</p>
+
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">进度</span><span id="progress">0%</span></div>
+    <div class="hud-item"><span class="label">正确率</span><span id="accuracy">100%</span></div>
+    <div class="hud-item"><span class="label">速度</span><span id="wpm">0</span> 字/分</div>
+    <div class="hud-item"><span class="label">连对</span><span id="streak">0</span></div>
+  </div>
+
+  <!-- 模式选择 -->
+  <div style="margin:18px 0 14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="mode-btn active" data-mode="home">🏠 主键位</button>
+    <button class="mode-btn" data-mode="letters">🔤 字母</button>
+    <button class="mode-btn" data-mode="words">📝 单词</button>
+    <button class="mode-btn" data-mode="sentences">💬 句子</button>
+    <button class="mode-btn" data-mode="code">💻 代码</button>
+  </div>
+
+  <!-- 文字显示 -->
+  <div class="text-display" id="textDisplay">点击下方「开始练习」</div>
+
+  <!-- 提示框 -->
+  <div class="hint-box" id="hintBox">
+    <div>下一个键：<span class="next-key-hint" id="nextKeyHint">—</span> <span id="fingerHint"></span></div>
+    <div class="finger-legend">
+      <span><i style="background:#e53935"></i>左小指</span>
+      <span><i style="background:#ff9800"></i>左无名</span>
+      <span><i style="background:#ffd700"></i>左中指</span>
+      <span><i style="background:#4caf50"></i>左食指</span>
+      <span><i style="background:#2196f3"></i>右食指</span>
+      <span><i style="background:#9c27b0"></i>右中指</span>
+      <span><i style="background:#00bcd4"></i>右无名</span>
+      <span><i style="background:#e91e63"></i>右小指</span>
+    </div>
+  </div>
+
+  <!-- 虚拟键盘 -->
+  <div class="keyboard" id="keyboard" style="margin-top:18px;"></div>
+
+  <input type="text" id="mobileInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+    style="position:fixed; left:-9999px; top:50%; opacity:0; width:1px; height:1px;">
+  <div style="margin-top:18px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始练习</button>
+    <button class="mc-btn gold" id="nextBtn">⏭ 换一段</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    不限时！按金色高亮的键就行，错了也不扣分，重新按对即可
+  </p>
+  <p class="touch-only" style="color:#ffd700;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:6px;">
+    📱 手机：点「开始练习」后点击文字区可唤出键盘输入
+  </p>
+</div>
+
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // ===== 键盘布局 + 指法 =====
+  // finger: LP左小 LR左无名 LM左中 LI左食 RI右食 RM右中 RR右无名 RP右小 T拇指
+  var LAYOUT = [
+    [
+      {k:'Q',f:'LP'},{k:'W',f:'LR'},{k:'E',f:'LM'},{k:'R',f:'LI'},{k:'T',f:'LI'},
+      {k:'Y',f:'RI'},{k:'U',f:'RI'},{k:'I',f:'RM'},{k:'O',f:'RR'},{k:'P',f:'RP'}
+    ],
+    [
+      {k:'A',f:'LP'},{k:'S',f:'LR'},{k:'D',f:'LM'},{k:'F',f:'LI'},{k:'G',f:'LI'},
+      {k:'H',f:'RI'},{k:'J',f:'RI'},{k:'K',f:'RM'},{k:'L',f:'RR'},{k:';',f:'RP',disp:';'}
+    ],
+    [
+      {k:'Z',f:'LP'},{k:'X',f:'LR'},{k:'C',f:'LM'},{k:'V',f:'LI'},{k:'B',f:'LI'},
+      {k:'N',f:'RI'},{k:'M',f:'RI'},{k:',',f:'RM',disp:','},{k:'.',f:'RR',disp:'.'},{k:'/',f:'RP',disp:'/'}
+    ],
+    [
+      {k:' ',f:'T',cls:'space',disp:'空格'}
+    ]
+  ];
+  // 字母到指法的映射（用于提示）
+  var KEY_FINGER = {};
+  LAYOUT.forEach(function(row){ row.forEach(function(c){ KEY_FINGER[c.k]=c.f; }); });
+  var FINGER_NAME = {LP:'左手小指',LR:'左手无名指',LM:'左手中指',LI:'左手食指',RI:'右手食指',RM:'右手中指',RR:'右手无名指',RP:'右手小指',T:'拇指（空格）'};
+
+  // ===== 练习内容 =====
+  var CONTENT = {
+    home: [ // 主键位 ASDF JKL; 反复练
+      'asdf jkl; asdf jkl; asdf jkl; asdf jkl;',
+      'fdsa ;lkj fdsa ;lkj fdsa ;lkj fdsa ;lkj',
+      'aaa sss ddd fff jjj kkk lll ;;; aaa sss',
+      'asdfg ;lkjh asdfg ;lkjh asdfg ;lkjh',
+      'fjdksla; fjdksla; fjdksla; fjdksla;',
+      'sad lad fad jak dak lad; sad fad jak;',
+      'ask dad fall lass jass; ask dad fall lass;'
+    ],
+    letters: [
+      'the quick brown fox jumps over the lazy dog',
+      'pack my box with five dozen liquor jugs',
+      'how vexingly quick daft zebras jump',
+      'abcdefghijklmnopqrstuvwxyz abcdefg',
+      'qwerty asdfg zxcvb poiuy lkjhg mnbvc',
+      'she sells sea shells by the sea shore',
+      'peter piper picked a peck of pickled peppers'
+    ],
+    words: [
+      'minecraft diamond creeper zombie steve craft',
+      'build mine dig explore gather survival adventure',
+      'pickaxe sword shovel torch portal nether village',
+      'emerald redstone obsidian lava water stone wood',
+      'pixel block gamer level score combo adventure play'
+    ],
+    sentences: [
+      'AoXuan is building a cool pixel world with games.',
+      'Practice typing every day and you will get faster.',
+      'The quick brown fox jumps over the lazy dog.',
+      'Keep your fingers on the home row keys asdf jkl.',
+      'Minecraft is a game about placing blocks and going on adventures.'
+    ],
+    code: [
+      'function hello() { console.log("hi"); }',
+      'var x = 10; var y = 20; var sum = x + y;',
+      'for (var i = 0; i < 5; i++) { console.log(i); }',
+      'if (score >= target) { win(); } else { tryAgain(); }',
+      'const arr = [1, 2, 3]; arr.forEach(n => print(n));'
+    ]
+  };
+
+  var state = { mode:'home', text:'', pos:0, errors:0, total:0, streak:0, startTime:0, running:false, done:false };
+
+  // ===== 构建键盘 =====
+  function buildKeyboard(){
+    var kb = document.getElementById('keyboard');
+    kb.innerHTML='';
+    LAYOUT.forEach(function(row, ri){
+      var rdiv=document.createElement('div'); rdiv.className='kb-row';
+      row.forEach(function(c){
+        var key=document.createElement('div');
+        key.className='kb-key f-'+c.f;
+        if(c.cls) key.classList.add(c.cls);
+        key.dataset.key=c.k;
+        key.innerHTML='<span>'+(c.disp||c.k.toUpperCase())+'</span><span class="finger">'+FINGER_NAME[c.f].charAt(0)+'</span>';
+        rdiv.appendChild(key);
+      });
+      kb.appendChild(rdiv);
+    });
+  }
+
+  // ===== 高亮下一个键 =====
+  function highlightNext(){
+    // 清除所有 next
+    var all=document.querySelectorAll('.kb-key');
+    all.forEach(function(k){ k.classList.remove('next'); });
+    if(state.pos>=state.text.length) return;
+    var ch=state.text[state.pos];
+    var key = ch===' '? ' ' : ch.toLowerCase();
+    var el=document.querySelector('.kb-key[data-key="'+CSS.escape(key)+'"]');
+    if(el) el.classList.add('next');
+    // 提示文字
+    var disp = ch===' '? '空格' : ch.toUpperCase();
+    document.getElementById('nextKeyHint').textContent = disp;
+    var f = KEY_FINGER[key];
+    document.getElementById('fingerHint').textContent = f ? '（用 '+FINGER_NAME[f]+'）' : '';
+  }
+
+  function flashKey(keyChar, type){
+    var el=document.querySelector('.kb-key[data-key="'+CSS.escape(keyChar)+'"]');
+    if(!el) return;
+    el.classList.add(type);
+    setTimeout(function(){ el.classList.remove(type); }, 150);
+  }
+
+  // ===== 渲染文字 =====
+  function renderText(){
+    var d=document.getElementById('textDisplay');
+    var done = state.text.substring(0, state.pos);
+    var cur = state.pos<state.text.length ? state.text[state.pos] : '';
+    var rest = state.text.substring(state.pos+1);
+    d.innerHTML =
+      '<span class="done">'+escapeHtml(done)+'</span>' +
+      '<span class="current">'+escapeHtml(cur)+'</span>' +
+      '<span class="rest">'+escapeHtml(rest)+'</span>';
+  }
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/ /g,'&nbsp;'); }
+
+  function updateHud(){
+    var pct = state.text.length? Math.floor(state.pos/state.text.length*100):0;
+    document.getElementById('progress').textContent = pct+'%';
+    var acc = state.total>0? Math.max(0, Math.round((state.total-state.errors)/state.total*100)):100;
+    document.getElementById('accuracy').textContent = acc+'%';
+    document.getElementById('streak').textContent = state.streak;
+    // WPM
+    if(state.startTime && state.pos>0){
+      var mins=(Date.now()-state.startTime)/60000;
+      var wpm = mins>0? Math.round((state.pos/5)/mins):0;
+      document.getElementById('wpm').textContent = wpm;
+    }
+  }
+
+  // ===== 开始一段 =====
+  function newRound(){
+    var pool = CONTENT[state.mode];
+    state.text = pool[Math.floor(Math.random()*pool.length)];
+    state.pos=0; state.errors=0; state.total=0; state.streak=0; state.startTime=0; state.done=false;
+    renderText(); highlightNext(); updateHud();
+    document.getElementById('wpm').textContent='0';
+  }
+
+  function start(){
+    state.running=true; newRound();
+    AOXSound.ensure(); SFX.select();
+    toast('开始练习！跟着金色按键来');
+  }
+
+  // ===== 按键处理（键盘 + 触屏共用）=====
+  function handleChar(key){
+    if(!state.running || state.done) return;
+    if(!state.startTime) state.startTime=Date.now();
+    var expected = state.text[state.pos];
+    state.total++;
+    if(key === expected){
+      // 正确
+      state.pos++; state.streak++;
+      flashKey(key===' '?' ':key.toLowerCase(), 'pressed');
+      SFX.move();
+      if(state.streak>0 && state.streak%15===0) SFX.coin();
+      renderText(); highlightNext(); updateHud();
+      if(state.pos>=state.text.length){
+        // 完成本段
+        state.done=true;
+        SFX.win();
+        var acc = state.total>0? Math.round((state.total-state.errors)/state.total*100):100;
+        var mins=(Date.now()-state.startTime)/60000;
+        var wpm = mins>0? Math.round((state.pos/5)/mins):0;
+        toast('🎉 完成！正确率 '+acc+'%  速度 '+wpm+' 字/分');
+      }
+    } else {
+      // 错误
+      state.errors++; state.streak=0;
+      flashKey(key===' '?' ':key.toLowerCase(), 'wrong');
+      SFX.error();
+      var d=document.getElementById('textDisplay');
+      var done = state.text.substring(0, state.pos);
+      var cur = state.text[state.pos];
+      var rest = state.text.substring(state.pos+1);
+      d.innerHTML = '<span class="done">'+escapeHtml(done)+'</span><span class="err">'+escapeHtml(cur)+'</span><span class="rest">'+escapeHtml(rest)+'</span>';
+      updateHud();
+    }
+  }
+  document.addEventListener('keydown', function(e){
+    if(!state.running || state.done) return;
+    if(e.ctrlKey||e.altKey||e.metaKey) return;
+    var key = e.key;
+    if(key.length!==1) return;
+    e.preventDefault();
+    handleChar(key);
+  });
+
+  // 触屏：隐藏 input 接收系统键盘输入
+  var mobileInput = document.getElementById('mobileInput');
+  if(mobileInput){
+    mobileInput.addEventListener('input', function(e){
+      var val = mobileInput.value;
+      // 逐字符处理（粘贴或快速输入）
+      for(var i=0;i<val.length;i++){ handleChar(val[i]); }
+      mobileInput.value=''; // 清空，等下一个
+    });
+    // 点击文字区聚焦 input（触屏唤出键盘）
+    document.getElementById('textDisplay').addEventListener('click', function(){
+      if(AOXMobile.isTouch && state.running) mobileInput.focus();
+    });
+    document.getElementById('textDisplay').addEventListener('touchstart', function(){
+      if(AOXMobile.isTouch && state.running) mobileInput.focus();
+    }, {passive:true});
+  }
+
+  // ===== 模式切换 =====
+  document.querySelectorAll('.mode-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.mode-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.mode = btn.dataset.mode;
+      SFX.click();
+      if(state.running) newRound();
+    });
+  });
+
+  document.getElementById('startBtn').addEventListener('click', start);
+  document.getElementById('nextBtn').addEventListener('click', function(){
+    if(state.running){ SFX.click(); newRound(); toast('换一段！'); }
+  });
+
+  buildKeyboard();
+  newRound();
+  state.running=false;
+})();
+</script>
+</body>
+</html>

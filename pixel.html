@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素画板 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #paintCanvas { background:#fff; cursor:crosshair; touch-action:none; image-rendering:pixelated; }
+  .palette { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:14px; max-width:500px; margin-left:auto; margin-right:auto; }
+  .pcolor { width:34px; height:34px; border:3px solid #000; cursor:pointer; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.3), inset -2px -2px 0 0 rgba(0,0,0,0.3); }
+  .pcolor.selected { border-color:var(--mc-gold); box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.5), 0 0 12px var(--mc-gold); transform:scale(1.15); }
+  .pcolor.eraser { background:linear-gradient(135deg,#fff 50%,#ccc 50%); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .tool-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="shooter.html">飞机大战</a><a href="sokoban.html">推箱子</a><a href="whack.html">打地鼠</a><a href="sudoku.html">数独</a><a href="tank.html">坦克大战</a><a href="pong.html">乒乓</a><a href="linkup.html">连连看</a><a href="guess.html">猜数字</a><a href="pixel.html">画板</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎨 像素画板</h1>
+  <p class="subtitle">创作你的像素艺术！</p>
+  <div class="game-stage" style="margin-top:14px;">
+    <canvas id="paintCanvas" width="384" height="384"></canvas>
+  </div>
+  <div class="palette" id="palette"></div>
+  <div class="tool-row">
+    <button class="mc-btn green" id="fillBtn">🪣 填充</button>
+    <button class="mc-btn gold" id="gridBtn">🔲 网格</button>
+    <button class="mc-btn redstone" id="clearBtn">🗑 清空</button>
+    <button class="mc-btn diamond" id="saveBtn">💾 保存</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:12px;">选颜色后点击/拖动画布绘制 · 16×16 像素 · 填充/网格/保存PNG</p>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('paintCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height; var GRID=16, CELL=W/GRID;
+  var pixels, color, showGrid, fillMode, drawing;
+  var COLORS=['#000000','#ffffff','#e53935','#ff9800','#ffd700','#4caf50','#2196f3','#9c27b0','#795548','#607d8b','#ff1744','#76ff03','#00e5ff','#e040fb','#ff80ab','#8d6e63'];
+  function init(){ pixels=[]; for(var r=0;r<GRID;r++){var row=[];for(var c=0;c<GRID;c++)row.push(null);pixels.push(row);} color='#e53935'; showGrid=true; fillMode=false; drawing=false; buildPalette(); draw(); }
+  function buildPalette(){ var p=document.getElementById('palette'); p.innerHTML='';
+    COLORS.forEach(function(c){ var d=document.createElement('div'); d.className='pcolor'; d.style.background=c; if(c===color)d.classList.add('selected'); d.addEventListener('click',function(){ color=c; fillMode=false; SFX.click(); updateSelected(); }); p.appendChild(d); });
+    var er=document.createElement('div'); er.className='pcolor eraser'; er.textContent='🧽'; er.addEventListener('click',function(){ color=null; fillMode=false; SFX.click(); updateSelected(); }); p.appendChild(er);
+  }
+  function updateSelected(){ document.querySelectorAll('.pcolor').forEach(function(d){d.classList.remove('selected');}); if(color===null){document.querySelector('.pcolor.eraser').classList.add('selected');} else { document.querySelectorAll('.pcolor').forEach(function(d){ if(d.style.background&&rgbToHex(d.style.background)===color)d.classList.add('selected'); }); } }
+  function rgbToHex(rgb){ if(rgb.startsWith('#'))return rgb; var m=rgb.match(/\d+/g); if(!m)return''; return '#'+m.slice(0,3).map(function(n){return ('0'+parseInt(n).toString(16)).slice(-2);}).join(''); }
+  function getCell(e){ var rect=canvas.getBoundingClientRect(); var cx=(e.clientX!==undefined?e.clientX:e.touches[0].clientX)-rect.left; var cy=(e.clientY!==undefined?e.clientY:e.touches[0].clientY)-rect.top; var x=cx*(W/rect.width), y=cy*(H/rect.height); return {c:Math.floor(x/CELL),r:Math.floor(y/CELL)}; }
+  function paint(r,c){ if(r<0||r>=GRID||c<0||c>=GRID)return; if(pixels[r][c]!==color){ pixels[r][c]=color; SFX.move(); draw(); } }
+  function floodFill(r,c,target){ if(r<0||r>=GRID||c<0||c>=GRID)return; if(pixels[r][c]!==target)return; pixels[r][c]=color; floodFill(r+1,c,target); floodFill(r-1,c,target); floodFill(r,c+1,target); floodFill(r,c-1,target); }
+  function draw(){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    for(var r=0;r<GRID;r++)for(var c=0;c<GRID;c++){ if(pixels[r][c]){ ctx.fillStyle=pixels[r][c]; ctx.fillRect(c*CELL,r*CELL,CELL,CELL); } }
+    if(showGrid){ ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=1; for(var i=0;i<=GRID;i++){ ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,H);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(W,i*CELL);ctx.stroke(); } }
+  }
+  function handleDown(e){ e.preventDefault(); var cell=getCell(e); AOXSound.ensure();
+    if(fillMode){ var t=pixels[cell.r][cell.c]; if(t!==color){ floodFill(cell.r,cell.c,t); SFX.place(); draw(); } fillMode=false; document.getElementById('fillBtn').classList.remove('active'); return; }
+    drawing=true; paint(cell.r,cell.c); }
+  function handleMove(e){ if(!drawing)return; e.preventDefault(); var cell=getCell(e); paint(cell.r,cell.c); }
+  function handleUp(){ drawing=false; }
+  canvas.addEventListener('mousedown',handleDown); canvas.addEventListener('mousemove',handleMove); canvas.addEventListener('mouseup',handleUp); canvas.addEventListener('mouseleave',handleUp);
+  canvas.addEventListener('touchstart',handleDown,{passive:false}); canvas.addEventListener('touchmove',handleMove,{passive:false}); canvas.addEventListener('touchend',handleUp);
+  document.getElementById('fillBtn').addEventListener('click',function(){ fillMode=!fillMode; this.classList.toggle('active',fillMode); SFX.click(); toast(fillMode?'填充模式：点一个区域':'绘画模式'); });
+  document.getElementById('gridBtn').addEventListener('click',function(){ showGrid=!showGrid; SFX.click(); draw(); });
+  document.getElementById('clearBtn').addEventListener('click',function(){ init(); SFX.error(); toast('已清空'); });
+  document.getElementById('saveBtn').addEventListener('click',function(){ // 临时去掉网格导出
+    var sg=showGrid; showGrid=false; draw(); var link=document.createElement('a'); link.download='aoxuan-pixel-art.png'; link.href=canvas.toDataURL(); link.click(); showGrid=sg; draw(); SFX.win(); toast('💾 已保存为 PNG！'); });
+  init();
+})();
+</script>
+</body>
+</html>
