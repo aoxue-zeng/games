@@ -55,14 +55,10 @@
       btn.addEventListener('click', function(e) {
         e.preventDefault(); e.stopPropagation();
         var l = getLikes();
-        if (l[href]) {
-          delete l[href]; btn.classList.remove('liked');
-          btn.querySelector('.heart').textContent = '🤍';
-        } else {
-          l[href] = true; btn.classList.add('liked');
-          btn.querySelector('.heart').textContent = '❤️';
-          if (window.SFX) SFX.coin();
-        }
+        if (l[href]) return; // 已点赞，不能取消不能重复点
+        l[href] = true; btn.classList.add('liked');
+        btn.querySelector('.heart').textContent = '❤️';
+        if (window.SFX) SFX.coin();
         saveLikes(l);
         updateTotalLikeCount();
       });
