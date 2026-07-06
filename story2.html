@@ -68,9 +68,9 @@ var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d'),W=6
 var WORLD_W=3600,GRAVITY=0.5;
 // 角色
 var CHARS=[
-{icon:'🛡️',name:'骑士',hp:5,speed:3,jump:-10,color:'#4caf50',atk:3,skills:[{n:'盾击',dmg:5,cd:60,icon:'🛡️'},{n:'冲锋',dmg:3,cd:40,icon:'💨'},{n:'治愈',heal:2,cd:120,icon:'💚'}]},
-{icon:'🏹',name:'弓箭手',hp:3,speed:3.5,jump:-11,color:'#ff9800',atk:2,skills:[{n:'连射',dmg:4,cd:50,icon:'🏹'},{n:'翻滚',dmg:0,cd:30,icon:'💨'},{n:'暴击',dmg:8,cd:100,icon:'⚡'}]},
-{icon:'🔮',name:'法师',hp:2,speed:3,jump:-10,color:'#9c27b0',atk:4,skills:[{n:'火球',dmg:6,cd:45,icon:'🔥'},{n:'冰冻',dmg:2,cd:80,icon:'❄️'},{n:'治疗',heal:3,cd:120,icon:'💚'}]}
+{icon:'🛡️',name:'重装兵',hp:5,speed:3,jump:-10,color:'#4caf50',atk:3,skills:[{n:'盾击',dmg:5,cd:60,icon:'🛡️'},{n:'冲锋',dmg:3,cd:40,icon:'💨'},{n:'治愈',heal:2,cd:120,icon:'💚'}]},
+{icon:'🏹',name:'侦察兵',hp:3,speed:3.5,jump:-11,color:'#ff9800',atk:2,skills:[{n:'连射',dmg:4,cd:50,icon:'🏹'},{n:'翻滚',dmg:0,cd:30,icon:'💨'},{n:'暴击',dmg:8,cd:100,icon:'⚡'}]},
+{icon:'🔮',name:'能量师',hp:2,speed:3,jump:-10,color:'#9c27b0',atk:4,skills:[{n:'火球',dmg:6,cd:45,icon:'🔥'},{n:'冰冻',dmg:2,cd:80,icon:'❄️'},{n:'治疗',heal:3,cd:120,icon:'💚'}]}
 ];
 // 大地图平台（地面+浮空台+危险区）
 var PLAT=[
@@ -89,8 +89,8 @@ var PLAT=[
 ];
 // NPC和任务点
 var NPCS=[
-{x:80,y:310,icon:'👑',name:'国王',quest:0,color:'#ffd700',dialog:'恶龙苏醒了！请讨伐它！'},
-{x:500,y:310,icon:'🧙',name:'老法师',quest:1,color:'#9c27b0',dialog:'带上这瓶药水，路上用得着。'},
+{x:80,y:310,icon:'👑',name:'国王',quest:0,color:'#ffd700',dialog:'母舰苏醒了！请讨伐它！'},
+{x:500,y:310,icon:'🧙',name:'老能量师',quest:1,color:'#9c27b0',dialog:'带上这瓶药水，路上用得着。'},
 {x:1100,y:310,icon:'🏹',name:'猎人',quest:2,color:'#ff9800',dialog:'森林里有史莱姆，帮我清掉3只！'},
 {x:1700,y:310,icon:'⚒️',name:'矿工',quest:3,color:'#7f7f7f',dialog:'沼泽的尖刺挡路，小心跳过去！'},
 {x:2300,y:310,icon:'🛡️',name:'老兵',quest:4,color:'#4caf50',dialog:'前面就是火山，准备好决战了吗？'}
@@ -98,7 +98,7 @@ var NPCS=[
 // 任务系统
 var QUESTS=[
 {name:'国王的委托',desc:'前往森林，消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'药水x1'},
-{name:'老法师的礼物',desc:'去找老法师对话获得药水',target:'talk1',done:false,active:false,reward:'药水x2'},
+{name:'老能量师的礼物',desc:'去找老能量师对话获得药水',target:'talk1',done:false,active:false,reward:'药水x2'},
 {name:'猎人的请求',desc:'森林里消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'金币x20'},
 {name:'矿工的指引',desc:'穿越沼泽尖刺区到达山洞',target:'reach1900',done:false,active:false,reward:'剑x1'},
 {name:'老兵的考验',desc:'到达火山口准备最终决战',target:'reach3000',done:false,active:false,reward:'无敌星x1'}
@@ -108,7 +108,7 @@ var MOBS=[
 {x:850,y:318,type:'slime',hp:1,range:80},{x:1000,y:318,type:'slime',hp:1,range:80},{x:1150,y:318,type:'slime',hp:1,range:80},
 {x:1450,y:318,type:'slime',hp:2,range:60},{x:1950,y:318,type:'bat',hp:2,range:100},{x:2150,y:318,type:'bat',hp:2,range:100},
 {x:2550,y:318,type:'slime',hp:2,range:80},{x:2900,y:318,type:'bat',hp:3,range:120},
-{x:3200,y:318,type:'boss',hp:15,range:200,boss:true,name:'远古恶龙'}
+{x:3200,y:318,type:'boss',hp:15,range:200,boss:true,name:'远古母舰'}
 ];
 // 金币
 var COINS=[[200,310],[400,310],[900,250],[1100,220],[1200,310],[1500,310],[1700,310],[2050,250],[2250,220],[2400,310],[2600,310],[2900,310],[3100,310],[3300,180],[3400,310]];
@@ -119,15 +119,15 @@ var selChar=null,state,p,enemies,coins,items,bullets,particles,keys_,tick,cam,hp
 
 function intro(){
   sa.style.display='block';ga.style.display='none';
-  sa.innerHTML='<div class="panel"><div class="ch">⚔️ 勇者斗恶龙 · 开放世界</div>'+
-    '<div class="nr">远古恶龙 🐲 从火山深处苏醒，吞噬了王国的光明。<br>这是一个<b style="color:#ffd700">开放世界</b>——你可以在大地图上自由探索，<br>找到NPC接任务，收集道具，升级技能，最终讨伐恶龙！</div>'+
+  sa.innerHTML='<div class="panel"><div class="ch">⚔️ 战士斗母舰 · 开放世界</div>'+
+    '<div class="nr">远古母舰 🐲 从火山深处苏醒，吞噬了银河的光明。<br>这是一个<b style="color:#ffd700">开放世界</b>——你可以在大地图上自由探索，<br>找到NPC接任务，收集道具，升级技能，最终讨伐母舰！</div>'+
     '<div style="color:#4dd0e1;font-size:14px;margin:8px">🗺️ 大地图自由探索 · 📋 5个任务 · 👑 NPC对话 · 🐲 Boss战</div>'+
     '<button class="mc-btn green" id="nBtn" style="margin-top:12px">▶ 选择角色</button></div>';
   document.getElementById('nBtn').onclick=function(){AOXSound.ensure();SFX.select();chooseChar();};
 }
 function chooseChar(){
   var cards='';CHARS.forEach(function(c,i){cards+='<div class="char-card" data-idx="'+i+'"><div class="ci">'+c.icon+'</div><div class="cn">'+c.name+'</div><div class="cs">❤️'+c.hp+' 🗡️'+c.atk+'</div></div>';});
-  sa.innerHTML='<div class="panel"><div class="ch">选择你的勇者</div><div class="char-grid">'+cards+'</div><div id="ci" style="color:#888;font-size:13px;margin:8px">点击角色查看技能</div><button class="mc-btn green" id="sBtn" style="display:none;margin-top:10px">▶ 进入开放世界</button></div>';
+  sa.innerHTML='<div class="panel"><div class="ch">选择你的战士</div><div class="char-grid">'+cards+'</div><div id="ci" style="color:#888;font-size:13px;margin:8px">点击角色查看技能</div><button class="mc-btn green" id="sBtn" style="display:none;margin-top:10px">▶ 进入开放世界</button></div>';
   document.querySelectorAll('.char-card').forEach(function(card){
     card.onclick=function(){
       document.querySelectorAll('.char-card').forEach(function(x){x.classList.remove('sel');});
@@ -182,16 +182,16 @@ function useSkill(i){
   if(!state||!state.running||skillCd[i]>0)return;
   var s=selChar.skills[i];skillCd[i]=s.cd;SFX.levelUp();
   if(s.heal){hp=Math.min(maxHp,hp+s.heal);ex(p.x,p.y,'#4caf50');updateHud();toast(s.icon+' '+s.n+' 回血'+s.heal);}
-  else if(s.dmg){enemies.forEach(function(e){if(e.alive&&Math.abs(e.x-p.x)<120){e.hp-=s.dmg;ex(e.x,e.y,'#ffd700');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(e.boss){bossDead=true;SFX.win();toast('🐲 恶龙被击败！');checkWin();}SFX.clear();}}});}
-  if(i===1&&selChar.name==='弓箭手'){p.vy=-6;}
-  if(i===1&&selChar.name==='法师'){enemies.forEach(function(e){if(e.alive)e.frozen=120;});}
+  else if(s.dmg){enemies.forEach(function(e){if(e.alive&&Math.abs(e.x-p.x)<120){e.hp-=s.dmg;ex(e.x,e.y,'#ffd700');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(e.boss){bossDead=true;SFX.win();toast('🐲 母舰被击败！');checkWin();}SFX.clear();}}});}
+  if(i===1&&selChar.name==='侦察兵'){p.vy=-6;}
+  if(i===1&&selChar.name==='能量师'){enemies.forEach(function(e){if(e.alive)e.frozen=120;});}
   updateHud();
 }
 function rc(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 function checkQuests(){
   // 杀怪任务
   if(!quests[0].done&&killCount>=3){quests[0].done=true;quests[0].active=false;inventory.potion++;buildInvBar();SFX.gem();toast('✅ 任务完成：猎人的请求 +20金币');gold+=20;quests[2].done=true;quests[2].active=false;updateHud();renderQuests();}
-  if(!quests[1].done&&talkedNPC===1){quests[1].done=true;quests[1].active=false;inventory.potion+=2;buildInvBar();SFX.gem();toast('✅ 任务完成：老法师的礼物');renderQuests();}
+  if(!quests[1].done&&talkedNPC===1){quests[1].done=true;quests[1].active=false;inventory.potion+=2;buildInvBar();SFX.gem();toast('✅ 任务完成：老能量师的礼物');renderQuests();}
   if(!quests[3].done&&p.x>=1900){quests[3].done=true;quests[3].active=false;inventory.sword++;buildInvBar();SFX.gem();toast('✅ 任务完成：矿工的指引 +剑');renderQuests();}
   if(!quests[4].done&&p.x>=3000){quests[4].done=true;quests[4].active=false;inventory.star++;buildInvBar();SFX.gem();toast('✅ 任务完成：老兵的考验 +无敌星');renderQuests();}
 }
@@ -200,7 +200,7 @@ function checkWin(){
     setTimeout(function(){
       sa.style.display='block';ga.style.display='none';
       var done=quests.filter(function(q){return q.done;}).length;
-      sa.innerHTML='<div class="panel"><div class="ch">🏆 通关！恶龙被击败！</div><div class="nr">远古恶龙倒下了！王国恢复了光明 🌅<br><br>完成任务：'+done+'/'+quests.length+'<br>金币：'+gold+'<br>背包：🧪'+inventory.potion+' ⚔️'+inventory.sword+' ⭐'+inventory.star+'</div><div style="font-size:40px;margin:12px">🏆🎉🐲</div><div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button class="mc-btn green" onclick="location.reload()">🔄 重玩</button><a href="index.html" class="mc-btn">← 返回</a></div></div>';
+      sa.innerHTML='<div class="panel"><div class="ch">🏆 通关！母舰被击败！</div><div class="nr">远古母舰倒下了！银河恢复了光明 🌅<br><br>完成任务：'+done+'/'+quests.length+'<br>金币：'+gold+'<br>背包：🧪'+inventory.potion+' ⚔️'+inventory.sword+' ⭐'+inventory.star+'</div><div style="font-size:40px;margin:12px">🏆🎉🐲</div><div style="display:flex;gap:10px;justify-content:center;margin-top:12px"><button class="mc-btn green" onclick="location.reload()">🔄 重玩</button><a href="index.html" class="mc-btn">← 返回</a></div></div>';
     },1500);
   }
 }
@@ -263,7 +263,7 @@ function update(){
     if(!e.boss){e.x+=e.vx;if(e.x<e.origX-e.range||e.x>e.origX+e.range)e.vx*=-1;}
     else{e.x=e.origX+Math.sin(e.anim*0.3)*150;e.y=280+Math.sin(e.anim*0.5)*30;}
     if(p.inv<=0&&rc(p,e)){hp--;p.inv=60;SFX.hurt();ex(p.x,p.y,'#e53935');if(hp<=0)gameOver();updateHud();}});
-  bullets.forEach(function(b){b.x+=b.vx;b.life--;enemies.forEach(function(e){if(e.alive&&Math.abs(b.x-e.x)<e.w&&Math.abs(b.y-e.y)<e.h){e.hp-=b.dmg;b.life=0;ex(e.x,e.y,'#fff');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(!e.boss)killCount++;if(e.boss){bossDead=true;SFX.win();toast('🐲 恶龙被击败！');checkWin();}SFX.clear();checkQuests();updateHud();}}});});
+  bullets.forEach(function(b){b.x+=b.vx;b.life--;enemies.forEach(function(e){if(e.alive&&Math.abs(b.x-e.x)<e.w&&Math.abs(b.y-e.y)<e.h){e.hp-=b.dmg;b.life=0;ex(e.x,e.y,'#fff');if(e.hp<=0){e.alive=false;gold+=e.boss?100:5;if(!e.boss)killCount++;if(e.boss){bossDead=true;SFX.win();toast('🐲 母舰被击败！');checkWin();}SFX.clear();checkQuests();updateHud();}}});});
   bullets=bullets.filter(function(b){return b.life>0;});
   coins.forEach(function(c){c.t+=0.15;if(!c.got&&Math.abs(p.x+11-c.x)<16&&Math.abs(p.y+15-c.y)<16){c.got=true;gold++;SFX.coin();updateHud();}});
   items.forEach(function(it){if(!it.got&&Math.abs(p.x+11-it.x)<18&&Math.abs(p.y+15-it.y)<18){it.got=true;inventory[it.type]++;SFX.gem();buildInvBar();toast(it.icon+' 获得道具！');}});
