@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>涂色大作战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#fff;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="paintwar.html">涂色大战</a><a href="snake.html">贪吃蛇</a><a href="mario.html">冒险</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🎨 涂色大作战</h1>
+<p class="subtitle">移动涂色，抢地盘！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item" style="color:#e53935"><span class="label">你</span><span id="p1">0%</span></div><div class="hud-item" style="color:#2196f3"><span class="label">AI</span><span id="p2">0%</span></div><div class="hud-item"><span class="label">时间</span><span id="time">60</span>s</div><div class="hud-item"><span class="label">最高</span><span id="best">—</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="480" height="400"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">←↑→↓</span>移动涂色 · 比AI涂更多 · 60秒</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var COLS=24,ROWS=20,CELL=W/COLS;
+var s,grid,p1,p2,tick,keys,timer;
+var COLORS=[null,0xe53935,0x2196f3];
+function init(){s={running:false,over:false,won:false};grid=[];for(var r=0;r<ROWS;r++){grid.push(new Array(COLS).fill(0));}p1={x:2,y:2,dir:1,anim:0};p2={x:COLS-3,y:ROWS-3,dir:3,anim:0,tick:0};tick=0;timer=60;keys={};grid[2][2]=1;grid[ROWS-3][COLS-3]=2;updateHud();}
+function getBest(){return parseInt(localStorage.getItem('paintwar_best')||'0');}
+function updateHud(){var c1=0,c2=0;grid.forEach(function(r){r.forEach(function(v){if(v===1)c1++;if(v===2)c2++;});});var tot=COLS*ROWS;document.getElementById('p1').textContent=Math.round(c1/tot*100)+'%';document.getElementById('p2').textContent=Math.round(c2/tot*100)+'%';document.getElementById('time').textContent=timer;document.getElementById('best').textContent=getBest()+'%';}
+function update(){if(!s.running||s.over)return;tick++;
+// 计时
+if(tick%60===0){timer--;updateHud();if(timer<=0){endGame();}}
+// 玩家
+var dx=0,dy=0;
+if(keys['arrowleft']||keys['a']){dx=-1;p1.dir=3;}if(keys['arrowright']||keys['d']){dx=1;p1.dir=1;}
+if(keys['arrowup']||keys['w']){dy=-1;p1.dir=0;}if(keys['arrowdown']||keys['s']){dy=1;p1.dir=2;}
+if(dx!==0||dy!==0){p1.x=Math.max(0,Math.min(COLS-1,p1.x+dx));p1.y=Math.max(0,Math.min(ROWS-1,p1.y+dy));if(grid[p1.y][p1.x]!==2){if(grid[p1.y][p1.x]===0)SFX.move();grid[p1.y][p1.x]=1;}}
+p1.anim+=0.2;
+// AI
+p2.tick++;if(p2.tick%8===0){var dirs=[[0,-1],[1,0],[0,1],[-1,0]];var tries=[p2.dir,(p2.dir+1)%4,(p2.dir+3)%4,(p2.dir+2)%4];for(var i=0;i<tries.length;i++){var d=dirs[tries[i]];var nx=p2.x+d[0],ny=p2.y+d[1];if(nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&grid[ny][nx]!==2){p2.x=nx;p2.y=ny;p2.dir=tries[i];grid[ny][nx]=2;break;}}}
+p2.anim+=0.2;
+// 检查碰撞
+if(p1.x===p2.x&&p1.y===p2.y){endGame();}
+}
+function endGame(){s.over=true;s.running=false;var c1=0;grid.forEach(function(r){r.forEach(function(v){if(v===1)c1++;});});var pct=Math.round(c1/(COLS*ROWS)*100);var won=pct>50;if(won){SFX.win();}else{SFX.lose();}if(pct>getBest())localStorage.setItem('paintwar_best',pct);updateHud();}
+function draw(){
+x.fillStyle='#fff';x.fillRect(0,0,W,H);
+// 网格
+for(var r=0;r<ROWS;r++)for(var c2=0;c2<COLS;c2++){var v=grid[r][c2];if(v>0){x.fillStyle='#'+COLORS[v].toString(16).padStart(6,'0');x.fillRect(c2*CELL,r*CELL,CELL,CELL);}}
+// 玩家
+x.fillStyle='#e53935';x.beginPath();x.arc(p1.x*CELL+CELL/2,p1.y*CELL+CELL/2+Math.sin(p1.anim)*1.5,CELL/2-2,0,7);x.fill();
+x.fillStyle='#fff';x.fillRect(p1.x*CELL+CELL/2-2,p1.y*CELL+CELL/2-4,4,4);
+// AI
+x.fillStyle='#2196f3';x.beginPath();x.arc(p2.x*CELL+CELL/2,p2.y*CELL+CELL/2+Math.sin(p2.anim)*1.5,CELL/2-2,0,7);x.fill();
+x.fillStyle='#fff';x.fillRect(p2.x*CELL+CELL/2-2,p2.y*CELL+CELL/2-4,4,4);
+// 结算
+if(!s.running){x.fillStyle='rgba(0,0,0,0.6)';x.fillRect(0,0,W,H);x.textAlign='center';var c1=0;grid.forEach(function(r){r.forEach(function(v){if(v===1)c1++;});});var pct=Math.round(c1/(COLS*ROWS)*100);if(s.over){if(pct>50){x.fillStyle='#4caf50';x.font='22px "Press Start 2P",monospace';x.fillText('🎉 赢了！'+pct+'%',W/2,H/2-15);}else{x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('输了！'+pct+'%',W/2,H/2-15);}x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+20);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown','arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+c.addEventListener('touchstart',function(e){e.preventDefault();var r=c.getBoundingClientRect();var tx=e.touches[0].clientX-r.left;var ty=e.touches[0].clientY-r.top;var cx=tx-W/2;var cy=ty-H/2;if(Math.abs(cx)>Math.abs(cy)){keys[cx>0?'arrowright':'arrowleft']=true;keys[cy>0?'arrowdown':'arrowup']=false;}else{keys[cy>0?'arrowdown':'arrowup']=true;keys[cx>0?'arrowright':'arrowleft']=false;}},{passive:false});
+c.addEventListener('touchmove',function(e){e.preventDefault();var r=c.getBoundingClientRect();var tx=e.touches[0].clientX-r.left;var ty=e.touches[0].clientY-r.top;var cx=tx-W/2;var cy=ty-H/2;keys['arrowleft']=false;keys['arrowright']=false;keys['arrowup']=false;keys['arrowdown']=false;if(Math.abs(cx)>Math.abs(cy)){keys[cx>0?'arrowright':'arrowleft']=true;}else{keys[cy>0?'arrowdown':'arrowup']=true;}},{passive:false});
+c.addEventListener('touchend',function(e){e.preventDefault();keys['arrowleft']=false;keys['arrowright']=false;keys['arrowup']=false;keys['arrowdown']=false;},{passive:false});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('涂色抢地盘！');});
+init();loop();
+})();
+</script>
+</body></html>

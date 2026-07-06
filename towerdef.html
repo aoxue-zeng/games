@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>塔防守护 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#2a4a2a;touch-action:none;cursor:pointer}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}.tower-btn{font-family:'Press Start 2P',monospace;font-size:9px;padding:8px;border:2px solid #000;cursor:pointer;color:#fff;margin:2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="towerdef.html">塔防</a><a href="snake.html">贪吃蛇</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">🏰 塔防守护</h1>
+<p class="subtitle">建塔防入侵，保护城堡！</p>
+<div class="hud" style="margin-top:14px"><div class="hud-item"><span class="label">金币</span><span id="gold">100</span></div><div class="hud-item"><span class="label">城堡</span><span id="castleHp">20</span></div><div class="hud-item"><span class="label">波次</span><span id="wave">1</span></div><div class="hud-item"><span class="label">击杀</span><span id="kills">0</span></div></div>
+<div style="margin-top:8px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+<button class="tower-btn" id="t1" style="background:#4caf50">🏹弓箭50</button>
+<button class="tower-btn" id="t2" style="background:#2196f3">⚡法师100</button>
+<button class="tower-btn" id="t3" style="background:#ff9800">💣炮台150</button>
+</div>
+<div class="game-stage" style="margin-top:6px"><canvas id="gameCanvas" width="560" height="400"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:6px">选塔→点地图放置 · 塔自动攻击敌人 · 别让敌人到城堡</p>
+<div style="margin-top:10px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var PATH=[{x:0,y:200},{x:150,y:200},{x:150,y:80},{x:350,y:80},{x:350,y:320},{x:480,y:320},{x:480,y:200},{x:560,y:200}];
+var s,towers,enemies,bullets,gold,castleHp,wave,kills,selTower,tick,spawnT,spawned,waveEnemies;
+var TOWER_TYPES=[{cost:50,dmg:10,range:80,rate:40,color:'#4caf50',name:'弓箭',projColor:'#fff'},{cost:100,dmg:25,range:100,rate:60,color:'#2196f3',name:'法师',projColor:'#4dd0e1'},{cost:150,dmg:50,range:70,rate:90,color:'#ff9800',name:'炮台',projColor:'#e53935'}];
+function init(){s={running:false,over:false,won:false};towers=[];enemies=[];bullets=[];gold=100;castleHp=20;wave=1;kills=0;selTower=0;tick=0;spawnT=0;spawned=0;waveEnemies=5;updateHud();}
+function updateHud(){document.getElementById('gold').textContent=gold;document.getElementById('castleHp').textContent=castleHp;document.getElementById('wave').textContent=wave;document.getElementById('kills').textContent=kills;}
+function update(){if(!s.running||s.over)return;tick++;
+// 生成敌人
+if(spawned<waveEnemies){spawnT++;if(spawnT>=60){spawnT=0;spawned++;enemies.push({pathIdx:0,x:PATH[0].x,y:PATH[0].y,hp:10+wave*5,maxhp:10+wave*5,speed:1+wave*0.1,anim:0});}}
+else if(enemies.length===0){wave++;waveEnemies=5+wave*2;spawned=0;gold+=50;SFX.levelUp();toast('波次'+wave+'！+50金');updateHud();}
+// 敌人移动
+enemies.forEach(function(e){e.anim+=0.1;var target=PATH[e.pathIdx+1];if(!target)return;var dx=target.x-e.x,dy=target.y-e.y;var d=Math.hypot(dx,dy);if(d<e.speed){e.x=target.x;e.y=target.y;e.pathIdx++;if(e.pathIdx>=PATH.length-1){castleHp--;SFX.hurt();e.hp=0;if(castleHp<=0)gameOver();updateHud();}}else{e.x+=dx/d*e.speed;e.y+=dy/d*e.speed;}});
+enemies=enemies.filter(function(e){return e.hp>0;});
+// 塔射击
+towers.forEach(function(t){t.cd--;if(t.cd<=0){var nearest=null,nd=999;enemies.forEach(function(e){var d=Math.hypot(e.x-t.x,e.y-t.y);if(d<t.range&&d<nd){nd=d;nearest=e;}});if(nearest){t.cd=t.rate;bullets.push({x:t.x,y:t.y,tx:nearest.x,ty:nearest.y,dmg:t.dmg,color:t.projColor,life:60,target:nearest});SFX.shoot();}}});
+// 子弹
+bullets.forEach(function(b){var tx=b.target.x,ty=b.target.y;var dx=tx-b.x,dy=ty-b.y;var d=Math.hypot(dx,dy);if(d<5){if(b.target&&b.target.hp>0){b.target.hp-=b.dmg;if(b.target.hp<=0){gold+=10;kills++;SFX.clear();updateHud();}}b.life=0;}else{b.x+=dx/d*6;b.y+=dy/d*6;}b.life--;});
+bullets=bullets.filter(function(b){return b.life>0;});}
+function gameOver(){s.over=true;s.running=false;SFX.lose();}
+function draw(){
+x.fillStyle='#2a4a2a';x.fillRect(0,0,W,H);
+// 路径
+x.strokeStyle='#5d3a1a';x.lineWidth=30;x.lineCap='round';x.beginPath();x.moveTo(PATH[0].x,PATH[0].y);PATH.forEach(function(p){x.lineTo(p.x,p.y);});x.stroke();x.strokeStyle='#8b5a2b';x.lineWidth=24;x.stroke();
+// 城堡
+x.fillStyle='#7f7f7f';x.fillRect(540,180,20,40);x.fillStyle='#555';for(var t=0;t<4;t++)x.fillRect(540,180+t*10,20,5);
+// 塔
+towers.forEach(function(t){x.fillStyle=t.color;x.fillRect(t.x-12,t.y-12,24,24);x.fillStyle='#fff';x.fillRect(t.x-8,t.y-8,4,4);x.fillRect(t.x+4,t.y-8,4,4);x.strokeStyle='rgba(255,255,255,0.1)';x.beginPath();x.arc(t.x,t.y,t.range,0,7);x.stroke();});
+// 敌人
+enemies.forEach(function(e){var bob=Math.sin(e.anim)*2;x.fillStyle='#e53935';x.beginPath();x.arc(e.x,e.y+bob,10,0,7);x.fill();x.fillStyle='#fff';x.fillRect(e.x-4,e.y-4+bob,3,3);x.fillRect(e.x+1,e.y-4+bob,3,3);x.fillStyle='rgba(0,0,0,0.5)';x.fillRect(e.x-10,e.y-16+bob,20,3);x.fillStyle='#e53935';x.fillRect(e.x-10,e.y-16+bob,20*(e.hp/e.maxhp),3);});
+// 子弹
+bullets.forEach(function(b){x.fillStyle=b.color;x.beginPath();x.arc(b.x,b.y,4,0,7);x.fill();});
+// 结算
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('城堡被毁！',W/2,H/2-20);x.fillStyle='#fff';x.font='11px "Press Start 2P",monospace';x.fillText('波次:'+wave+' 击杀:'+kills,W/2,H/2+10);x.fillText('按R重玩',W/2,H/2+35);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('选塔点地图放置',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.getElementById('t1').onclick=function(){selTower=0;SFX.click();};
+document.getElementById('t2').onclick=function(){selTower=1;SFX.click();};
+document.getElementById('t3').onclick=function(){selTower=2;SFX.click();};
+function place(mx,my){var tt=TOWER_TYPES[selTower];if(gold<tt.cost){toast('金币不够！');return;}var onPath=false;PATH.forEach(function(p,i){if(i<PATH.length-1){var p2=PATH[i+1];var d=Math.hypot(mx-p.x,my-p.y)+Math.hypot(mx-p2.x,my-p2.y)-Math.hypot(p2.x-p.x,p2.y-p.y);if(Math.abs(d)<5)onPath=true;}});if(onPath){toast('不能放在路上！');return;}towers.push({x:mx,y:my,range:tt.range,rate:tt.rate,cd:0,dmg:tt.dmg,color:tt.color,projColor:tt.projColor});gold-=tt.cost;SFX.place();updateHud();}
+c.addEventListener('click',function(e){if(!s.running||s.over)return;var r=c.getBoundingClientRect();place((e.clientX-r.left)*(W/r.width),(e.clientY-r.top)*(H/r.height));});
+c.addEventListener('touchstart',function(e){e.preventDefault();if(!s.running||s.over)return;var r=c.getBoundingClientRect();place((e.touches[0].clientX-r.left)*(W/r.width),(e.touches[0].clientY-r.top)*(H/r.height));},{passive:false});
+document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='r'){init();s.running=true;}if(e.key==='1'){selTower=0;}if(e.key==='2'){selTower=1;}if(e.key==='3'){selTower=2;}});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('建塔防守！');});
+init();loop();
+})();
+</script>
+</body></html>

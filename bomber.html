@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>炸弹人 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>#gameCanvas{background:#1a1a2e;touch-action:none}.key{display:inline-block;background:var(--mc-panel);border:2px solid #000;box-shadow:inset -2px -2px 0 0 var(--mc-shadow),inset 2px 2px 0 0 var(--mc-highlight);padding:3px 8px;font-family:'Press Start 2P',monospace;font-size:10px;margin:0 2px}</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a>
+<nav><a href="index.html">首页</a><a href="bomber.html">炸弹人</a><a href="snake.html">贪吃蛇</a><a href="mario.html">冒险</a><a href="pvz.html">植物僵尸</a></nav></div>
+<div class="container center">
+<h1 class="title-3d" style="font-size:30px;">💣 炸弹人</h1>
+<p class="subtitle">放炸弹炸砖块和敌人！</p>
+<div class="hud" style="margin-top:18px"><div class="hud-item"><span class="label">得分</span><span id="score">0</span></div><div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div><div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div><div class="hud-item"><span class="label">炸弹</span><span id="bombs">3</span></div></div>
+<div class="game-stage" style="margin-top:14px"><canvas id="gameCanvas" width="480" height="420"></canvas></div>
+<p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:10px"><span class="key">←↑→↓</span>移动 <span class="key">空格</span>放炸弹 · 炸砖块出道具 · 别被炸到</p>
+<div style="margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><button class="mc-btn green" id="startBtn">▶ 开始</button><a href="index.html" class="mc-btn">← 返回</a></div>
+</div><div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.height;
+var COLS=15,ROWS=13,CELL=32,G=1,WALL=2,B=3,EMPTY=0;
+var s,p,bombs,enemies,particles,tick,keys,map,maxBombs,blastRange;
+function init(lv){s={running:false,over:false,score:s?s.score:0,lives:s?s.lives:3,level:lv||1};maxBombs=3;blastRange=2;genMap(lv||1);p={x:1,y:1,dir:1,anim:0,inv:60};bombs=[];enemies=genEnemies(lv||1);particles=[];tick=0;keys={};updateHud();}
+function genMap(lv){map=[];for(var r=0;r<ROWS;r++){map.push([]);for(var c2=0;c2<COLS;c2++){if(r===0||r===ROWS-1||c2===0||c2===COLS-1)map[r].push(WALL);else if(r%2===0&&c2%2===0)map[r].push(WALL);else map[r].push(Math.random()<0.3?B:EMPTY);}}map[1][1]=EMPTY;map[1][2]=EMPTY;map[2][1]=EMPTY;}
+function genEnemies(lv){var e=[];var n=2+lv;for(var i=0;i<n;i++){var er,ec;do{er=1+Math.floor(Math.random()*(ROWS-2));ec=1+Math.floor(Math.random()*(COLS-2));}while(map[er][ec]!==EMPTY||(er<3&&ec<3));e.push({r:er,c:ec,x:ec*CELL,y:er*CELL,dir:Math.floor(Math.random()*4),hp:1,anim:0,speed:0.5+lv*0.1});}return e;}
+function updateHud(){document.getElementById('score').textContent=s.score;document.getElementById('level').textContent=s.level;document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('bombs').textContent=maxBombs;}
+function rc(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+function update(){if(!s.running||s.over)return;tick++;
+var spd=2.5;
+var dx=0,dy=0;
+if(keys['arrowleft']||keys['a'])dx=-spd;if(keys['arrowright']||keys['d'])dx=spd;
+if(keys['arrowup']||keys['w'])dy=-spd;if(keys['arrowdown']||keys['s'])dy=spd;
+// 网格对齐移动
+if(dx!==0){var nx=p.x+dx;var cy=Math.round(p.y/CELL)*CELL;if(map[Math.floor(cy/CELL)]&&map[Math.floor(cy/CELL)][Math.floor((nx+4)/CELL)]!==WALL&&map[Math.floor(cy/CELL)][Math.floor((nx+CELL-4)/CELL)]!==WALL&&map[Math.floor(cy/CELL)][Math.floor((nx+4)/CELL)]!==B&&map[Math.floor(cy/CELL)][Math.floor((nx+CELL-4)/CELL)]!==B){p.x=nx;p.dir=dx>0?1:-1;}}
+if(dy!==0){var ny=p.y+dy;var cx=Math.round(p.x/CELL)*CELL;if(map[Math.floor((ny+4)/CELL)]&&map[Math.floor((ny+4)/CELL)][Math.floor(cx/CELL)]!==WALL&&map[Math.floor((ny+CELL-4)/CELL)]&&map[Math.floor((ny+CELL-4)/CELL)][Math.floor(cx/CELL)]!==WALL&&map[Math.floor((ny+4)/CELL)][Math.floor(cx/CELL)]!==B&&map[Math.floor((ny+CELL-4)/CELL)][Math.floor(cx/CELL)]!==B){p.y=ny;}}
+p.anim+=0.2;if(p.inv>0)p.inv--;
+// 炸弹
+if(keys[' ']&&bombs.length<maxBombs){var br=Math.floor((p.y+CELL/2)/CELL);var bc=Math.floor((p.x+CELL/2)/CELL);if(!bombs.some(function(b){return b.r===br&&b.c===bc;})){bombs.push({r:br,c:bc,timer:120,maxTimer:120});SFX.place();keys[' ']=false;}}
+bombs.forEach(function(b){b.timer--;if(b.timer<=0){explodeBomb(b);b.dead=true;}});
+bombs=bombs.filter(function(b){return !b.dead;});
+// 敌人
+enemies.forEach(function(e){e.anim+=0.1;var dirs=[[0,1],[1,0],[0,-1],[-1,0]];var d=dirs[e.dir];var nx=e.x+d[0]*e.speed;var ny=e.y+d[1]*e.speed;var gr=Math.floor((ny+CELL/2)/CELL);var gc=Math.floor((nx+CELL/2)/CELL);if(map[gr]&&map[gr][gc]===EMPTY){e.x=nx;e.y=ny;}else{e.dir=Math.floor(Math.random()*4);}
+if(Math.abs(e.x-p.x)<20&&Math.abs(e.y-p.y)<20&&p.inv<=0){s.lives--;p.inv=60;SFX.hurt();if(s.lives<=0)gameOver();updateHud();}});
+// 粒子
+particles=particles.filter(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;pp.life--;return pp.life>0;});
+}
+function explodeBomb(b){
+SFX.boom();
+var r=b.r,c=b.c;
+map[r][c]=EMPTY;
+var affected=[];
+// 十字爆炸
+for(var i=1;i<=blastRange;i++){if(map[r]&&map[r][c+i]===B){map[r][c+i]=EMPTY;affected.push([r,c+i]);break;}if(map[r]&&map[r][c+i]===WALL)break;if(map[r])affected.push([r,c+i]);}
+for(var i=1;i<=blastRange;i++){if(map[r]&&map[r][c-i]===B){map[r][c-i]=EMPTY;affected.push([r,c-i]);break;}if(map[r]&&map[r][c-i]===WALL)break;if(map[r])affected.push([r,c-i]);}
+for(var i=1;i<=blastRange;i++){if(map[r+i]&&map[r+i][c]===B){map[r+i][c]=EMPTY;affected.push([r+i,c]);break;}if(map[r+i]&&map[r+i][c]===WALL)break;if(map[r+i])affected.push([r+i,c]);}
+for(var i=1;i<=blastRange;i++){if(map[r-i]&&map[r-i][c]===B){map[r-i][c]=EMPTY;affected.push([r-i,c]);break;}if(map[r-i]&&map[r-i][c]===WALL)break;if(map[r-i])affected.push([r-i,c]);}
+// 粒子
+for(var i=0;i<20;i++){var a=Math.random()*7,sp=1+Math.random()*4;particles.push({x:c*CELL+16,y:r*CELL+16,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:30,color:'#ff9800',size:3+Math.random()*3});}
+// 检查炸到玩家
+if(p.inv<=0){affected.forEach(function(a){if(a[0]===Math.floor((p.y+16)/CELL)&&a[1]===Math.floor((p.x+16)/CELL)){s.lives--;p.inv=60;SFX.hurt();if(s.lives<=0)gameOver();updateHud();}});}
+// 检查炸到敌人
+enemies.forEach(function(e){affected.forEach(function(a){if(a[0]===Math.floor((e.y+16)/CELL)&&a[1]===Math.floor((e.x+16)/CELL)){e.hp=0;s.score+=20;SFX.clear();}});});
+enemies=enemies.filter(function(e){return e.hp>0;});
+// 道具掉落
+if(Math.random()<0.3&&affected.length>0){var drop=affected[Math.floor(Math.random()*affected.length)];if(map[drop[0]]&&map[drop[0]][drop[1]]===EMPTY)map[drop[0]][drop[1]]=4+Math.floor(Math.random()*3);}
+// 通关
+if(enemies.length===0){s.score+=100;SFX.win();init(s.level+1);s.running=true;}
+updateHud();
+}
+function gameOver(){s.over=true;s.running=false;SFX.lose();}
+function draw(){
+x.fillStyle='#1a1a2e';x.fillRect(0,0,W,H);
+// 地图
+for(var r=0;r<ROWS;r++)for(var c2=0;c2<COLS;c2++){var t=map[r][c2];var sx=c2*CELL,sy=r*CELL;
+if(t===WALL){x.fillStyle='#555';x.fillRect(sx,sy,CELL,CELL);x.fillStyle='#777';x.fillRect(sx,sy,CELL,3);x.fillStyle='#333';x.fillRect(sx,sy+CELL-3,CELL,3);}
+else if(t===B){x.fillStyle='#b5651d';x.fillRect(sx+2,sy+2,CELL-4,CELL-4);x.strokeStyle='#5d3a1a';x.lineWidth=2;x.strokeRect(sx+2,sy+2,CELL-4,CELL-4);x.beginPath();x.moveTo(sx+CELL/2,sy+2);x.lineTo(sx+CELL/2,sy+CELL-2);x.moveTo(sx+2,sy+CELL/2);x.lineTo(sx+CELL-2,sy+CELL/2);x.stroke();}
+else if(t>=4){x.fillStyle=['','#4caf50','#2196f3','#ffd700'][t-4]||'#fff';x.fillRect(sx+8,sy+8,CELL-16,CELL-16);x.fillStyle='#fff';x.font='10px Arial';x.textAlign='center';x.fillText(['','','+B','+R','$'][t-4]||'?',sx+CELL/2,sy+CELL/2+4);}
+else{x.fillStyle='#2a2a3e';x.fillRect(sx,sy,CELL,CELL);}}
+// 炸弹
+bombs.forEach(function(b){var sx=b.c*CELL,sy=b.r*CELL;var flash=b.timer<30&&Math.floor(b.timer/5)%2===0;x.fillStyle=flash?'#fff':'#333';x.beginPath();x.arc(sx+CELL/2,sy+CELL/2,12,0,7);x.fill();x.fillStyle='#ff5722';x.fillRect(sx+CELL/2-2,sy+2,4,6);});
+// 敌人
+enemies.forEach(function(e){var sx=e.x,sy=e.y;var bob=Math.sin(e.anim)*2;x.fillStyle='#e53935';x.beginPath();x.arc(sx+16,sy+16+bob,12,0,7);x.fill();x.fillStyle='#fff';x.fillRect(sx+10,sy+12+bob,4,4);x.fillRect(sx+18,sy+12+bob,4,4);x.fillStyle='#000';x.fillRect(sx+11,sy+13+bob,2,2);x.fillRect(sx+19,sy+13+bob,2,2);});
+// 玩家
+var px=p.x,py=p.y;var bob=Math.sin(p.anim)*1.5;if(p.inv<=0||Math.floor(p.inv/4)%2===0){x.fillStyle='#4caf50';x.fillRect(px+4,py+6+bob,24,20);x.fillStyle='#f0c8a0';x.fillRect(px+8,py-4+bob,16,12);x.fillStyle='#4a2c12';x.fillRect(px+8,py-4+bob,16,3);x.fillStyle='#fff';x.fillRect(px+(p.dir>0?16:8),py+bob,3,3);x.fillStyle='#000';x.fillRect(px+(p.dir>0?17:9),py+1+bob,1,2);}
+// 粒子
+particles.forEach(function(pp){x.globalAlpha=pp.life/30;x.fillStyle=pp.color;x.fillRect(pp.x,pp.y,pp.size,pp.size);x.globalAlpha=1;});
+// 结算
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='24px "Press Start 2P",monospace';x.fillText('游戏结束',W/2,H/2-20);x.fillStyle='#ffd700';x.font='14px "Press Start 2P",monospace';x.fillText('得分:'+s.score,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+40);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;}});
+document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+canvas_=c;canvas_.addEventListener('touchstart',function(e){e.preventDefault();keys[' ']=true;setTimeout(function(){keys[' ']=false;},200);},{passive:false});
+canvas_.addEventListener('touchmove',function(e){e.preventDefault();var r=canvas_.getBoundingClientRect();var tx=e.touches[0].clientX-r.left;var ty=e.touches[0].clientY-r.top;var cx=tx-W/2;var cy=ty-H/2;if(Math.abs(cx)>Math.abs(cy)){keys[cx>0?'arrowright':'arrowleft']=true;keys[cy>0?'arrowdown':'arrowup']=false;}else{keys[cy>0?'arrowdown':'arrowup']=true;keys[cx>0?'arrowright':'arrowleft']=false;}},{passive:false});
+canvas_.addEventListener('touchend',function(e){e.preventDefault();keys['arrowleft']=false;keys['arrowright']=false;keys['arrowup']=false;keys['arrowdown']=false;},{passive:false});
+var canvas_=c;
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('放炸弹！');});
+init();loop();
+})();
+</script>
+</body></html>
