@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -91,23 +91,23 @@ var PLAT=[
 var NPCS=[
 {x:80,y:310,icon:'👑',name:'国王',quest:0,color:'#ffd700',dialog:'母舰苏醒了！请讨伐它！'},
 {x:500,y:310,icon:'🧙',name:'老能量师',quest:1,color:'#9c27b0',dialog:'带上这瓶药水，路上用得着。'},
-{x:1100,y:310,icon:'🏹',name:'猎人',quest:2,color:'#ff9800',dialog:'森林里有史莱姆，帮我清掉3只！'},
+{x:1100,y:310,icon:'🏹',name:'猎人',quest:2,color:'#ff9800',dialog:'森林里有外星虫，帮我清掉3只！'},
 {x:1700,y:310,icon:'⚒️',name:'矿工',quest:3,color:'#7f7f7f',dialog:'沼泽的尖刺挡路，小心跳过去！'},
 {x:2300,y:310,icon:'🛡️',name:'老兵',quest:4,color:'#4caf50',dialog:'前面就是火山，准备好决战了吗？'}
 ];
 // 任务系统
 var QUESTS=[
-{name:'国王的委托',desc:'前往森林，消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'药水x1'},
+{name:'国王的委托',desc:'前往森林，消灭3只外星虫',target:'kill3',done:false,active:false,reward:'药水x1'},
 {name:'老能量师的礼物',desc:'去找老能量师对话获得药水',target:'talk1',done:false,active:false,reward:'药水x2'},
-{name:'猎人的请求',desc:'森林里消灭3只史莱姆',target:'kill3',done:false,active:false,reward:'金币x20'},
+{name:'猎人的请求',desc:'森林里消灭3只外星虫',target:'kill3',done:false,active:false,reward:'金币x20'},
 {name:'矿工的指引',desc:'穿越沼泽尖刺区到达山洞',target:'reach1900',done:false,active:false,reward:'剑x1'},
 {name:'老兵的考验',desc:'到达火山口准备最终决战',target:'reach3000',done:false,active:false,reward:'无敌星x1'}
 ];
 // 野怪分布
 var MOBS=[
-{x:850,y:318,type:'slime',hp:1,range:80},{x:1000,y:318,type:'slime',hp:1,range:80},{x:1150,y:318,type:'slime',hp:1,range:80},
-{x:1450,y:318,type:'slime',hp:2,range:60},{x:1950,y:318,type:'bat',hp:2,range:100},{x:2150,y:318,type:'bat',hp:2,range:100},
-{x:2550,y:318,type:'slime',hp:2,range:80},{x:2900,y:318,type:'bat',hp:3,range:120},
+{x:850,y:318,type:'alien',hp:1,range:80},{x:1000,y:318,type:'alien',hp:1,range:80},{x:1150,y:318,type:'alien',hp:1,range:80},
+{x:1450,y:318,type:'alien',hp:2,range:60},{x:1950,y:318,type:'drone',hp:2,range:100},{x:2150,y:318,type:'drone',hp:2,range:100},
+{x:2550,y:318,type:'alien',hp:2,range:80},{x:2900,y:318,type:'drone',hp:3,range:120},{x:2750,y:318,type:'alien',hp:2,range:80},
 {x:3200,y:318,type:'boss',hp:15,range:200,boss:true,name:'远古母舰'}
 ];
 // 金币
