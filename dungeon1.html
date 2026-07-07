@@ -113,7 +113,9 @@ function update(){
   p.vy+=GRAVITY;if(p.vy>14)p.vy=14;
   // 水平碰撞
   p.x+=p.vx;
-  var solids=lvData.plat.concat(lvData.brick||[]);
+  var solids=[];
+  lvData.plat.forEach(function(pl){solids.push({x:pl[0],y:pl[1],w:pl[2],h:pl[3]});});
+  if(lvData.brick)lvData.brick.forEach(function(br){solids.push({x:br[0],y:br[1],w:br[2],h:br[3]});});
   if(lvData.move)lvData.move.forEach(function(m){solids.push({x:m.cx,y:m[1],w:m[2],h:m[3]});});
   lvData.doors.forEach(function(d){if(!d.open)solids.push({x:d.x,y:d.y,w:20,h:40});});
   for(var i=0;i<solids.length;i++){var s=solids[i];if(rc(p,s)){if(p.vx>0)p.x=s.x-p.w;else if(p.vx<0)p.x=s.x+s.w;p.vx=0;}}
