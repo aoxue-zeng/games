@@ -172,7 +172,7 @@ function draw(){
     // 绿色感叹号
     x.fillStyle='rgba(76,175,80,0.3)';x.beginPath();x.arc(sx+10,e.y-10,6,0,7);x.fill();x.fillStyle='#4caf50';x.font='bold 14px Arial';x.textAlign='center';x.fillText('!',sx+10,e.y-4+Math.sin(tick*0.1)*2);});
   // 终点旗
-  var fx=lvData.flag.x-cam.x;if(fx>-20&&fx<W+20){x.fillStyle='#7f7f7f';x.fillRect(fx,lvData.flag.y,4,60);x.fillStyle='#4caf50';var wv=Math.sin(Date.now()/200)*3;x.beginPath();x.moveTo(fx+4,lvData.flag.y+8);x.lineTo(fx+25+wv,lvData.flag.y+16);x.lineTo(fx+4,lvData.flag.y+24);x.fill();x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.textAlign='center';x.fillText('GOAL',fx+15,lvData.flag.y-5);}
+  var fx=lvData.flag.x-cam.x;if(fx>-20&&fx<W+20){x.fillStyle='#7f7f7f';x.fillRect(fx,lvData.flag.y,4,60);x.fillStyle='#4caf50';var wv=Math.sin(Date.now()/200)*3;x.beginPath();x.moveTo(fx+4,lvData.flag.y+8);x.lineTo(fx+25+wv,lvData.flag.y+16);x.lineTo(fx+4,lvData.flag.y+24);x.fill();x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.textAlign='center';x.fillText('终点',fx+15,lvData.flag.y-5);}
   // 玩家
   if(p.inv<=0||Math.floor(p.inv/4)%2===0){var sx=p.x-cam.x;var bob=p.onG?Math.sin(p.anim)*1.5:0;x.fillStyle='#e53935';x.fillRect(sx+2,p.y+8+bob,18,16);x.fillStyle='#f0c8a0';x.fillRect(sx+4,p.y-2+bob,14,12);x.fillStyle='#4a2c12';x.fillRect(sx+4,p.y-2+bob,14,3);x.fillStyle='#fff';x.fillRect(sx+(p.dir>0?11:6),p.y+3+bob,3,3);x.fillStyle='#000';x.fillRect(sx+(p.dir>0?12:7),p.y+4+bob,1,2);x.fillStyle='#1565c0';x.fillRect(sx+3,p.y+24,6,6);x.fillRect(sx+13,p.y+24,6,6);}
   // 粒子
@@ -183,7 +183,7 @@ function draw(){
   lvData.keys.forEach(function(k){if(!k.got){x.fillStyle='#ffd700';x.fillRect(mx+(k.x/lvData.world)*mw-1,my+2,3,3);}});
   x.fillStyle='#4dd0e1';x.fillRect(mx+(p.x/lvData.world)*mw-1,my+8,3,3);
   // 结算
-  if(!state.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(state.won){x.fillStyle='#4caf50';x.font='24px "Press Start 2P",monospace';x.fillText('🎉 全部通关！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('金币:'+coinCount,W/2,H/2+10);}else if(state.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('Game Over',W/2,H/2-15);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('Press R',W/2,H/2+15);}else{x.fillStyle='#ffd700';x.font='20px "Press Start 2P",monospace';x.fillText('Ready',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('Click start',W/2,H/2+20);}}}
+  if(!state.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(state.won){x.fillStyle='#4caf50';x.font='24px "Press Start 2P",monospace';x.fillText('🎉 全部通关！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('金币:'+coinCount,W/2,H/2+10);}else if(state.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('游戏结束',W/2,H/2-15);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+15);}else{x.fillStyle='#ffd700';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){keys_[e.key.toLowerCase()]=true;if([' ','arrowup','arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init(curLv);state.running=true;}});
 document.addEventListener('keyup',function(e){keys_[e.key.toLowerCase()]=false;});

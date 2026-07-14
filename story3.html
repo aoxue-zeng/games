@@ -387,7 +387,7 @@ function drawMiniMap(){
   // 玩家点
   var px=mx+(p.x/WORLD_W)*mw;ctx.fillStyle='#4dd0e1';ctx.fillRect(px-1,my+12,3,3);
   // 标签
-  ctx.fillStyle='#fff';ctx.font='7px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('MAP',mx+mw/2,my+mh-3);
+  ctx.fillStyle='#fff';ctx.font='7px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('地图',mx+mw/2,my+mh-3);
 }
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){keys_[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key==='1')useSkill(0);if(e.key==='2')useSkill(1);if(e.key==='3')useSkill(2);if(e.key.toLowerCase()==='r'&&state&&state.over){hp=maxHp;p.x=50;p.y=310;p.inv=180;state.over=false;state.running=true;updateHud();}});

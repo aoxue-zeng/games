@@ -37,11 +37,11 @@ a.bk{position:fixed;top:8px;left:8px;z-index:60;color:#4dd0e1;text-decoration:no
 </style>
 </head>
 <body>
-<a href="index.html" class="bk">← Back</a>
-<div id="hud"><div><span class="hb">HP:<span id="hp">10</span></span> <span class="hb">Food:<span id="hg">10</span></span></div><div><span class="hb" id="mt">Survival</span> <span class="hb"><span id="pos">0,0,0</span></span> <span class="hb" id="tm">Day</span></div></div>
+<a href="index.html" class="bk">← 返回</a>
+<div id="hud"><div><span class="hb">生命:<span id="hp">10</span></span> <span class="hb">饥饿:<span id="hg">10</span></span></div><div><span class="hb" id="mt">生存</span> <span class="hb"><span id="pos">0,0,0</span></span> <span class="hb" id="tm">白天</span></div></div>
 <div id="cross"></div><div id="md"></div><div id="hotbar"></div><div id="msg"></div>
-<div id="craft"><div class="ct">Crafting (E to close)</div><div class="cg" id="cgrid"></div><div style="text-align:center;color:#888">-></div><div class="co" id="cout"></div><button id="cbtn" style="display:block;margin:8px auto;padding:6px 20px;background:#4caf50;color:#fff;border:none;border-radius:4px;cursor:pointer">Craft</button></div>
-<div id="blk"><div class="h"><h1>🧱 3D MC World</h1><p><span class="k">WASD</span> move <span class="k">Space</span> jump <span class="k">Mouse</span> look</p><p><span class="k">L-Click</span> MINE block <span class="k">R-Click</span> PLACE block</p><p><span class="k">B</span> toggle Survival/Creative <span class="k">E</span> crafting</p><p><span class="k">1-9</span> select <span class="k">Wheel</span> switch</p><p style="color:#5fb53f;margin-top:8px">Survival: mine ores for XP, kill mobs, level up!</p><p style="color:#ffd700">Creative: fly + unlimited blocks + no damage!</p><p style="color:#4dd0e1;margin-top:12px">Click to start!</p></div></div>
+<div id="craft"><div class="ct">合成台 (按E关闭)</div><div class="cg" id="cgrid"></div><div style="text-align:center;color:#888">-></div><div class="co" id="cout"></div><button id="cbtn" style="display:block;margin:8px auto;padding:6px 20px;background:#4caf50;color:#fff;border:none;border-radius:4px;cursor:pointer">合成</button></div>
+<div id="blk"><div class="h"><h1>🧱 3D我的世界</h1><p><span class="k">WASD</span> 移动 <span class="k">空格</span> 跳跃 <span class="k">鼠标</span> 视角</p><p><span class="k">左键</span> 挖方块 <span class="k">右键</span> 放方块</p><p><span class="k">B</span> 切换 生存/创造 <span class="k">E</span> 合成台</p><p><span class="k">1-9</span> 选格子 <span class="k">滚轮</span> 切换</p><p style="color:#5fb53f;margin-top:8px">生存：挖矿石得经验，打怪升级！</p><p style="color:#ffd700">创造：可飞行 + 无限方块 + 无伤害！</p><p style="color:#4dd0e1;margin-top:12px">点击开始！</p></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
@@ -51,16 +51,16 @@ var hp=10,hg=10,mode=0,sel=0,copen=false,cg9=[null,null,null,null,null,null,null
 var parts=[],mobs=[];
 // 30+种方块
 var BL={
-grass:[0x7ccb5f,'Grass'],dirt:[0x9b7653,'Dirt'],stone:[0x888888,'Stone'],cobble:[0x777777,'Cobble'],
-wood:[0x6b5836,'Log'],plank:[0xb8945f,'Plank'],sand:[0xdbd3a0,'Sand'],glass:[0xa8c8e8,'Glass',1],
-brick:[0xa54b3a,'Brick'],iron:[0xd8c8b0,'Iron'],gold:[0xfcee4b,'Gold'],diamond:[0x5fe9d4,'Diamond'],
-concrete:[0xc4c4c4,'Concrete'],leaves:[0x4a8a3a,'Leaves'],water:[0x3a6ee0,'Water',1],lava:[0xff6a00,'Lava'],
-coal:[0x1a1a1a,'CoalOre'],ironore:[0xb0a090,'IronOre'],goldore:[0xfcee4b,'GoldOre'],diamondore:[0x5fe9d4,'DiamondOre'],
-snow:[0xf0f0f0,'Snow'],pumpkin:[0xff8c00,'Pumpkin'],tnt:[0xe53935,'TNT'],bedrock:[0x444444,'Bedrock'],
-clay:[0xa8a8b8,'Clay'],obsidian:[0x1a0a2a,'Obsidian'],netherrack:[0x4a1a1a,'Netherrack'],
-wool_red:[0xe53935,'RedWool'],wool_blue:[0x2196f3,'BlueWool'],wool_green:[0x4caf50,'GreenWool'],
-wool_yellow:[0xffd700,'YellowWool'],wool_white:[0xffffff,'WhiteWool'],wool_black:[0x222222,'BlackWool'],
-ice:[0xa0e0ff,'Ice',1],cactus:[0x4a7a3a,'Cactus'],flower:[0xff5722,'Flower'],mushroom:[0x8b4a8b,'Mushroom']
+grass:[0x7ccb5f,'草方块'],dirt:[0x9b7653,'泥土'],stone:[0x888888,'石头'],cobble:[0x777777,'圆石'],
+wood:[0x6b5836,'原木'],plank:[0xb8945f,'木板'],sand:[0xdbd3a0,'沙子'],glass:[0xa8c8e8,'玻璃',1],
+brick:[0xa54b3a,'砖块'],iron:[0xd8c8b0,'铁块'],gold:[0xfcee4b,'金块'],diamond:[0x5fe9d4,'钻石块'],
+concrete:[0xc4c4c4,'混凝土'],leaves:[0x4a8a3a,'树叶'],water:[0x3a6ee0,'水',1],lava:[0xff6a00,'岩浆'],
+coal:[0x1a1a1a,'煤矿石'],ironore:[0xb0a090,'铁矿石'],goldore:[0xfcee4b,'金矿石'],diamondore:[0x5fe9d4,'钻石矿石'],
+snow:[0xf0f0f0,'雪'],pumpkin:[0xff8c00,'南瓜'],tnt:[0xe53935,'TNT'],bedrock:[0x444444,'基岩'],
+clay:[0xa8a8b8,'粘土'],obsidian:[0x1a0a2a,'黑曜石'],netherrack:[0x4a1a1a,'下界岩'],
+wool_red:[0xe53935,'红羊毛'],wool_blue:[0x2196f3,'蓝羊毛'],wool_green:[0x4caf50,'绿羊毛'],
+wool_yellow:[0xffd700,'黄羊毛'],wool_white:[0xffffff,'白羊毛'],wool_black:[0x222222,'黑羊毛'],
+ice:[0xa0e0ff,'冰',1],cactus:[0x4a7a3a,'仙人掌'],flower:[0xff5722,'花'],mushroom:[0x8b4a8b,'蘑菇']
 };
 var HB=[{t:'hand',i:'F',c:0},{t:'pick',i:'P',c:0},{t:'grass',i:'G',c:0},{t:'dirt',i:'D',c:0},{t:'stone',i:'S',c:0},{t:'wood',i:'W',c:0},{t:'plank',i:'PL',c:0},{t:'cobble',i:'C',c:0},{t:'sand',i:'s',c:0}];
 var RC=[
@@ -80,7 +80,7 @@ scene.add(new THREE.AmbientLight(0xffffff,0.7));
 var su=new THREE.DirectionalLight(0xffffff,0.6);su.position.set(40,60,30);scene.add(su);window._su=su;
 var gr=new THREE.GridHelper(SZ,SZ,0x4dd0e1,0x333);gr.position.set(SZ/2,0,SZ/2);scene.add(gr);
 genW();genMobs();buildHB();setup();loop();
-showMD('Survival - Press B for Creative');
+showMD('生存模式 - 按B切换创造');
 }
 function genW(){
 for(var x=0;x<SZ;x++)for(var z=0;z<SZ;z++){
@@ -124,7 +124,7 @@ function showMD(t){var m=document.getElementById('md');m.textContent=t;m.style.o
 function setup(){
 document.addEventListener('keydown',function(e){K[e.key.toLowerCase()]=true;var k=e.key.toLowerCase();
 if(k>='1'&&k<='9'){sel=parseInt(k)-1;if(sel<HB.length)updHB();}
-if(k==='b'){mode=1-mode;document.getElementById('mt').textContent=mode?'Creative':'Survival';showMD(mode?'Creative! Fly+Unlimited!':'Survival');vel.y=0;}
+if(k==='b'){mode=1-mode;document.getElementById('mt').textContent=mode?'创造':'生存';showMD(mode?'创造模式！可飞+无限！':'生存模式');vel.y=0;}
 if(k==='e'){copen=!copen;document.getElementById('craft').classList.toggle('show',copen);}
 if(k==='escape')blk.style.display='flex';});
 document.addEventListener('keyup',function(e){K[e.key.toLowerCase()]=false;});
@@ -142,20 +142,20 @@ if(e.button===0){
 // MINE
 if(hits.length>0){var u=hits[0].object.userData;var s=HB[sel];var dmg=s.t==='pick'?2:1;u.hp-=dmg;
 spawnP(u.x,u.y,u.z,BL[u.t]?BL[u.t][0]:0x888888);
-if(u.hp<=0){remB(u.x,u.y,u.z);showMsg('Mined: '+(BL[u.t]?BL[u.t][1]:u.t));}
-}else{for(var i=mobs.length-1;i>=0;i--){if(cam.position.distanceTo(mobs[i].position)<2.5){mobs[i].userData.hp--;if(mobs[i].userData.hp<=0){scene.remove(mobs[i]);mobs.splice(i,1);showMsg('Mob killed!');}break;}}}
+if(u.hp<=0){remB(u.x,u.y,u.z);showMsg('挖到: '+(BL[u.t]?BL[u.t][1]:u.t));}
+}else{for(var i=mobs.length-1;i>=0;i--){if(cam.position.distanceTo(mobs[i].position)<2.5){mobs[i].userData.hp--;if(mobs[i].userData.hp<=0){scene.remove(mobs[i]);mobs.splice(i,1);showMsg('击杀怪物！');}break;}}}
 }else if(e.button===2){
 // PLACE
 var s=HB[sel];if(!s.t||s.t==='hand'||s.t==='pick')return;
-if(mode===0&&(s.c||0)<=0){showMsg('No blocks!');return;}
+if(mode===0&&(s.c||0)<=0){showMsg('没有方块！');return;}
 if(hits.length>0){var u=hits[0].object.userData;var n=hits[0].face.normal;
 var nx=u.x+Math.round(n.x),ny=u.y+Math.round(n.y),nz=u.z+Math.round(n.z);
 if(!W[k(nx,ny,nz)]&&!(nx===Math.floor(cam.position.x)&&ny===Math.floor(cam.position.y)&&nz===Math.floor(cam.position.z))){
-addB(nx,ny,nz,s.t);if(mode===0){s.c--;if(s.c<=0)s.c=0;buildHB();}showMsg('Placed: '+(BL[s.t]?BL[s.t][1]:s.t));}
+addB(nx,ny,nz,s.t);if(mode===0){s.c--;if(s.c<=0)s.c=0;buildHB();}showMsg('放置: '+(BL[s.t]?BL[s.t][1]:s.t));}
 }else{
 // 空气中放置
 var pos=cam.position.clone().add(dir.multiplyScalar(3));addB(Math.round(pos.x),Math.round(pos.y),Math.round(pos.z),s.t);
-if(mode===0){s.c--;if(s.c<=0)s.c=0;buildHB();}showMsg('Placed in air!');
+if(mode===0){s.c--;if(s.c<=0)s.c=0;buildHB();}showMsg('在空中放置！');
 }
 }});
 document.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -165,7 +165,7 @@ addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updat
 }
 function buildCG(){var g=document.getElementById('cgrid');g.innerHTML='';for(var i=0;i<9;i++){(function(idx){var d=document.createElement('div');d.className='cc';d.textContent=cg9[idx]?icn(cg9[idx]):'';d.onclick=function(){var s=HB[sel];if(s.t&&s.t!=='hand'&&s.t!=='pick'&&s.c>0){cg9[idx]=s.t;s.c--;}else if(cg9[idx]){addInv(cg9[idx]);cg9[idx]=null;}buildHB();buildCG();updCO();};g.appendChild(d);})(i);}}
 function updCO(){var o=document.getElementById('cout');for(var i=0;i<RC.length;i++){if(RC[i].skip)continue;var m=true;for(var j=0;j<9;j++){if(RC[i].in[j]!==cg9[j]){m=false;break;}}if(m){o.textContent=icn(RC[i].out)+' x'+RC[i].cnt;o.dataset.out=RC[i].out;o.dataset.cnt=RC[i].cnt;return;}}o.textContent='';o.dataset.out='';}
-function doCraft(){var o=document.getElementById('cout');if(o.dataset.out){var t=o.dataset.out;var c=parseInt(o.dataset.cnt);for(var i=0;i<HB.length;i++){if(HB[i].t===t){HB[i].c+=c;break;}if(HB[i].t==='hand'||HB[i].t==='pick'){HB[i]={t:t,i:icn(t),c:c};break;}}cg9=[null,null,null,null,null,null,null,null,null];buildHB();buildCG();updCO();showMsg('Crafted!');}}
+function doCraft(){var o=document.getElementById('cout');if(o.dataset.out){var t=o.dataset.out;var c=parseInt(o.dataset.cnt);for(var i=0;i<HB.length;i++){if(HB[i].t===t){HB[i].c+=c;break;}if(HB[i].t==='hand'||HB[i].t==='pick'){HB[i]={t:t,i:icn(t),c:c};break;}}cg9=[null,null,null,null,null,null,null,null,null];buildHB();buildCG();updCO();showMsg('合成成功！');}}
 function spawnP(x,y,z,c){for(var i=0;i<4;i++){var p=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.15),new THREE.MeshBasicMaterial({color:c}));p.position.set(x+0.5,y+0.5,z+0.5);p.userData={vx:(Math.random()-0.5)*0.1,vy:0.05+Math.random()*0.05,vz:(Math.random()-0.5)*0.1,l:25};scene.add(p);parts.push(p);}}
 var lt=0,dt2=0;
 function loop(t){requestAnimationFrame(loop);var dt=Math.min(((t||0)-lt)/1000,0.1);lt=t||0;
@@ -179,12 +179,12 @@ if(mode===0){var gy=getGH(Math.floor(np.x),Math.floor(np.z));if(np.y<gy+1.5){np.
 np.x=Math.max(0.5,Math.min(SZ-0.5,np.x));np.z=Math.max(0.5,Math.min(SZ-0.5,np.z));
 cam.position.copy(np);cam.rotation.set(pit,yaw,0,'YXZ');
 document.getElementById('pos').textContent=Math.floor(np.x)+','+Math.floor(np.y)+','+Math.floor(np.z);
-dt2+=dt;if(dt2>45){dt2=0;var day=scene.background.r>0.4;scene.background=new THREE.Color(day?0x0a0a2a:0x87ceeb);scene.fog.color.set(day?0x0a0a2a:0x87ceeb);_su.intensity=day?0.3:0.6;document.getElementById('tm').textContent=day?'Night':'Day';}
+dt2+=dt;if(dt2>45){dt2=0;var day=scene.background.r>0.4;scene.background=new THREE.Color(day?0x0a0a2a:0x87ceeb);scene.fog.color.set(day?0x0a0a2a:0x87ceeb);_su.intensity=day?0.3:0.6;document.getElementById('tm').textContent=day?'夜晚':'白天';}
 if(mode===0&&Math.random()<0.001){hg--;if(hg<=0){hp--;hg=0;}updHUD();}}
 mobs.forEach(function(m){m.userData.an+=dt*4;m.position.y+=Math.sin(m.userData.an)*0.015;m.position.x+=m.userData.vx;m.position.z+=m.userData.vz;
 if(m.position.x<1||m.position.x>SZ-1)m.userData.vx*=-1;if(m.position.z<1||m.position.z>SZ-1)m.userData.vz*=-1;
 var gy=getGH(Math.floor(m.position.x),Math.floor(m.position.z));if(m.position.y<gy+0.5)m.position.y=gy+0.5;
-if(cam.position.distanceTo(m.position)<1.5&&m.userData.ac<=0&&mode===0){hp--;m.userData.ac=60;showMsg('Hit! -1');if(hp<=0){hp=10;cam.position.set(SZ/2,12,SZ/2);}updHUD();}
+if(cam.position.distanceTo(m.position)<1.5&&m.userData.ac<=0&&mode===0){hp--;m.userData.ac=60;showMsg('受到伤害！-1');if(hp<=0){hp=10;cam.position.set(SZ/2,12,SZ/2);}updHUD();}
 if(m.userData.ac>0)m.userData.ac--;});
 for(var i=parts.length-1;i>=0;i--){var p=parts[i];p.position.x+=p.userData.vx;p.position.y+=p.userData.vy;p.position.z+=p.userData.vz;p.userData.vy-=0.01;p.userData.l--;if(p.userData.l<=0){scene.remove(p);parts.splice(i,1);}}
 rend.render(scene,cam);}

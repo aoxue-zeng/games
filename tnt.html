@@ -142,7 +142,7 @@
       // 空击，连击清零
       state.combo=0; updateHud();
       SFX.error();
-      pops.push({x:x,y:y,text:'MISS',life:25,color:'#888'});
+      pops.push({x:x,y:y,text:'没打中',life:25,color:'#888'});
     }
   }
   function getPos(e){
@@ -203,7 +203,7 @@
         state.score = Math.max(0, state.score-10);
         SFX.boom();
         updateHud();
-        pops.push({x:t.x,y:t.y,text:'BOOM!',life:30,color:'#e53935'});
+        pops.push({x:t.x,y:t.y,text:'爆炸！',life:30,color:'#e53935'});
         screenShake = 10;
       }
     }
@@ -325,7 +325,7 @@
     if(state.combo>=3){
       ctx.fillStyle='#ffd700';
       ctx.font='24px "Press Start 2P", monospace'; ctx.textAlign='left';
-      ctx.fillText('COMBO x'+state.combo, 16, 40);
+      ctx.fillText('连击 x'+state.combo, 16, 40);
       ctx.fillStyle='#fff'; ctx.font='10px "Press Start 2P", monospace';
       ctx.fillText('倍率 x'+(1+Math.floor(state.combo/5)), 16, 58);
     }

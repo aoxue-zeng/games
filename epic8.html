@@ -330,7 +330,7 @@ function draw(){
   for(var ti=0;ti<10;ti++){if(tpUnlocked[ti]){ctx.fillStyle='#6a1b9a';ctx.fillRect(mx+(ti*800+400)/WORLD_W*mw-1,my+2,3,3);}}
   enemies.forEach(function(e){if(e.alive&&e.boss){ctx.fillStyle='#e53935';ctx.fillRect(mx+(e.x/WORLD_W)*mw-1,my+2,3,3);}});
   ctx.fillStyle='#4dd0e1';ctx.fillRect(mx+(p.x/WORLD_W)*mw-1,my+10,3,3);
-  ctx.fillStyle='#fff';ctx.font='6px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('MAP',mx+mw/2,my+mh-2);
+  ctx.fillStyle='#fff';ctx.font='6px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('地图',mx+mw/2,my+mh-2);
 }
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){keys_[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key==='1')useSkill(0);if(e.key==='2')useSkill(1);if(e.key==='3')useSkill(2);if(e.key==='4')useSkill(3);if(e.key.toLowerCase()==='r'&&state&&state.over){hp=maxHp;p.x=50;p.y=310;p.inv=180;state.over=false;state.running=true;updateHud();}});

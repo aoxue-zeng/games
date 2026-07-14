@@ -31,7 +31,7 @@ notes.forEach(function(n){n.y+=sp});notes=notes.filter(function(n){if(n.y>JY+40&
 flash=flash.map(function(f){return f>0?f-1:0});
 if(s.score>0&&s.score%200===0)sp+=0.1;
 pts=pts.filter(function(p){p.y+=p.vy;p.life--;return p.life>0});}
-function hit(lane){if(!s.running||s.over)return;flash[lane]=10;SFX.move();var best=null,bd=999;for(var i=0;i<notes.length;i++){var n=notes[i];if(n.lane!==lane||n.hit)continue;var d=Math.abs(n.y-JY);if(d<bd){bd=d;best=n;}}if(best&&bd<50){best.hit=true;s.combo++;if(s.combo>s.maxc)s.maxc=s.combo;s.score+=bd<15?100:bd<30?70:40;var r=bd<15?'PERFECT!':bd<30?'GOOD':'OK';pts.push({x:lane*LW+LW/2,y:JY,text:r,life:30,color:bd<15?'#ffd700':'#4dd0e1'});if(bd<15)SFX.coin();else SFX.clear();notes=notes.filter(function(n){return !n.hit});updateHud();}else{s.combo=0;updateHud();}}
+function hit(lane){if(!s.running||s.over)return;flash[lane]=10;SFX.move();var best=null,bd=999;for(var i=0;i<notes.length;i++){var n=notes[i];if(n.lane!==lane||n.hit)continue;var d=Math.abs(n.y-JY);if(d<bd){bd=d;best=n;}}if(best&&bd<50){best.hit=true;s.combo++;if(s.combo>s.maxc)s.maxc=s.combo;s.score+=bd<15?100:bd<30?70:40;var r=bd<15?'完美！':bd<30?'不错':'一般';pts.push({x:lane*LW+LW/2,y:JY,text:r,life:30,color:bd<15?'#ffd700':'#4dd0e1'});if(bd<15)SFX.coin();else SFX.clear();notes=notes.filter(function(n){return !n.hit});updateHud();}else{s.combo=0;updateHud();}}
 function draw(){
 x.fillStyle='#1a0a2a';x.fillRect(0,0,W,H);
 for(var l=0;l<LANES;l++){x.fillStyle=l%2?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.03)';x.fillRect(l*LW,0,LW,H);if(flash[l]>0){x.globalAlpha=flash[l]/10*0.4;x.fillStyle=['#e53935','#ffd700','#4caf50','#2196f3'][l];x.fillRect(l*LW,0,LW,H);x.globalAlpha=1;}}
@@ -39,7 +39,7 @@ x.fillStyle='#ffd700';x.fillRect(0,JY,W,4);x.fillStyle='rgba(255,215,0,0.15)';x.
 for(var k=0;k<LANES;k++){x.fillStyle=['#e53935','#ffd700','#4caf50','#2196f3'][k];x.fillRect(k*LW+10,H-50,LW-20,40);x.fillStyle='#fff';x.font='16px "Press Start 2P",monospace';x.textAlign='center';x.fillText(['D','F','J','K'][k],k*LW+LW/2,H-24);}
 notes.forEach(function(n){x.font='24px serif';x.textAlign='center';x.fillText(ICONS[n.lane],n.lane*LW+LW/2,n.y+8)});
 pts.forEach(function(p){x.globalAlpha=Math.min(1,p.life/20);x.fillStyle=p.color;x.font='14px "Press Start 2P",monospace';x.textAlign='center';x.fillText(p.text,p.x,p.y);x.globalAlpha=1});
-if(s.combo>=5){x.fillStyle='#ffd700';x.font='18px "Press Start 2P",monospace';x.textAlign='left';x.fillText('COMBO '+s.combo,10,30);}
+if(s.combo>=5){x.fillStyle='#ffd700';x.font='18px "Press Start 2P",monospace';x.textAlign='left';x.fillText('连击 '+s.combo,10,30);}
 if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('结束',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('得分:'+s.score,W/2,H/2+10);}else{x.fillStyle='#e53935';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();var i=KEYS.indexOf(k);if(i>=0){e.preventDefault();hit(i);}});

@@ -41,7 +41,7 @@ var MT=[
 {n:'石像鬼',hp:30,sp:0.8,col:'#78909c',r:11,reward:20},
 {n:'恶魔',hp:50,sp:1.0,col:'#e53935',r:12,reward:30},
 {n:'龙',hp:80,sp:0.7,col:'#ff5722',r:14,reward:50},
-{n:'Boss',hp:200,sp:0.5,col:'#000',r:18,reward:100,boss:true}
+{n:'大Boss',hp:200,sp:0.5,col:'#000',r:18,reward:100,boss:true}
 ];
 function init(){s={running:false,over:false};towers=[];enemies=[];bullets=[];gold=100;castleHp=20;wave=1;kills=0;selTower=0;tick=0;spawnT=0;spawned=0;spawnIdx=0;wavePlan=genWave(1);updateHud();updateSel();}
 function genWave(w){
@@ -100,17 +100,17 @@ enemies.forEach(drawEnemy);
 // 子弹
 bullets.forEach(function(b){x.fillStyle=b.color;x.shadowColor=b.color;x.shadowBlur=4;x.beginPath();x.arc(b.x,b.y,b.splash?5:3,0,7);x.fill();x.shadowBlur=0;});
 // 结算
-if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('Castle Destroyed!',W/2,H/2-20);x.fillStyle='#fff';x.font='11px "Press Start 2P",monospace';x.fillText('Wave:'+wave+' Kills:'+kills,W/2,H/2+10);x.fillText('Press R',W/2,H/2+35);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('Ready',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('Select tower, click map',W/2,H/2+20);}}}
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('城堡被毁！',W/2,H/2-20);x.fillStyle='#fff';x.font='11px "Press Start 2P",monospace';x.fillText('波次:'+wave+' 击杀:'+kills,W/2,H/2+10);x.fillText('按R重玩',W/2,H/2+35);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('选塔点地图放置',W/2,H/2+20);}}}
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.getElementById('t1').onclick=function(){selTower=0;updateSel();SFX.click();};
 document.getElementById('t2').onclick=function(){selTower=1;updateSel();SFX.click();};
 document.getElementById('t3').onclick=function(){selTower=2;updateSel();SFX.click();};
 document.getElementById('t4').onclick=function(){selTower=3;updateSel();SFX.click();};
-function place(mx,my){var tt=TT[selTower];if(gold<tt.cost){toast('Not enough gold!');return;}var onPath=false;PATH.forEach(function(p,i){if(i<PATH.length-1){var p2=PATH[i+1];var d=Math.hypot(mx-p.x,my-p.y)+Math.hypot(mx-p2.x,my-p2.y)-Math.hypot(p2.x-p.x,p2.y-p.y);if(Math.abs(d)<5)onPath=true;}});if(onPath){toast('Cannot place on path!');return;}towers.forEach(function(t){if(Math.hypot(t.x-mx,t.y-my)<30){onPath=true;}});if(onPath){toast('Too close!');return;}towers.push({x:mx,y:my,range:tt.range,rate:tt.rate,cd:0,dmg:tt.dmg,col:tt.col,pc:tt.pc,splash:tt.splash});gold-=tt.cost;SFX.place();updateHud();}
+function place(mx,my){var tt=TT[selTower];if(gold<tt.cost){toast('金币不够！');return;}var onPath=false;PATH.forEach(function(p,i){if(i<PATH.length-1){var p2=PATH[i+1];var d=Math.hypot(mx-p.x,my-p.y)+Math.hypot(mx-p2.x,my-p2.y)-Math.hypot(p2.x-p.x,p2.y-p.y);if(Math.abs(d)<5)onPath=true;}});if(onPath){toast('不能放在路上！');return;}towers.forEach(function(t){if(Math.hypot(t.x-mx,t.y-my)<30){onPath=true;}});if(onPath){toast('太近了！');return;}towers.push({x:mx,y:my,range:tt.range,rate:tt.rate,cd:0,dmg:tt.dmg,col:tt.col,pc:tt.pc,splash:tt.splash});gold-=tt.cost;SFX.place();updateHud();}
 c.addEventListener('click',function(e){if(!s.running||s.over)return;var r=c.getBoundingClientRect();place((e.clientX-r.left)*(W/r.width),(e.clientY-r.top)*(H/r.height));});
 c.addEventListener('touchstart',function(e){e.preventDefault();if(!s.running||s.over)return;var r=c.getBoundingClientRect();place((e.touches[0].clientX-r.left)*(W/r.width),(e.touches[0].clientY-r.top)*(H/r.height));},{passive:false});
 document.addEventListener('keydown',function(e){var k=e.key;if(k==='1'){selTower=0;updateSel();}if(k==='2'){selTower=1;updateSel();}if(k==='3'){selTower=2;updateSel();}if(k==='4'){selTower=3;updateSel();}if(k.toLowerCase()==='r'){init();s.running=true;}});
-document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('Build towers!');});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('建塔防守！');});
 init();loop();
 })();
 </script>

@@ -56,13 +56,13 @@ obstacles.forEach(function(o){var ox=o.lane*LW+LW/2;if(o.type==='rock'){x.fillSt
 // 玩家
 var px=lane*LW+LW/2;var py=PLAYER_Y;x.fillStyle='#e53935';x.fillRect(px-10,py-20,20,24);x.fillStyle='#ff9800';x.fillRect(px-8,py-30,16,10);x.fillStyle='#e53935';x.fillRect(px-8,py-30,16,3);x.fillStyle='#fff';x.fillRect(px-4,py-26,3,3);x.fillRect(px+1,py-26,3,3);x.fillStyle='#1565c0';x.fillRect(px-8,py+4,6,8);x.fillRect(px+2,py+4,6,8);
 // 结算
-if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('Game Over',W/2,H/2-25);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('Coins:'+coinCount+' Best:'+best,W/2,H/2+8);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('Press R',W/2,H/2+38);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('Ready',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('Click start',W/2,H/2+20);}}}
+if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('游戏结束',W/2,H/2-25);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('金币:'+coinCount+' 最高:'+best,W/2,H/2+8);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+38);}else{x.fillStyle='#4caf50';x.font='20px "Press Start 2P",monospace';x.fillText('准备',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
 function loop(){update();draw();requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowleft','arrowright','arrowup'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;}});
 document.addEventListener('keyup',function(e){});
 c.addEventListener('touchstart',function(e){e.preventDefault();var r=c.getBoundingClientRect();var tx=e.touches[0].clientX-r.left;if(tx<W/3){keys['arrowleft']=true;}else if(tx>W*2/3){keys['arrowright']=true;}else{keys['arrowup']=true;}},{passive:false});
 c.addEventListener('touchmove',function(e){e.preventDefault();var r=c.getBoundingClientRect();var tx=e.touches[0].clientX-r.left;var ty=e.touches[0].clientY-r.top;if(ty<H*0.3){keys['arrowup']=true;}else if(tx<W/3){keys['arrowleft']=true;keys['arrowright']=false;}else if(tx>W*2/3){keys['arrowright']=true;keys['arrowleft']=false;}},{passive:false});
-document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('Run!');});
+document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('开跑！');});
 init();loop();
 })();
 </script>

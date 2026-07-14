@@ -101,7 +101,7 @@
       if(state.combo>state.maxcombo)state.maxcombo=state.combo;
       var pts=bestDist<15?100:(bestDist<30?70:40);
       state.score+=pts*(1+Math.floor(state.combo/10));
-      var rating=bestDist<15?'PERFECT!':(bestDist<30?'GOOD':'OK');
+      var rating=bestDist<15?'完美！':(bestDist<30?'不错':'一般');
       particles.push({x:lane*LW+LW/2,y:JUDGE_Y,text:rating,life:30,color:bestDist<15?'#ffd700':'#4dd0e1'});
       if(bestDist<15)SFX.coin();else SFX.clear();
       notes=notes.filter(function(n){return !n.hit;});
@@ -143,7 +143,7 @@
     // 连击
     if(state.combo>=5){
       ctx.fillStyle='#ffd700';ctx.font='20px "Press Start 2P",monospace';ctx.textAlign='left';
-      ctx.fillText('COMBO '+state.combo,10,30);
+      ctx.fillText('连击 '+state.combo,10,30);
     }
     if(!state.running){
       ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
