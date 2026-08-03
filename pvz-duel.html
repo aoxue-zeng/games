@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>植物决斗 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #arena { position:relative; width:680px; max-width:96vw; height:380px; margin:14px auto;
+    background:linear-gradient(180deg,#1a3a1a 0%,#2e7d32 50%,#1b5e20 100%);
+    border:4px solid #000; border-radius:10px; overflow:hidden;
+    box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.1), inset -4px -4px 0 0 rgba(0,0,0,0.4), 8px 8px 0 0 rgba(0,0,0,0.3); }
+  .fighter { position:absolute; bottom:30px; width:110px; text-align:center; transition:left 0.3s; }
+  .fighter.foe { right:50px; }
+  .fighter.me { left:50px; }
+  .sprite { font-size:80px; filter:drop-shadow(3px 3px 0 #000); animation:bob 1.5s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+  .sprite.hit{ animation:shake 0.4s; }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-10px);} 75%{transform:translateX(10px);} }
+  .fname { font-family:'Press Start 2P',monospace; font-size:11px; color:#fff; text-shadow:2px 2px 0 #000; margin-top:4px; }
+  .hp-bar { width:100px; height:12px; background:#1a1a1a; border:2px solid #000; margin:4px auto; border-radius:6px; overflow:hidden; }
+  .hp-fill { height:100%; background:linear-gradient(90deg,#e53935,#ffd700); transition:width 0.4s; }
+  .energy { font-family:'Press Start 2P',monospace; font-size:10px; color:#4dd0e1; text-shadow:1px 1px 0 #000; }
+  .fx-text { position:absolute; font-family:'Press Start 2P',monospace; font-size:18px; color:#ffd700; text-shadow:2px 2px 0 #000; pointer-events:none; animation:floatUp 1s forwards; }
+  @keyframes floatUp{ 0%{opacity:1;transform:translateY(0);} 100%{opacity:0;transform:translateY(-50px);} }
+  .actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:16px 0; }
+  .act-btn { padding:12px 18px; min-width:120px; }
+  .act-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .log-box { max-width:620px; margin:10px auto; height:90px; overflow-y:auto; padding:8px 12px;
+    background:rgba(0,0,0,0.4); border:2px solid #000; border-radius:6px; color:#cfd8dc; font-size:13px; line-height:1.6; text-align:left; }
+  .log-box .me{color:#8bc34a;} .log-box .foe{color:#ef9a9a;} .log-box .sys{color:#ffd700;}
+  .story-box { max-width:620px; margin:14px auto; padding:16px 20px; text-align:left;
+    background:rgba(0,0,0,0.35); border-left:4px solid #9c27b0; border-radius:6px; color:#e8e8e8; font-size:15px; line-height:1.7; }
+  .story-box .chap { color:#ce93d8; font-family:'Press Start 2P',monospace; font-size:10px; }
+  .vs-label { position:absolute; top:14px; left:50%; transform:translateX(-50%); font-family:'Press Start 2P',monospace; font-size:28px; color:#ffd700; text-shadow:3px 3px 0 #000; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="wallnut-bowl.html">坚果保龄</a>
+    <a href="imp-fling.html">小鬼飞人</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="pvz-21.html">植物21点</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">⚔️ 植物决斗</h1>
+  <p class="subtitle">回合制拆分决斗，植物英雄单挑僵尸王！</p>
+
+  <div class="story-box">
+    <span class="chap">📍 第三章 · 决斗时刻</span><br>
+    后院的最后一战。僵尸王「僵博」亲自上阵，向你下了战书。<b style="color:#ffd700">回合制对决</b>：
+    每回合你选 <b>攻击/防御/蓄能</b>，僵尸王也会选招——攻击 vs 攻击互伤，攻击 vs 防御被反震，
+    蓄能攒满能量释放<b style="color:#e91e63">必杀技</b>。三选一的拆分博弈，谁能笑到最后？
+  </div>
+
+  <div id="arena">
+    <div class="vs-label">VS</div>
+    <div class="fighter me">
+      <div class="sprite" id="meSprite">🌻</div>
+      <div class="fname" id="meName">向日葵战士</div>
+      <div class="hp-bar"><div class="hp-fill" id="meHp" style="width:100%"></div></div>
+      <div class="energy">⚡<span id="meEnergy">0</span>/100</div>
+    </div>
+    <div class="fighter foe">
+      <div class="sprite" id="foeSprite">🧟</div>
+      <div class="fname" id="foeName">僵尸王</div>
+      <div class="hp-bar"><div class="hp-fill" id="foeHp" style="width:100%"></div></div>
+      <div class="energy">⚡<span id="foeEnergy">0</span>/100</div>
+    </div>
+  </div>
+
+  <div class="actions" id="actions">
+    <button class="mc-btn green act-btn" id="atkBtn">⚔️ 攻击</button>
+    <button class="mc-btn act-btn" id="defBtn">🛡️ 防御</button>
+    <button class="mc-btn act-btn" id="chgBtn">⚡ 蓄能</button>
+    <button class="mc-btn act-btn" id="ultBtn" style="background:var(--mc-redstone);">💥 必杀 (需50⚡)</button>
+  </div>
+  <div class="log-box" id="log"></div>
+  <div style="margin-top:10px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始决斗</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var HEROES=[
+    {name:'向日葵战士',icon:'🌻',hp:120,atk:22,ultName:'阳光风暴',ultDmg:60},
+    {name:'豌豆游侠',icon:'🌱',hp:110,atk:26,ultName:'豌豆机枪',ultDmg:55},
+    {name:'火爆辣椒',icon:'🌶️',hp:100,atk:30,ultName:'地狱火',ultDmg:70},
+    {name:'坚果守卫',icon:'🥜',hp:160,atk:16,ultName:'地震践踏',ultDmg:45}
+  ];
+  var FOES=[
+    {name:'路障小兵',icon:'🧟',hp:90,atk:16},
+    {name:'铁桶骑士',icon:'🧟',hp:130,atk:20},
+    {name:'巨人僵尸',icon:'👹',hp:170,atk:26},
+    {name:'僵博博士',icon:'👽',hp:200,atk:30}
+  ];
+  var state,hero,foe,logEl;
+
+  function init(){
+    var hi=Math.floor(Math.random()*HEROES.length);
+    var fi=Math.floor(Math.random()*FOES.length);
+    hero=Object.assign({},HEROES[hi]); hero.maxhp=hero.hp; hero.energy=0;
+    foe=Object.assign({},FOES[fi]); foe.maxhp=foe.hp; foe.energy=0;
+    state={running:false,over:false,turn:'me',busy:false,round:1};
+    logEl=document.getElementById('log'); logEl.innerHTML='';
+    document.getElementById('meSprite').textContent=hero.icon;
+    document.getElementById('meName').textContent=hero.name;
+    document.getElementById('foeSprite').textContent=foe.icon;
+    document.getElementById('foeName').textContent=foe.name;
+    updateHud();
+    setActionsEnabled(false);
+  }
+
+  function log(msg,cls){ var d=document.createElement('div'); if(cls)d.className=cls; d.textContent=msg; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+
+  function updateHud(){
+    document.getElementById('meHp').style.width=Math.max(0,hero.hp/hero.maxhp*100)+'%';
+    document.getElementById('foeHp').style.width=Math.max(0,foe.hp/foe.maxhp*100)+'%';
+    document.getElementById('meEnergy').textContent=hero.energy;
+    document.getElementById('foeEnergy').textContent=foe.energy;
+    document.getElementById('ultBtn').disabled = hero.energy<50 || state.busy || state.over;
+  }
+
+  function setActionsEnabled(en){
+    ['atkBtn','defBtn','chgBtn'].forEach(function(id){ document.getElementById(id).disabled=!en; });
+    document.getElementById('ultBtn').disabled = !en || hero.energy<50;
+  }
+
+  function fxText(side,text,color){
+    var arena=document.getElementById('arena');
+    var f=document.createElement('div'); f.className='fx-text'; f.textContent=text; f.style.color=color||'#ffd700';
+    f.style.left = side==='me'?'120px':'480px'; f.style.top='120px';
+    arena.appendChild(f); setTimeout(function(){ f.remove(); },1000);
+  }
+
+  function hitFlash(side){
+    var el=document.getElementById(side+'Sprite');
+    el.classList.add('hit'); setTimeout(function(){ el.classList.remove('hit'); },400);
+  }
+
+  // 玩家行动：me 是玩家选择，foeAI 返回 foe 的选择
+  function resolve(meAct){
+    if(state.busy||state.over) return;
+    state.busy=true; setActionsEnabled(false);
+    AOXSound.ensure();
+    // 僵尸 AI
+    var foeAct = foeAI();
+    log('—— 第 '+state.round+' 回合 ——','sys');
+    // 先各自蓄能
+    if(meAct==='charge'){ hero.energy=Math.min(100,hero.energy+35); log(hero.name+' 蓄能 ⚡+35','me'); SFX.bubble(); }
+    if(foeAct==='charge'){ foe.energy=Math.min(100,foe.energy+35); log(foe.name+' 蓄能 ⚡+35','foe'); }
+    // 必杀
+    if(meAct==='ult'){ hero.energy=0; var ud=hero.ultDmg+Math.floor(Math.random()*15); dealDmg(foe,ud,'me'); log('🌟 '+hero.name+' 必杀「'+hero.ultName+'」造成 '+ud+' 伤害！','me'); SFX.boom(); fxText('foe','-'+ud,'#e53935'); hitFlash('foe'); }
+    if(foeAct==='ult' && foe.energy>=50){ foe.energy=0; var fud=foe.atk*2+10; dealDmg(hero,fud,'foe'); log('💀 '+foe.name+' 必杀「狂暴啃咬」造成 '+fud+' 伤害！','foe'); SFX.roar(); fxText('me','-'+fud,'#e53935'); hitFlash('me'); }
+    // 攻击/防御 拆分博弈
+    if(meAct==='attack' && foeAct==='attack'){
+      var md=hero.atk+Math.floor(Math.random()*8)-3; var fd=foe.atk+Math.floor(Math.random()*8)-3;
+      dealDmg(foe,md,'me'); dealDmg(hero,fd,'foe');
+      log(hero.name+' 攻击 '+md,'me'); log(foe.name+' 攻击 '+fd,'foe'); SFX.hit(); fxText('foe','-'+md,'#8bc34a'); fxText('me','-'+fd,'#ef9a9a'); hitFlash('foe'); hitFlash('me');
+    } else if(meAct==='attack' && foeAct==='defend'){
+      var md2=Math.floor((hero.atk)*0.3); dealDmg(foe,md2,'me'); hero.hp-=Math.floor(foe.atk*0.4);
+      log(foe.name+' 防御！'+hero.name+' 被反震','sys'); SFX.error(); fxText('foe','-'+md2,'#8bc34a'); fxText('me','反震','#ef9a9a'); hitFlash('me');
+    } else if(meAct==='defend' && foeAct==='attack'){
+      var fd2=Math.floor((foe.atk)*0.3); dealDmg(hero,fd2,'foe'); foe.hp-=Math.floor(hero.atk*0.4);
+      log(hero.name+' 防御！'+foe.name+' 被反震','sys'); SFX.error(); fxText('me','-'+fd2,'#ef9a9a'); fxText('foe','反震','#8bc34a'); hitFlash('foe');
+    } else if(meAct==='defend' && foeAct==='defend'){
+      hero.energy=Math.min(100,hero.energy+10); foe.energy=Math.min(100,foe.energy+10);
+      log('双方防御，僵持 ⚡各+10','sys'); SFX.click();
+    } else if(meAct==='attack' && foeAct==='charge'){
+      var md3=hero.atk+Math.floor(Math.random()*8)-3; dealDmg(foe,md3,'me');
+      log(foe.name+' 蓄能被打断！'+hero.name+' 攻击 '+md3,'me'); SFX.hit(); fxText('foe','-'+md3,'#8bc34a'); hitFlash('foe');
+    } else if(meAct==='charge' && foeAct==='attack'){
+      var fd3=foe.atk+Math.floor(Math.random()*8)-3; dealDmg(hero,fd3,'foe');
+      log(hero.name+' 蓄能被打断！'+foe.name+' 攻击 '+fd3,'foe'); SFX.hit(); fxText('me','-'+fd3,'#ef9a9a'); hitFlash('me');
+    }
+    updateHud();
+    state.round++;
+    // 检查胜负
+    if(foe.hp<=0){ win(); return; }
+    if(hero.hp<=0){ lose(); return; }
+    setTimeout(function(){ state.busy=false; setActionsEnabled(true); updateHud(); }, 700);
+  }
+
+  function dealDmg(target,dmg,src){ target.hp-=dmg; if(target.hp<0)target.hp=0; }
+
+  function foeAI(){
+    // 有50能量 40%概率必杀
+    if(foe.energy>=50 && Math.random()<0.45) return 'ult';
+    // 血少时倾向防御
+    if(foe.hp<foe.maxhp*0.3 && Math.random()<0.4) return 'defend';
+    var r=Math.random();
+    if(r<0.45) return 'attack';
+    if(r<0.75) return 'charge';
+    return 'defend';
+  }
+
+  function win(){ state.over=true; state.running=false; log('🎉 '+hero.name+' 击败了 '+foe.name+'！','sys'); SFX.win(); AOXSound.stopBGM(); setActionsEnabled(false); toast('🎉 胜利！'); }
+  function lose(){ state.over=true; state.running=false; log('💀 '+hero.name+' 倒下了...','sys'); SFX.lose(); AOXSound.stopBGM(); setActionsEnabled(false); toast('💀 失败...'); }
+
+  document.getElementById('atkBtn').addEventListener('click',function(){ resolve('attack'); SFX.select(); });
+  document.getElementById('defBtn').addEventListener('click',function(){ resolve('defend'); SFX.select(); });
+  document.getElementById('chgBtn').addEventListener('click',function(){ resolve('charge'); SFX.select(); });
+  document.getElementById('ultBtn').addEventListener('click',function(){ if(hero.energy>=50)resolve('ult'); SFX.select(); });
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); log('决斗开始！'+hero.name+' VS '+foe.name,'sys'); setActionsEnabled(true); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); log('选择「开始决斗」迎接挑战','sys');
+})();
+</script>
+</body>
+</html>

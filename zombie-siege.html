@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>僵尸围城 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a2a1a; cursor:none; touch-action:none; display:block; max-width:100%; border-radius:8px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="wallnut-bowl.html">坚果保龄</a>
+    <a href="imp-fling.html">小鬼飞人</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="pvz-21.html">植物21点</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🌀 僵尸围城</h1>
+  <p class="subtitle">360°射击！你是一株豌豆射手，被僵尸四面围攻</p>
+
+  <div style="max-width:620px;margin:14px auto;padding:16px 20px;text-align:left;background:rgba(0,0,0,0.35);border-left:4px solid #4caf50;border-radius:6px;color:#e8e8e8;font-size:15px;line-height:1.7;">
+    <span style="color:#81c784;font-family:'Press Start 2P',monospace;font-size:10px;">📍 第四章 · 圆形战场</span><br>
+    草坪中央，你被僵尸团团围住。没有行、没有列，只有<b style="color:#4dd0e1">360 度的自由</b>！
+    鼠标瞄准自动开火，射爆四面八方涌来的僵尸。<b style="color:#ffd700">击杀掉落阳光</b>可升级伤害/射速/血量。
+    活到第 10 波，你就是后院之王。
+  </div>
+
+  <div class="hud" style="margin-top:12px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">波次</span><span id="wave">1</span></div>
+    <div class="hud-item"><span class="label">击杀</span><span id="kills">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="hp">❤❤❤</span></div>
+    <div class="hud-item"><span class="label">阳光</span><span id="sun">0</span>☀️</div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <button class="mc-btn" id="upAtk">⚔️伤害 (<span id="upAtkCost">10</span>☀️)</button>
+    <button class="mc-btn" id="upSpd">⚡射速 (<span id="upSpdCost">15</span>☀️)</button>
+    <button class="mc-btn" id="upHp">❤️血量 (<span id="upHpCost">12</span>☀️)</button>
+    <a href="index.html" class="mc-btn">← 大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    鼠标移动瞄准 · 自动射击 · 击杀掉阳光 · 阳光升级属性 · 别让僵尸碰到你
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var CX=W/2, CY=H/2;
+  var state,player,bullets,zombies,suns,particles,mouse,spawnTick,waveTick;
+  var upgrades={atk:1,spd:1,hp:3};
+  var costs={atk:10,spd:15,hp:12};
+
+  function init(){
+    state={running:false,over:false,score:0,wave:1,kills:0,inWave:0,waveTarget:6,waveGap:0};
+    player={x:CX,y:CY,r:18,hp:3,maxhp:3,fireTick:0,dmg:10,fireRate:18,angle:0};
+    bullets=[];zombies=[];suns=[];particles=[];
+    mouse={x:CX,y:CY-100};
+    spawnTick=0; waveTick=0;
+    upgrades={atk:1,spd:1,hp:1};
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('wave').textContent=state.wave;
+    document.getElementById('kills').textContent=state.kills;
+    document.getElementById('hp').textContent='❤'.repeat(Math.max(0,player.hp))+'🖤'.repeat(Math.max(0,player.maxhp-player.hp));
+    document.getElementById('sun').textContent=state.sun||0;
+    document.getElementById('upAtkCost').textContent=costs.atk;
+    document.getElementById('upSpdCost').textContent=costs.spd;
+    document.getElementById('upHpCost').textContent=costs.hp;
+  }
+
+  function spawnZombie(){
+    // 从边缘随机生成
+    var side=Math.floor(Math.random()*4);
+    var x,y;
+    if(side===0){ x=Math.random()*W; y=-20; }
+    else if(side===1){ x=W+20; y=Math.random()*H; }
+    else if(side===2){ x=Math.random()*W; y=H+20; }
+    else { x=-20; y=Math.random()*H; }
+    var types=['normal','normal','cone','fast'];
+    if(state.wave>=3)types.push('bucket');
+    if(state.wave>=5)types.push('fast','fast');
+    var t=types[Math.floor(Math.random()*types.length)];
+    var hp = t==='bucket'?60:(t==='cone'?35:(t==='fast'?20:25));
+    hp += state.wave*5;
+    zombies.push({x:x,y:y,r:t==='fast'?14:16,hp:hp,maxhp:hp,type:t,
+      speed:t==='fast'?1.1:0.7, anim:Math.random()*6, color:t==='fast'?'#7a5a8f':'#5a8f5a'});
+  }
+
+  function update(){
+    if(!state.running||state.over) return;
+    player.angle=Math.atan2(mouse.y-player.y, mouse.x-player.x);
+    // 自动射击
+    player.fireTick++;
+    var rate=Math.max(6, player.fireRate - upgrades.spd*2);
+    if(player.fireTick>=rate){
+      player.fireTick=0;
+      var dmg=player.dmg + upgrades.atk*5;
+      bullets.push({x:player.x,y:player.y,vx:Math.cos(player.angle)*8,vy:Math.sin(player.angle)*8,r:5,dmg:dmg,life:80});
+      SFX.shoot();
+    }
+    // 子弹
+    for(var i=bullets.length-1;i>=0;i--){
+      var b=bullets[i]; b.x+=b.vx; b.y+=b.vy; b.life--;
+      if(b.life<=0||b.x<-10||b.x>W+10||b.y<-10||b.y>H+10){ bullets.splice(i,1); continue; }
+      // 命中僵尸
+      for(var j=zombies.length-1;j>=0;j--){
+        var z=zombies[j];
+        if(Math.hypot(z.x-b.x,z.y-b.y)<z.r+b.r){
+          z.hp-=b.dmg; spawnParticles(b.x,b.y,'#9c27b0',4);
+          bullets.splice(i,1); SFX.hit();
+          if(z.hp<=0){
+            spawnParticles(z.x,z.y,z.color,12);
+            state.kills++; state.score+=10; state.inWave++;
+            // 掉阳光
+            if(Math.random()<0.35){ suns.push({x:z.x,y:z.y,r:10,life:600,bob:0}); }
+            zombies.splice(j,1);
+          }
+          break;
+        }
+      }
+    }
+    // 僵尸
+    for(var k=zombies.length-1;k>=0;k--){
+      var zm=zombies[k]; zm.anim+=0.12;
+      var dx=player.x-zm.x, dy=player.y-zm.y, d=Math.hypot(dx,dy)||1;
+      zm.x+=dx/d*zm.speed; zm.y+=dy/d*zm.speed;
+      // 碰玩家
+      if(d<zm.r+player.r){
+        player.hp--; SFX.hurt(); spawnParticles(player.x,player.y,'#e53935',10);
+        zombies.splice(k,1);
+        updateHud();
+        if(player.hp<=0){ gameOver(); return; }
+      }
+    }
+    // 阳光
+    for(var s=suns.length-1;s>=0;s--){ var su=suns[s]; su.bob+=0.1; su.life--; if(su.life<=0)suns.splice(s,1); }
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){ var pt=particles[p]; pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--; if(pt.life<=0)particles.splice(p,1); }
+    // 波次
+    if(state.inWave>=state.waveTarget){
+      state.wave++; state.inWave=0; state.waveTarget=6+state.wave*2; SFX.levelUp(); toast('🌊 第 '+state.wave+' 波！'); state.waveGap=120;
+    } else if(state.waveGap>0){ state.waveGap--; }
+    else {
+      spawnTick++;
+      if(spawnTick>=Math.max(25, 60-state.wave*3) && zombies.length<12){ spawnTick=0; spawnZombie(); }
+    }
+    updateHud();
+  }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*4; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); } }
+
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); toast('💀 坚持到第 '+state.wave+' 波'); }
+
+  function draw(){
+    // 背景
+    var g=ctx.createRadialGradient(CX,CY,50,CX,CY,W*0.7);
+    g.addColorStop(0,'#3d8b2a'); g.addColorStop(1,'#1a2a1a');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 草地纹理圆环
+    ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=2;
+    for(var r=60;r<W;r+=60){ ctx.beginPath(); ctx.arc(CX,CY,r,0,7); ctx.stroke(); }
+    // 子弹
+    bullets.forEach(function(b){ ctx.fillStyle='#4caf50'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(b.x-1,b.y-1,2,0,7); ctx.fill(); });
+    // 僵尸
+    zombies.forEach(drawZombie);
+    // 玩家（豌豆射手，朝向鼠标）
+    ctx.save(); ctx.translate(player.x,player.y);
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0,player.r-2,player.r,player.r*0.4,0,0,7); ctx.fill();
+    ctx.rotate(player.angle);
+    ctx.fillStyle='#3d8b2a'; ctx.fillRect(-3,-3,6,10);
+    ctx.fillStyle='#4caf50'; ctx.beginPath(); ctx.arc(0,0,player.r-2,0,7); ctx.fill();
+    ctx.fillStyle='#81c784'; ctx.beginPath(); ctx.arc(-4,-4,6,0,7); ctx.fill();
+    // 炮口
+    ctx.fillStyle='#2e7d32'; ctx.fillRect(player.r-4,-5,10,10);
+    ctx.fillStyle='#1b5e20'; ctx.fillRect(player.r+4,-2,4,5);
+    ctx.restore();
+    // 准星
+    ctx.strokeStyle='rgba(255,215,0,0.7)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(mouse.x,mouse.y,10,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mouse.x-14,mouse.y); ctx.lineTo(mouse.x-6,mouse.y); ctx.moveTo(mouse.x+6,mouse.y); ctx.lineTo(mouse.x+14,mouse.y); ctx.stroke();
+    // 阳光
+    suns.forEach(function(su){ var grd=ctx.createRadialGradient(su.x,su.y,0,su.x,su.y,su.r*2); grd.addColorStop(0,'#fff'); grd.addColorStop(0.5,'#ffd700'); grd.addColorStop(1,'rgba(255,215,0,0)'); ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(su.x,su.y,su.r*2,0,7); ctx.fill(); });
+    // 粒子
+    particles.forEach(function(pt){ ctx.globalAlpha=pt.life/30; ctx.fillStyle=pt.color; ctx.fillRect(pt.x,pt.y,pt.size,pt.size); });
+    ctx.globalAlpha=1;
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('被吃掉了！',W/2,H/2-20); ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('第 '+state.wave+' 波 · '+state.kills+' 击杀',W/2,H/2+15); }
+      else { ctx.fillStyle='#4caf50'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('僵尸围城',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 鼠标瞄准',W/2,H/2+25); }
+    }
+  }
+
+  function drawZombie(z){
+    ctx.save(); ctx.translate(z.x,z.y);
+    var ang=Math.atan2(player.y-z.y,player.x-z.x);
+    ctx.rotate(ang+Math.PI/2);
+    var wob=Math.sin(z.anim)*1.5;
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0,z.r-2,z.r,z.r*0.4,0,0,7); ctx.fill();
+    ctx.fillStyle='#1565c0'; ctx.fillRect(-5,4+wob,4,8); ctx.fillRect(1,4-wob,4,8);
+    ctx.fillStyle=z.color; ctx.fillRect(-7,-6,14,12);
+    ctx.fillStyle=z.color; ctx.fillRect(-6,-14,12,10);
+    ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.fillRect(-6,-14,12,2);
+    ctx.fillStyle='#fff'; ctx.fillRect(-4,-10,3,3); ctx.fillRect(1,-10,3,3);
+    ctx.fillStyle='#e53935'; ctx.fillRect(-3,-9,1,1); ctx.fillRect(2,-9,1,1);
+    // 防具
+    if(z.type==='cone'){ ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.moveTo(0,-22); ctx.lineTo(-6,-14); ctx.lineTo(6,-14); ctx.fill(); }
+    else if(z.type==='bucket'){ ctx.fillStyle='#9e9e9e'; ctx.fillRect(-7,-18,14,6); }
+    ctx.restore();
+    if(z.hp<z.maxhp){ ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(z.x-10,z.y-z.r-8,20,3); ctx.fillStyle='#e53935'; ctx.fillRect(z.x-10,z.y-z.r-8,20*(z.hp/z.maxhp),3); }
+  }
+
+  function getPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX);
+    var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY);
+    return {x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height)};
+  }
+  canvas.addEventListener('mousemove',function(e){ var p=getPos(e); mouse.x=p.x; mouse.y=p.y; });
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); var p=getPos(e); mouse.x=p.x; mouse.y=p.y; },{passive:false});
+  canvas.addEventListener('click',function(e){
+    // 点击收集阳光
+    var p=getPos(e);
+    for(var i=suns.length-1;i>=0;i--){ if(Math.hypot(suns[i].x-p.x,suns[i].y-p.y)<suns[i].r*2){ state.sun=(state.sun||0)+15; suns.splice(i,1); SFX.coin(); updateHud(); break; } }
+  });
+
+  function tryUpgrade(kind){
+    if(!state.running||state.over) return;
+    var c=costs[kind];
+    if((state.sun||0)>=c){ state.sun-=c; costs[kind]+=5; upgrades[kind]++; SFX.levelUp(); toast('⬆ 升级！'); updateHud(); }
+    else { SFX.error(); toast('阳光不够'); }
+  }
+  document.getElementById('upAtk').addEventListener('click',function(){ tryUpgrade('atk'); });
+  document.getElementById('upSpd').addEventListener('click',function(){ tryUpgrade('spd'); });
+  document.getElementById('upHp').addEventListener('click',function(){ if((state.sun||0)>=costs.hp){ state.sun-=costs.hp; costs.hp+=5; player.hp++; player.maxhp++; SFX.levelUp(); updateHud(); } else {SFX.error();toast('阳光不够');} });
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

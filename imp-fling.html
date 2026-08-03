@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小鬼飞人 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#87ceeb; cursor:grab; touch-action:none; display:block; max-width:100%; border-radius:8px; }
+  #gameCanvas:active { cursor:grabbing; }
+  .story-box {
+    max-width:620px; margin:14px auto; padding:16px 20px; text-align:left;
+    background:rgba(0,0,0,0.35); border-left:4px solid #e91e63; border-radius:6px;
+    color:#e8e8e8; font-size:15px; line-height:1.7;
+  }
+  .story-box .chap { color:#e91e63; font-family:'Press Start 2P',monospace; font-size:10px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="wallnut-bowl.html">坚果保龄</a>
+    <a href="imp-fling.html">小鬼飞人</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="pvz-21.html">植物21点</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🤸 小鬼飞人</h1>
+  <p class="subtitle">用弹弓把小鬼僵尸发射出去，飞越整座后院！</p>
+
+  <div class="story-box">
+    <span class="chap">📍 第二章 · 弹弓计划</span><br>
+    巨人僵尸太笨重，扔不动小鬼了。于是戴夫造了架巨型弹弓——「我来我来！」小鬼自告奋勇坐上弹兜。
+    拉得越远飞得越远，但<b style="color:#ffd700">风会把你吹偏</b>。空中有向日葵蹦床可以借力反弹，
+    落地距离越远分数越高。能不能飞出栅栏、打破纪录？
+  </div>
+
+  <div class="hud" style="margin-top:12px;">
+    <div class="hud-item"><span class="label">距离</span><span id="dist">0</span>m</div>
+    <div class="hud-item"><span class="label">最远</span><span id="best">0</span>m</div>
+    <div class="hud-item"><span class="label">次数</span><span id="tries">3</span></div>
+    <div class="hud-item"><span class="label">风速</span><span id="wind">→0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="800" height="480"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    按住小鬼向后拉 · 松开发射 · 空中碰到🌻向日葵会弹起 · 风会影响飞行
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var GROUND_Y=H-60;
+  var SLING={x:90,y:GROUND_Y-50};
+  var state,imp,trampolines,clouds,dragging,mouse,particles,landed,camX,bestDist;
+  var best=parseInt(localStorage.getItem('impBest')||'0',10);
+  document.getElementById('best').textContent=best;
+
+  function init(){
+    state={running:false,over:false,tries:3,maxDist:0,wind:(Math.random()-0.5)*0.06};
+    imp={x:SLING.x,y:SLING.y,vx:0,vy:0,r:14,flying:false,landed:false,bounces:0};
+    dragging=false; mouse={x:SLING.x,y:SLING.y};
+    particles=[]; landed=false; camX=0;
+    // 生成蹦床（向日葵）
+    trampolines=[];
+    for(var i=0;i<6;i++){ trampolines.push({x:200+i*180+Math.random()*120, y:GROUND_Y-30-Math.random()*120, r:20, used:false}); }
+    clouds=[];
+    for(var c=0;c<5;c++){ clouds.push({x:Math.random()*W*2, y:30+Math.random()*120, s:0.3+Math.random()*0.4}); }
+    document.getElementById('wind').textContent=(state.wind>0?'→':'←')+(Math.abs(state.wind)*100).toFixed(0);
+    updateHud();
+  }
+
+  function updateHud(){
+    var d=imp.flying? Math.floor((imp.x-SLING.x)/8) : Math.floor(state.maxDist/8);
+    document.getElementById('dist').textContent=Math.max(0,d);
+    document.getElementById('tries').textContent=state.tries;
+  }
+
+  function launch(vx,vy){
+    imp.vx=vx; imp.vy=vy; imp.flying=true; SFX.shoot(); SFX.jump();
+  }
+
+  function update(){
+    if(!state.running) return;
+    // 云移动
+    clouds.forEach(function(c){ c.x+=c.s; if(c.x>W*2+100) c.x=-100; });
+    if(imp.flying && !imp.landed){
+      imp.vy+=0.32; // 重力
+      imp.vx+=state.wind; // 风
+      imp.vx*=0.999;
+      imp.x+=imp.vx; imp.y+=imp.vy;
+      // 旋转
+      // 蹦床碰撞
+      trampolines.forEach(function(t){
+        if(t.used) return;
+        if(Math.abs(imp.x-t.x)<t.r+imp.r && Math.abs(imp.y-t.y)<t.r+imp.r){
+          t.used=true; imp.vy=-Math.abs(imp.vy)*1.4-3; imp.bounces++; SFX.coin(); SFX.bubble();
+          spawnParticles(t.x,t.y,'#ffd700',14);
+          state.maxDist=Math.max(state.maxDist,imp.x-SLING.x);
+        }
+      });
+      // 落地
+      if(imp.y>=GROUND_Y-imp.r){
+        imp.y=GROUND_Y-imp.r; imp.landed=true;
+        var dist=imp.x-SLING.x;
+        state.maxDist=Math.max(state.maxDist,dist);
+        SFX.hurt();
+        for(var p=0;p<12;p++){ spawnParticles(imp.x,GROUND_Y,'#8b5a2b',1); }
+        if(state.maxDist>best){ best=Math.floor(state.maxDist/8); localStorage.setItem('impBest',best); document.getElementById('best').textContent=best; }
+        state.tries--;
+        updateHud();
+        if(state.tries<=0){ gameOver(); }
+        else { setTimeout(resetImp,1200); }
+      }
+      // 相机跟随
+      if(imp.x-camX > W*0.55){ camX=imp.x-W*0.55; }
+    }
+    // 粒子
+    for(var i=particles.length-1;i>=0;i--){ var pt=particles[i]; pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--; if(pt.life<=0)particles.splice(i,1); }
+  }
+
+  function resetImp(){
+    imp={x:SLING.x,y:SLING.y,vx:0,vy:0,r:14,flying:false,landed:false,bounces:0};
+    camX=0; state.wind=(Math.random()-0.5)*0.06;
+    document.getElementById('wind').textContent=(state.wind>0?'→':'←')+(Math.abs(state.wind)*100).toFixed(0);
+  }
+
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.win(); toast('🏁 最远 '+Math.floor(state.maxDist/8)+' 米！'); }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*4; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); } }
+
+  function draw(){
+    // 天空
+    var sky=ctx.createLinearGradient(0,0,0,H); sky.addColorStop(0,'#4a90d9'); sky.addColorStop(1,'#87ceeb');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+    // 云（视差，不跟相机）
+    clouds.forEach(function(c){
+      ctx.fillStyle='rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.arc(c.x-camX*0.3,c.y,18,0,7); ctx.arc(c.x-camX*0.3+20,c.y,14,0,7); ctx.arc(c.x-camX*0.3-18,c.y+4,12,0,7); ctx.fill();
+    });
+    // 远山
+    ctx.fillStyle='#7cb342';
+    for(var m=0;m<8;m++){ ctx.beginPath(); var mx=m*240-camX*0.5-100; ctx.moveTo(mx,GROUND_Y); ctx.lineTo(mx+120,GROUND_Y-90); ctx.lineTo(mx+240,GROUND_Y); ctx.fill(); }
+
+    ctx.save();
+    ctx.translate(-camX,0);
+    // 地面
+    ctx.fillStyle='#5fb53f'; ctx.fillRect(camX,GROUND_Y,W+camX*2,H-GROUND_Y);
+    ctx.fillStyle='#4ea035'; ctx.fillRect(camX,GROUND_Y,W+camX*2,6);
+    // 距离标记
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.font='bold 12px monospace';
+    for(var mk=0;mk<40;mk++){ var mx=SLING.x+mk*80; if(mx>camX-40&&mx<camX+W+40){ ctx.fillRect(mx,GROUND_Y-6,2,6); if(mk%5===0)ctx.fillText((mk*10)+'m',mx-12,GROUND_Y-10); } }
+    // 蹦床（向日葵）
+    trampolines.forEach(function(t){
+      if(t.x<camX-40||t.x>camX+W+40) return;
+      // 茎
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(t.x-2,t.y,4,GROUND_Y-t.y);
+      // 花
+      ctx.fillStyle='#ffd700'; for(var a=0;a<8;a++){ var ang=a/8*6.28; ctx.fillRect(t.x+Math.cos(ang)*12-3,t.y-10+Math.sin(ang)*12-3,6,6); }
+      ctx.fillStyle=t.used?'#bdbdbd':'#ff8f00'; ctx.beginPath(); ctx.arc(t.x,t.y-10,9,0,7); ctx.fill();
+      if(t.used){ ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.arc(t.x,t.y-10,9,0,7); ctx.fill(); }
+    });
+    // 弹弓
+    ctx.fillStyle='#6d4c41'; ctx.fillRect(SLING.x-6,SLING.y,12,GROUND_Y-SLING.y);
+    ctx.fillStyle='#8d6e63'; ctx.fillRect(SLING.x-18,SLING.y,14,5); ctx.fillRect(SLING.x+4,SLING.y,14,5);
+    // 橡皮筋
+    if(dragging){
+      ctx.strokeStyle='#3e2723'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(SLING.x-12,SLING.y); ctx.lineTo(imp.x,imp.y); ctx.lineTo(SLING.x+12,SLING.y); ctx.stroke();
+      // 预测轨迹
+      var dx=SLING.x-imp.x, dy=SLING.y-imp.y;
+      var px=imp.x, py=imp.y, pvx=dx*0.18, pvy=dy*0.18;
+      ctx.fillStyle='rgba(255,255,255,0.5)';
+      for(var pp=0;pp<30;pp++){ pvy+=0.32; pvx+=state.wind; px+=pvx; py+=pvy; if(pp%3===0)ctx.fillRect(px-1.5,py-1.5,3,3); if(py>GROUND_Y)break; }
+    } else if(!imp.flying){
+      ctx.strokeStyle='#3e2723'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(SLING.x-12,SLING.y); ctx.lineTo(SLING.x,SLING.y-4); ctx.lineTo(SLING.x+12,SLING.y); ctx.stroke();
+    }
+    // 小鬼
+    drawImp(imp);
+    ctx.restore();
+    // 粒子
+    particles.forEach(function(pt){ ctx.globalAlpha=pt.life/30; ctx.fillStyle=pt.color; ctx.fillRect(pt.x-camX,pt.y,pt.size,pt.size); });
+    ctx.globalAlpha=1;
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#ffd700'; ctx.font='24px "Press Start 2P",monospace'; ctx.fillText('最远 '+Math.floor(state.maxDist/8)+' 米！',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点击重新开始',W/2,H/2+25); }
+      else { ctx.fillStyle='#e91e63'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('小鬼飞人',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 拉弹弓发射',W/2,H/2+25); }
+    }
+  }
+
+  function drawImp(im){
+    ctx.save(); ctx.translate(im.x,im.y);
+    if(im.flying){ ctx.rotate(im.vx*0.05); }
+    // 影子
+    if(!im.flying){ ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0,im.r+2,12,4,0,0,7); ctx.fill(); }
+    var sc=0.8; ctx.scale(sc,sc);
+    // 腿
+    ctx.fillStyle='#4a148c'; ctx.fillRect(-6,6,5,8); ctx.fillRect(2,6,5,8);
+    // 身体
+    ctx.fillStyle='#7a5a8f'; ctx.fillRect(-8,-4,16,12);
+    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(-8,-4,16,2);
+    // 头
+    ctx.fillStyle='#7a5a8f'; ctx.fillRect(-6,-16,12,12);
+    // 耳朵尖
+    ctx.fillStyle='#7a5a8f'; ctx.fillRect(-7,-14,2,4); ctx.fillRect(5,-14,2,4);
+    ctx.fillStyle='#fff'; ctx.fillRect(-4,-11,3,3); ctx.fillRect(2,-11,3,3);
+    ctx.fillStyle='#e53935'; ctx.fillRect(-3,-10,1,1); ctx.fillRect(3,-10,1,1);
+    ctx.fillStyle='#000'; ctx.fillRect(-3,-6,6,1);
+    // 手举起
+    ctx.fillStyle='#7a5a8f'; ctx.fillRect(-12,-2,4,6); ctx.fillRect(8,-2,4,6);
+    ctx.restore();
+  }
+
+  function getPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX);
+    var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY);
+    return {x:(cx-rect.left)*(W/rect.width)+camX, y:(cy-rect.top)*(H/rect.height)};
+  }
+  function down(e){
+    if(!state.running||imp.flying||state.over) return;
+    var p=getPos(e); AOXSound.ensure();
+    if(Math.hypot(p.x-imp.x,p.y-imp.y)<40){ dragging=true; }
+  }
+  function move(e){
+    if(!dragging) return;
+    var p=getPos(e);
+    // 限制拉伸距离 & 方向（只能向左下拉）
+    var dx=p.x-SLING.x, dy=p.y-SLING.y;
+    var d=Math.hypot(dx,dy);
+    var maxD=90;
+    if(d>maxD){ dx=dx/d*maxD; dy=dy/d*maxD; d=maxD; }
+    if(dx>20) dx=20; // 不能推到右边太多
+    imp.x=SLING.x+dx; imp.y=SLING.y+dy;
+  }
+  function up(e){
+    if(!dragging) return;
+    dragging=false;
+    var dx=SLING.x-imp.x, dy=SLING.y-imp.y;
+    if(Math.hypot(dx,dy)<15){ imp.x=SLING.x; imp.y=SLING.y; return; } // 拉太短不发射
+    launch(dx*0.18, dy*0.18);
+  }
+  canvas.addEventListener('mousedown',down); canvas.addEventListener('mousemove',move); canvas.addEventListener('mouseup',up);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();down(e);},{passive:false});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();move(e);},{passive:false});
+  canvas.addEventListener('touchend',function(e){e.preventDefault();up(e);},{passive:false});
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

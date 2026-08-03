@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坚果保龄球 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#5fb53f; cursor:crosshair; touch-action:none; display:block; max-width:100%; border-radius:8px; }
+  .story-box {
+    max-width:620px; margin:14px auto; padding:16px 20px; text-align:left;
+    background:rgba(0,0,0,0.35); border-left:4px solid var(--mc-gold); border-radius:6px;
+    color:#e8e8e8; font-size:15px; line-height:1.7;
+  }
+  .story-box .chap { color:var(--mc-gold); font-family:'Press Start 2P',monospace; font-size:10px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="wallnut-bowl.html">坚果保龄</a>
+    <a href="imp-fling.html">小鬼飞人</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="pvz-21.html">植物21点</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🥜 坚果保龄球</h1>
+  <p class="subtitle">把坚果当保龄球，撞翻一整排僵尸！</p>
+
+  <div class="story-box">
+    <span class="chap">📍 第一章 · 草坪球道</span><br>
+    阳光正好，僵尸却排着队晃悠过来。疯狂戴夫一拍脑袋：「 lawn bowling！」
+    你把圆滚滚的坚果墙搬上球道——瞄准、蓄力、滚出去！看它像保龄球一样把僵尸撞得东倒西歪。
+    <b style="color:#ffd700">清掉一整「列」僵尸能拿全中奖励！</b>
+  </div>
+
+  <div class="hud" style="margin-top:12px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">剩余坚果</span><span id="balls">5</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="640" height="560"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    移动鼠标瞄准方向 · 按住蓄力（进度条）· 松开滚出 · 清掉整列僵尸得分翻倍
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  // 球道：5 条道（横向），坚果从下方往上滚
+  var LANES=5;
+  var LANE_H=76, LANE_TOP=40;
+  var LAUNCH_Y=H-50;
+  var state,ball,zombies,particles,charging,power,aimX;
+  var best=parseInt(localStorage.getItem('bowlBest')||'0',10);
+  document.getElementById('best').textContent=best;
+
+  function init(){
+    state={running:false,over:false,won:false,score:0,balls:5,level:1,phase:'aim'}; // aim/rolling/respawn
+    ball=null; zombies=[]; particles=[]; charging=false; power=0; aimX=W/2;
+    spawnLane();
+    updateHud();
+  }
+
+  function spawnLane(){
+    zombies=[];
+    var cols=3+state.level; // 每道僵尸列数
+    for(var l=0;l<LANES;l++){
+      for(var c=0;c<cols;c++){
+        // 随机一些道空着（让全中可能）
+        if(Math.random()<0.18) continue;
+        var hp = (c%3===0)?2:1; // 隔几个硬一点
+        zombies.push({lane:l, x:120+c*90+Math.random()*20, y:LANE_TOP+l*LANE_H+LANE_H/2, r:18, hp:hp, maxhp:hp, hit:false, anim:Math.random()*6, vx:0, vy:0, rot:0, vr:0, fallen:false});
+      }
+    }
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('balls').textContent=state.balls;
+    document.getElementById('level').textContent=state.level;
+  }
+
+  function launch(){
+    if(state.phase!=='aim'||state.balls<=0) return;
+    var speed=6+power*0.12;
+    // 瞄准方向：aimX 决定水平偏移
+    var dx=(aimX-W/2)/W;
+    ball={x:W/2, y:LAUNCH_Y, vx:dx*speed*1.2, vy:-speed, r:16, rot:0};
+    state.balls--;
+    state.phase='rolling';
+    SFX.place(); SFX.shoot();
+    updateHud();
+  }
+
+  function update(){
+    if(!state.running||state.over) return;
+    // 蓄力
+    if(charging){ power=Math.min(100, power+2.2); }
+    // 坚果滚动
+    if(ball){
+      ball.x+=ball.vx; ball.y+=ball.vy; ball.rot+=0.3;
+      // 轻微减速
+      ball.vy*=0.997; ball.vx*=0.997;
+      // 碰撞僵尸
+      for(var i=0;i<zombies.length;i++){
+        var z=zombies[i];
+        if(z.fallen) continue;
+        if(Math.hypot(z.x-ball.x, z.y-ball.y)<z.r+ball.r){
+          z.hp--; z.hit=true;
+          // 击退
+          z.vx+=ball.vx*0.5; z.vy+=ball.vy*0.5;
+          ball.vx*=0.85; ball.vy*=0.85;
+          spawnParticles(z.x,z.y,'#8bc34a',8);
+          SFX.hit();
+          if(z.hp<=0){ z.fallen=true; z.vr=(Math.random()-0.5)*0.4; z.vx+= (Math.random()-0.5)*3; z.vy-=2; state.score+=10; updateHud(); }
+        }
+      }
+      // 出界
+      if(ball.y<-30||ball.x<-30||ball.x>W+30||Math.abs(ball.vy)<0.5){
+        ball=null;
+        // 检查是否清完
+        var remain=zombies.filter(function(z){return !z.fallen;}).length;
+        if(remain===0){ nextLevel(); }
+        else if(state.balls<=0){ // 没球了还有僵尸
+          // 给一点延迟结算
+          state.phase='respawn'; setTimeout(function(){ if(zombies.filter(function(z){return !z.fallen;}).length>0){ gameOver(false); } },800);
+        } else {
+          state.phase='aim';
+        }
+      }
+    }
+    // 僵尸物理（被撞飞的）
+    zombies.forEach(function(z){
+      z.anim+=0.1;
+      if(z.fallen||z.vx||z.vy){
+        z.x+=z.vx; z.y+=z.vy; z.vy+=0.3; z.rot+=z.vr;
+        z.vx*=0.96;
+      }
+    });
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){ var pt=particles[p]; pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--; if(pt.life<=0)particles.splice(p,1); }
+  }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*4; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); } }
+
+  function nextLevel(){
+    state.level++; state.balls=Math.min(8,state.balls+2); // 通关奖励坚果
+    state.score+=50; // 关卡奖励
+    SFX.win(); toast('🎉 第 '+state.level+' 关！+2 坚果');
+    setTimeout(function(){ spawnLane(); state.phase='aim'; updateHud(); }, 600);
+  }
+
+  function gameOver(won){ state.over=true; state.won=!!won; state.running=false; AOXSound.stopBGM(); won?SFX.win():SFX.lose(); if(state.score>best){best=state.score;localStorage.setItem('bowlBest',best);document.getElementById('best').textContent=best;} }
+
+  function draw(){
+    // 背景
+    var g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#7ec0ee'); g.addColorStop(0.15,'#6cc04a');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 球道
+    for(var l=0;l<LANES;l++){
+      var y=LANE_TOP+l*LANE_H;
+      ctx.fillStyle=(l%2===0)?'#5fb53f':'#56a837';
+      ctx.fillRect(0,y,W,LANE_H);
+      ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,y,W,3);
+      ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(0,y+LANE_H-3,W,3);
+    }
+    // 边界
+    ctx.strokeStyle='#2e7d32'; ctx.lineWidth=3; ctx.strokeRect(1.5,LANE_TOP,W-3,LANES*LANE_H);
+    // 瞄准线
+    if(state.phase==='aim'&&!state.over){
+      ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2; ctx.setLineDash([6,6]);
+      ctx.beginPath(); ctx.moveTo(W/2,LAUNCH_Y); ctx.lineTo(aimX,LANE_TOP+20); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // 僵尸
+    zombies.forEach(drawZombie);
+    // 坚果
+    if(ball){ drawBall(ball); }
+    // 发射点
+    if(state.phase==='aim'){
+      ctx.fillStyle='rgba(139,90,43,0.6)'; ctx.beginPath(); ctx.arc(W/2,LAUNCH_Y,12,0,7); ctx.fill();
+      // 蓄力条
+      if(charging){
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(W/2-40,LAUNCH_Y+18,80,8);
+        var pc= power>80?'#e53935':(power>50?'#ffd700':'#4caf50');
+        ctx.fillStyle=pc; ctx.fillRect(W/2-40,LAUNCH_Y+18,80*(power/100),8);
+      }
+    }
+    // 粒子
+    particles.forEach(function(pt){ ctx.globalAlpha=pt.life/30; ctx.fillStyle=pt.color; ctx.fillRect(pt.x,pt.y,pt.size,pt.size); });
+    ctx.globalAlpha=1;
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.won){ ctx.fillStyle='#4caf50'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('胜利！',W/2,H/2-10); }
+      else if(state.over){ ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('坚果用完了',W/2,H/2-20); ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('得分 '+state.score+' · 第 '+state.level+' 关',W/2,H/2+15); }
+      else { ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('坚果保龄球',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 按住蓄力',W/2,H/2+25); }
+    }
+  }
+
+  function drawBall(b){
+    ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.rot);
+    // 坚果
+    ctx.fillStyle='#8b5a2b'; ctx.beginPath(); ctx.arc(0,0,b.r,0,7); ctx.fill();
+    ctx.fillStyle='#a0703b'; ctx.beginPath(); ctx.arc(-4,-4,b.r*0.5,0,7); ctx.fill();
+    ctx.fillStyle='#6b4220'; ctx.fillRect(-b.r,-2,b.r*2,2);
+    ctx.fillStyle='#fff'; ctx.fillRect(-5,-4,3,3); ctx.fillRect(2,-4,3,3);
+    ctx.fillStyle='#000'; ctx.fillRect(-4,-3,1,1); ctx.fillRect(3,-3,1,1);
+    ctx.restore();
+  }
+
+  function drawZombie(z){
+    ctx.save();
+    ctx.translate(z.x,z.y); ctx.rotate(z.rot);
+    var sc=z.maxhp>1?1.1:1; ctx.scale(sc,sc);
+    // 影子
+    if(!z.fallen){ ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0,16,14,5,0,0,7); ctx.fill(); }
+    var wob=Math.sin(z.anim)*1.5;
+    // 腿
+    ctx.fillStyle='#1565c0'; ctx.fillRect(-6,8+wob,5,10); ctx.fillRect(2,8-wob,5,10);
+    // 身体
+    ctx.fillStyle='#5a8f5a'; ctx.fillRect(-9,-6,18,16);
+    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(-9,-6,18,2);
+    // 头
+    ctx.fillStyle='#5a8f5a'; ctx.fillRect(-7,-18,14,12);
+    ctx.fillStyle='#2e7d32'; ctx.fillRect(-7,-18,14,2);
+    ctx.fillStyle='#fff'; ctx.fillRect(-4,-13,3,3); ctx.fillRect(2,-13,3,3);
+    ctx.fillStyle=z.hit?'#e53935':'#000'; ctx.fillRect(-3,-12,1,1); ctx.fillRect(3,-12,1,1);
+    ctx.fillStyle='#000'; ctx.fillRect(-3,-8,6,1);
+    // 路障（硬僵尸）
+    if(z.maxhp>1){ ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.moveTo(0,-28); ctx.lineTo(-7,-18); ctx.lineTo(7,-18); ctx.fill(); }
+    ctx.restore();
+    // 血条
+    if(!z.fallen && z.hp<z.maxhp){ ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(z.x-12,z.y-26,24,3); ctx.fillStyle='#e53935'; ctx.fillRect(z.x-12,z.y-26,24*(z.hp/z.maxhp),3); }
+  }
+
+  function getPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX);
+    var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY);
+    return {x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height)};
+  }
+  canvas.addEventListener('mousemove',function(e){ var p=getPos(e); if(state.phase==='aim'){ aimX=p.x; } });
+  canvas.addEventListener('mousedown',function(e){ if(state.phase==='aim'&&state.running&&!state.over){ charging=true; power=0; AOXSound.ensure(); } });
+  canvas.addEventListener('mouseup',function(e){ if(charging){ charging=false; launch(); } });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); var p=getPos(e); if(state.phase==='aim'&&state.running&&!state.over){ aimX=p.x; charging=true; power=0; AOXSound.ensure(); } },{passive:false});
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); var p=getPos(e); if(state.phase==='aim'){ aimX=p.x; } },{passive:false});
+  canvas.addEventListener('touchend',function(e){ e.preventDefault(); if(charging){ charging=false; launch(); } },{passive:false});
+
+  function start(){ init(); state.running=true; state.phase='aim'; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>
