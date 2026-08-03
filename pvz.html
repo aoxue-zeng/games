@@ -6,22 +6,29 @@
 <title>植物大战僵尸 · AoXuan</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  #gameCanvas { background:#5fb53f; cursor:pointer; touch-action:none; }
+  #gameStageWrap { max-width:100%; overflow-x:auto; }
+  #gameCanvas { background:#5fb53f; cursor:pointer; touch-action:none; display:block; max-width:100%; }
   .card-bar {
-    display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
-    margin:12px 0;
+    display:flex; gap:6px; justify-content:center; flex-wrap:wrap;
+    margin:12px auto; max-width:920px;
   }
   .plant-card {
-    width:74px; background:var(--mc-panel); border:3px solid var(--mc-black);
+    width:62px; background:var(--mc-panel); border:3px solid var(--mc-black);
     box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow), 3px 3px 0 0 rgba(0,0,0,0.3);
-    padding:6px 4px; text-align:center; cursor:pointer; user-select:none;
+    padding:5px 3px; text-align:center; cursor:pointer; user-select:none;
     position:relative; transition:transform 0.05s;
   }
   .plant-card:hover { transform:translate(-2px,-2px); }
   .plant-card.selected { border-color:var(--mc-gold); box-shadow: inset 2px 2px 0 0 var(--mc-highlight), 0 0 12px var(--mc-gold); }
   .plant-card.disabled { opacity:0.5; cursor:not-allowed; }
-  .plant-card .icon { font-size:30px; }
-  .plant-card .cost { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--mc-gold); text-shadow:1px 1px 0 #000; }
+  .plant-card.locked { opacity:0.4; cursor:not-allowed; filter:grayscale(0.7); }
+  .plant-card .icon { font-size:26px; line-height:26px; }
+  .plant-card .cost { font-family:'Press Start 2P',monospace; font-size:8px; color:var(--mc-gold); text-shadow:1px 1px 0 #000; margin-top:2px; }
+  .plant-card .lock-tag {
+    position:absolute; inset:0; background:rgba(0,0,0,0.55); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-family:'Press Start 2P',monospace; font-size:8px; text-align:center; line-height:1.4;
+  }
   .plant-card .cd-overlay {
     position:absolute; inset:0; background:rgba(0,0,0,0.6); pointer-events:none;
     display:flex; align-items:center; justify-content:center; color:#fff;
@@ -35,10 +42,10 @@
   }
   .sun-counter .sun-icon { font-size:20px; }
   .wave-bar {
-    width:280px; height:18px; background:var(--mc-night); border:2px solid #000;
+    width:300px; height:18px; background:var(--mc-night); border:2px solid #000;
     margin:8px auto 0; position:relative; overflow:hidden;
   }
-  .wave-fill { height:100%; background:linear-gradient(90deg,#4caf50,#e53935); transition:width 0.3s; }
+  .wave-fill { height:100%; background:linear-gradient(90deg,#4caf50,#ffd700,#e53935); transition:width 0.3s; }
   .wave-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Press Start 2P',monospace; font-size:8px; color:#fff; text-shadow:1px 1px 0 #000; }
   .shovel-btn {
     width:54px; height:54px; background:#8b5a2b; border:3px solid #000;
@@ -72,22 +79,22 @@
 
 <div class="container center">
   <h1 class="title-3d" style="font-size:32px;">🌻 植物大战僵尸</h1>
-  <p class="subtitle">种植物守卫家园，挡住僵尸大军！</p>
+  <p class="subtitle">种植物守卫家园，挡住 30 波僵尸大军！</p>
 
   <div style="margin-top:18px; display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap;">
-    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">400</span></div>
-    <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 波</div></div>
+    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">500</span></div>
+    <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 / 30 波</div></div>
     <div class="shovel-btn" id="shovelBtn" title="铲除植物">🪏</div>
   </div>
 
   <div class="card-bar" id="cardBar"></div>
 
-  <div class="game-stage" style="margin-top:6px;">
-    <canvas id="gameCanvas" width="720" height="400"></canvas>
+  <div id="gameStageWrap" class="game-stage" style="margin-top:6px;">
+    <canvas id="gameCanvas" width="900" height="500"></canvas>
   </div>
 
   <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
-    点击阳光收集 ☀️ · 选植物卡片再点草地种植 · 铲子可移除植物 · 挡住所有僵尸波次获胜
+    点击阳光收集 ☀️ · 选植物卡片再点草地种植 · 铲子可移除植物 · 挡住 30 波获胜
   </p>
 
   <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
@@ -107,56 +114,82 @@
   var ctx = canvas.getContext('2d');
   var W = canvas.width, H = canvas.height;
 
-  // 草坪 5 行 9 列
+  // 草坪 5 行 9 列，大格子
   var ROWS = 5, COLS = 9;
-  var CELL_W = 72, CELL_H = 72;
-  var LAWN_X = 24, LAWN_Y = 40;
+  var CELL_W = 88, CELL_H = 84;
+  var LAWN_X = 108, LAWN_Y = 40;
 
-  // ===== 植物定义 =====
+  // ===== 植物定义（19 种）=====
   var PLANTS = {
-    sunflower:   { name:'向日葵', icon:'🌻', cost:25,  hp:80,  cooldown:7,  recharge:4,
+    sunflower:   { name:'向日葵', icon:'🌻', cost:25,  hp:80,  recharge:4,  unlock:1,
       desc:'产阳光' },
-    peashooter:  { name:'豌豆射手', icon:'🌱', cost:50,  hp:100, cooldown:7,  recharge:4,
-      desc:'射豌豆', fireRate:90,  damage:25, shooter:true, bulletType:'pea' },
-    doublepea:   { name:'双发射手', icon:'🌿', cost:100, hp:100, cooldown:7,  recharge:5,
-      desc:'射双发', fireRate:90,  damage:25, shooter:true, bulletType:'pea', bulletCount:2 },
-    threepeater: { name:'三线射手', icon:'🎯', cost:150, hp:100, cooldown:7,  recharge:6,
-      desc:'三行齐射', fireRate:110, damage:25, shooter:true, bulletType:'pea', multiRow:true },
-    wallnut:     { name:'坚果墙', icon:'🥜', cost:25,  hp:500, cooldown:20, recharge:10,
-      desc:'高血量阻挡' },
-    iceshooter:  { name:'寒冰射手', icon:'❄️', cost:75,  hp:100, cooldown:7,  recharge:5,
-      desc:'减速僵尸', fireRate:90,  damage:25, shooter:true, bulletType:'ice' },
-    firepea:     { name:'火爆射手', icon:'🔥', cost:75,  hp:100, cooldown:7,  recharge:5,
-      desc:'火焰溅射', fireRate:90,  damage:30, shooter:true, bulletType:'fire', splash:50 },
-    potato:      { name:'土豆地雷', icon:'🥔', cost:15,  hp:60,  cooldown:15, recharge:8,
+    peashooter:  { name:'豌豆射手', icon:'🌱', cost:50,  hp:100, recharge:4,  unlock:1,
+      desc:'射豌豆', fireRate:85,  damage:25, shooter:true, bulletType:'pea' },
+    wallnut:     { name:'坚果墙', icon:'🥜', cost:25,  hp:500, recharge:10, unlock:1,
+      desc:'高血量阻挡', wall:true },
+    potato:      { name:'土豆地雷', icon:'🥔', cost:15,  hp:60,  recharge:8,  unlock:2,
       desc:'埋伏爆炸', potato:true },
-    chomper:     { name:'大嘴花', icon:'🦷', cost:75,  hp:100, cooldown:8,  recharge:6,
-      desc:'吞食僵尸', chomper:true },
-    squash:      { name:'窝瓜', icon:'🥒', cost:25,  hp:1,   cooldown:20, recharge:10,
+    snowpea:     { name:'寒冰射手', icon:'❄️', cost:75,  hp:100, recharge:5,  unlock:3,
+      desc:'减速僵尸', fireRate:85,  damage:25, shooter:true, bulletType:'ice' },
+    cherry:      { name:'樱桃炸弹', icon:'🍒', cost:75,  hp:1,   recharge:20, unlock:4,
+      desc:'3x3范围爆炸', bomb:true },
+    squash:      { name:'窝瓜', icon:'🥒', cost:25,  hp:1,   recharge:10, unlock:5,
       desc:'压扁僵尸', squash:true },
-    cherry:      { name:'樱桃炸弹', icon:'🍒', cost:75,  hp:1,   cooldown:30, recharge:20,
-      desc:'范围爆炸', bomb:true }
+    chomper:     { name:'大嘴花', icon:'🦷', cost:75,  hp:100, recharge:6,  unlock:6,
+      desc:'吞食僵尸', chomper:true },
+    doublepea:   { name:'双发射手', icon:'🌿', cost:100, hp:100, recharge:5,  unlock:7,
+      desc:'射双发', fireRate:85,  damage:25, shooter:true, bulletType:'pea', bulletCount:2 },
+    torchwood:   { name:'火炬树桩', icon:'🪵', cost:100, hp:200, recharge:8,  unlock:8,
+      desc:'豌豆变火球', torchwall:true },
+    tallnut:     { name:'高坚果', icon:'🌰', cost:50,  hp:800, recharge:12, unlock:9,
+      desc:'超级肉盾', wall:true, tall:true },
+    spikeweed:   { name:'地刺', icon:'🌵', cost:50,  hp:1,   recharge:6,  unlock:10,
+      desc:'扎脚减速', spike:true },
+    iceshooter:  { name:'冰豌豆', icon:'🧊', cost:100, hp:100, recharge:5,  unlock:11,
+      desc:'冰冻减速', fireRate:85,  damage:25, shooter:true, bulletType:'ice' },
+    jalapeno:    { name:'辣椒炸弹', icon:'🌶️', cost:125, hp:1,   recharge:25, unlock:12,
+      desc:'清整行僵尸', jalapeno:true },
+    cabbage:     { name:'卷心菜投手', icon:'🥬', cost:100, hp:100, recharge:5,  unlock:13,
+      desc:'抛射越盾', fireRate:100, damage:35, shooter:true, bulletType:'cabbage', lob:true },
+    cactus:      { name:'仙人掌', icon:'🌵', cost:125, hp:100, recharge:5,  unlock:15,
+      desc:'打地面+气球', fireRate:85, damage:25, shooter:true, bulletType:'spike', antiAir:true },
+    garlic:      { name:'大蒜', icon:'🧄', cost:50,  hp:200, recharge:8,  unlock:17,
+      desc:'让僵尸换行', garlic:true },
+    firepea:     { name:'火爆射手', icon:'🔥', cost:75,  hp:100, recharge:5,  unlock:18,
+      desc:'火焰溅射', fireRate:85,  damage:30, shooter:true, bulletType:'fire', splash:50 },
+    gatling:     { name:'机枪豌豆', icon:'🔫', cost:200, hp:100, recharge:8,  unlock:20,
+      desc:'四连发', fireRate:85,  damage:25, shooter:true, bulletType:'pea', bulletCount:4 },
+    threepeater: { name:'三线射手', icon:'🎯', cost:150, hp:100, recharge:6,  unlock:22,
+      desc:'三行齐射', fireRate:105, damage:25, shooter:true, bulletType:'pea', multiRow:true }
   };
-  var CARD_ORDER = ['sunflower','peashooter','doublepea','threepeater','wallnut','iceshooter','firepea','potato','chomper','squash','cherry'];
+  var CARD_ORDER = ['sunflower','peashooter','wallnut','potato','snowpea','cherry','squash','chomper',
+    'doublepea','torchwood','tallnut','spikeweed','iceshooter','jalapeno','cabbage','cactus',
+    'garlic','firepea','gatling','threepeater'];
 
-  // ===== 僵尸定义 =====
+  // ===== 僵尸定义（8 种）=====
   var ZOMBIES = {
-    normal: { hp:60,  speed:0.32, dmg:6, color:'#4a8b6b' },
-    cone:   { hp:120, speed:0.32, dmg:6, color:'#4a8b6b', cone:true },
-    bucket: { hp:220, speed:0.30, dmg:6, color:'#4a8b6b', bucket:true },
-    fast:   { hp:70,  speed:0.55, dmg:6, color:'#6b4a8b', fast:true }
+    normal:    { name:'普通僵尸', hp:60,  speed:0.30, dmg:6,  color:'#5a8f5a' },
+    cone:      { name:'路障僵尸', hp:60,  speed:0.30, dmg:6,  color:'#5a8f5a', armor:{hp:70,  type:'cone'} },
+    bucket:    { name:'铁桶僵尸', hp:60,  speed:0.28, dmg:6,  color:'#5a8f5a', armor:{hp:200, type:'bucket'} },
+    imp:       { name:'小鬼僵尸', hp:40,  speed:0.65, dmg:5,  color:'#7a5a8f', small:true },
+    gargantuar:{ name:'巨人僵尸', hp:800, speed:0.22, dmg:40, color:'#3a6b4a', huge:true, crush:true },
+    football:  { name:'橄榄球僵尸', hp:60, speed:0.50, dmg:7, color:'#5a8f5a', armor:{hp:180, type:'football'} },
+    balloon:   { name:'气球僵尸', hp:60,  speed:0.35, dmg:6,  color:'#5a8f5a', flying:true },
+    newspaper: { name:'读报僵尸', hp:60,  speed:0.25, dmg:6,  color:'#5a8f5a', armor:{hp:30, type:'news'}, rageSpeed:0.70 }
   };
 
   var state, grid, plants, zombies, bullets, suns, particles, selectedCard, shovelMode, mouse;
 
   function init(){
-    state = { running:false, over:false, won:false, sun:400, wave:0, totalWaves:6,
-              waveTimer:0, waveProgress:0, zombiesInWave:0, zombiesSpawned:0,
-              spawnTick:0, sunDropTick:0, flagWave:false, msg:'' };
-    grid = []; // [row][col] = plant对象或null
+    state = { running:false, over:false, won:false, sun:500, wave:0, totalWaves:30,
+              waveProgress:0, zombiesInWave:0, zombiesSpawned:0,
+              spawnTick:0, sunDropTick:0, flagWave:false, msg:'', waveActive:false,
+              betweenTimer:0 };
+    grid = [];
     for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
     plants=[]; zombies=[]; bullets=[]; suns=[]; particles=[];
     selectedCard=null; shovelMode=false; mouse={x:0,y:0};
+    CARD_ORDER.forEach(function(k){ PLANTS[k]._cd=0; });
     buildCards(); updateHud();
   }
 
@@ -176,8 +209,8 @@
     if(!state.running||state.over) return;
     AOXSound.ensure();
     var p = PLANTS[key];
+    if(state.wave+1 < p.unlock){ SFX.error(); toast(p.name+' 第 '+p.unlock+' 波解锁'); return; }
     if(state.sun < p.cost){ SFX.error(); toast('阳光不够！'); return; }
-    // 冷却检查
     if(p._cd && p._cd>0){ SFX.error(); toast(p.name+' 冷却中'); return; }
     SFX.select();
     selectedCard = key; shovelMode=false;
@@ -187,10 +220,18 @@
 
   function updateCardUI(){
     document.querySelectorAll('.plant-card').forEach(function(c){
-      c.classList.toggle('selected', c.dataset.key===selectedCard);
-      var p = PLANTS[c.dataset.key];
-      var disabled = state.sun < p.cost || (p._cd && p._cd>0);
-      c.classList.toggle('disabled', disabled);
+      var key=c.dataset.key; var p=PLANTS[key];
+      var unlocked = state.wave+1 >= p.unlock;
+      var disabled = !unlocked || state.sun < p.cost || (p._cd && p._cd>0);
+      c.classList.toggle('locked', !unlocked);
+      c.classList.toggle('disabled', unlocked && (state.sun < p.cost || (p._cd && p._cd>0)));
+      c.classList.toggle('selected', key===selectedCard);
+      // 锁定标签
+      var lock=c.querySelector('.lock-tag');
+      if(!unlocked){
+        if(!lock){ lock=document.createElement('div'); lock.className='lock-tag'; c.appendChild(lock); }
+        lock.innerHTML='🔒'+p.unlock+'波';
+      } else if(lock){ lock.remove(); }
       // 冷却遮罩
       var ov = c.querySelector('.cd-overlay');
       if(p._cd && p._cd>0){
@@ -202,14 +243,13 @@
 
   function updateHud(){
     document.getElementById('sunCount').textContent = state.sun;
-    var pct = Math.min(100, state.waveProgress);
-    document.getElementById('waveFill').style.width = pct+'%';
+    document.getElementById('waveFill').style.width = Math.min(100, state.waveProgress)+'%';
     document.getElementById('waveLabel').textContent = '第 '+(state.wave+1)+' / '+state.totalWaves+' 波';
   }
 
   // ===== 阳光 =====
   function spawnSun(x, y, fromSky){
-    suns.push({ x:x, y:fromSky?-20:y, tx:x, ty:fromSky? (LAWN_Y+Math.random()*(H-LAWN_Y-40)) :y, val:50, life:720, collected:false, bob:Math.random()*6, fromSky:fromSky, vy:0 });
+    suns.push({ x:x, y:fromSky?-20:y, tx:x, ty:fromSky? (LAWN_Y+Math.random()*(H-LAWN_Y-40)) :y, val:50, life:720, collected:false, bob:Math.random()*6, fromSky:fromSky });
   }
   function collectSun(s){
     if(s.collected) return;
@@ -227,8 +267,9 @@
   function plantAt(r, c, key){
     var p = PLANTS[key];
     var plant = { key:key, r:r, c:c, x:LAWN_X+c*CELL_W+CELL_W/2, y:LAWN_Y+r*CELL_H+CELL_H/2,
-      hp:p.hp, maxhp:p.hp, fireTick:0, anim:Math.random()*6, bomb:p.bomb, bombTick:p.bomb?-1:0,
-      potato:p.potato, armingTick:p.potato?360:0, armed:false,
+      hp:p.hp, maxhp:p.hp, fireTick:Math.floor(Math.random()*30), anim:Math.random()*6,
+      bomb:p.bomb, bombTick:p.bomb?-1:0,
+      potato:p.potato, armingTick:p.potato?300:0, armed:false,
       chomper:p.chomper, chewing:0,
       squash:p.squash, squashTarget:null };
     grid[r][c]=plant; plants.push(plant);
@@ -237,14 +278,39 @@
     updateHud(); updateCardUI();
   }
 
-  // ===== 波次 =====
+  // ===== 波次（30 波）=====
+  // 每波：类型池 + 数量 + 旗波标记；血量倍率由 waveHpMult 计算
+  function waveHpMult(wave){ return 1 + wave*0.045; } // 第0波1.0，第29波约2.3
   var WAVE_PLAN = [
-    {count:4, types:['normal']},
-    {count:6, types:['normal','normal','cone']},
-    {count:8, types:['normal','cone','fast']},
-    {count:10, types:['normal','cone','cone','fast']},
-    {count:10, types:['normal','cone','bucket','fast'], flag:true},
-    {count:14, types:['normal','cone','bucket','bucket','fast','fast'], flag:true, final:true}
+    {count:4,  types:['normal']},
+    {count:5,  types:['normal','normal','cone']},
+    {count:6,  types:['normal','cone']},
+    {count:7,  types:['normal','cone','cone']},
+    {count:8,  types:['normal','cone','cone'], flag:true},
+    {count:9,  types:['normal','cone','bucket']},
+    {count:10, types:['cone','bucket','imp']},
+    {count:11, types:['normal','bucket','imp','cone']},
+    {count:12, types:['bucket','imp','football']},
+    {count:13, types:['cone','bucket','football','imp'], flag:true},
+    {count:14, types:['bucket','football','imp','newspaper']},
+    {count:15, types:['football','bucket','newspaper','balloon']},
+    {count:15, types:['bucket','football','newspaper','imp','balloon']},
+    {count:16, types:['football','bucket','balloon','newspaper']},
+    {count:17, types:['bucket','football','newspaper','balloon'], flag:true},
+    {count:18, types:['bucket','football','gargantuar','imp']},
+    {count:18, types:['football','gargantuar','imp','balloon']},
+    {count:19, types:['bucket','gargantuar','football','newspaper']},
+    {count:20, types:['gargantuar','football','bucket','imp','balloon']},
+    {count:21, types:['gargantuar','bucket','football','newspaper'], flag:true},
+    {count:22, types:['gargantuar','gargantuar','football','imp','balloon']},
+    {count:23, types:['bucket','football','gargantuar','newspaper','balloon']},
+    {count:24, types:['gargantuar','football','bucket','imp','balloon','newspaper']},
+    {count:25, types:['gargantuar','gargantuar','football','bucket','balloon']},
+    {count:26, types:['gargantuar','gargantuar','football','football','imp','balloon'], flag:true},
+    {count:27, types:['gargantuar','football','bucket','newspaper','balloon','imp']},
+    {count:28, types:['gargantuar','gargantuar','football','bucket','imp','balloon']},
+    {count:29, types:['gargantuar','gargantuar','football','football','bucket','newspaper']},
+    {count:32, types:['gargantuar','gargantuar','gargantuar','football','bucket','imp','balloon','newspaper'], flag:true, final:true}
   ];
 
   function startWave(){
@@ -253,7 +319,13 @@
     state.zombiesInWave = plan.count;
     state.zombiesSpawned = 0;
     state.flagWave = !!plan.flag;
-    if(plan.flag){ SFX.roar(); toast('⚠ 大波僵尸来袭！'); }
+    state.waveActive = true;
+    // 解锁通知
+    CARD_ORDER.forEach(function(k){
+      var p=PLANTS[k];
+      if(p.unlock===state.wave+1){ SFX.unlock(); toast('🔓 解锁 '+p.name+'！'); }
+    });
+    if(plan.flag){ SFX.roar(); toast('⚠ 第 '+(state.wave+1)+' 波 · 大波僵尸来袭！'); }
     else toast('第 '+(state.wave+1)+' 波开始！');
   }
 
@@ -261,21 +333,40 @@
     var plan = WAVE_PLAN[state.wave];
     var t = plan.types[Math.floor(Math.random()*plan.types.length)];
     var z = ZOMBIES[t];
+    var mult = waveHpMult(state.wave);
     var r = Math.floor(Math.random()*ROWS);
+    var armorHp = z.armor ? Math.round(z.armor.hp*mult) : 0;
     zombies.push({
       type:t, r:r, x:W+20, y:LAWN_Y+r*CELL_H+CELL_H/2,
-      hp:z.hp, maxhp:z.hp, speed:z.speed, dmg:z.dmg,
-      slow:0, eating:false, anim:Math.random()*6, color:z.color,
-      cone:z.cone, bucket:z.bucket, fast:z.fast
+      hp:Math.round(z.hp*mult), maxhp:Math.round(z.hp*mult),
+      speed:z.speed, dmg:z.dmg, color:z.color,
+      slow:0, eating:false, anim:Math.random()*6, anim2:Math.random()*6,
+      armorType:z.armor?z.armor.type:null, armorHp:armorHp, armorMax:armorHp,
+      flying:!!z.flying, small:!!z.small, huge:!!z.huge, crush:!!z.crush,
+      rageSpeed:z.rageSpeed||0, enraged:false, thrownImp:!!z.huge, baseSpeed:z.speed
     });
     state.zombiesSpawned++;
+  }
+
+  // 巨人扔小鬼
+  function gargantuarThrow(zm){
+    if(zm.thrownImp) return;
+    zm.thrownImp=true;
+    zombies.push({
+      type:'imp', r:zm.r, x:zm.x-120, y:LAWN_Y+zm.r*CELL_H+CELL_H/2,
+      hp:ZOMBIES.imp.hp, maxhp:ZOMBIES.imp.hp, speed:ZOMBIES.imp.speed, dmg:ZOMBIES.imp.dmg,
+      color:ZOMBIES.imp.color, slow:0, eating:false, anim:0, anim2:0,
+      flying:false, small:true, huge:false, crush:false, rageSpeed:0, enraged:false, thrownImp:true, baseSpeed:ZOMBIES.imp.speed
+    });
+    spawnParticles(zm.x-60, zm.y, '#7a5a8f', 10);
+    SFX.shoot();
   }
 
   // ===== 更新 =====
   function update(){
     if(!state.running||state.over) return;
 
-    // 阳光冷却递减
+    // 冷却递减
     CARD_ORDER.forEach(function(k){ var p=PLANTS[k]; if(p._cd && p._cd>0){ p._cd-=1/60; if(p._cd<0)p._cd=0; } });
 
     // 天降阳光
@@ -283,20 +374,25 @@
     if(state.sunDropTick>=400){ state.sunDropTick=0; spawnSun(LAWN_X+Math.random()*(COLS*CELL_W), 0, true); }
 
     // 波次推进
-    if(state.zombiesSpawned < state.zombiesInWave){
-      state.spawnTick++;
-      var interval = state.flagWave?70:110;
-      if(state.spawnTick>=interval){ state.spawnTick=0; spawnZombie(); }
-    } else if(zombies.length===0){
-      // 本波清空，下一波
-      state.wave++;
-      state.waveProgress = state.wave/state.totalWaves*100;
-      updateHud();
-      if(state.wave>=state.totalWaves){ winGame(); return; }
-      setTimeout(startWave, 2000);
-      state.zombiesSpawned = -999; // 防止重复触发
+    if(!state.waveActive){
+      state.betweenTimer--;
+      if(state.betweenTimer<=0){ startWave(); }
+    } else {
+      if(state.zombiesSpawned < state.zombiesInWave){
+        state.spawnTick++;
+        var interval = state.flagWave ? Math.max(40,90-state.wave*2) : Math.max(55,120-state.wave*2);
+        if(state.spawnTick>=interval){ state.spawnTick=0; spawnZombie(); }
+      } else if(zombies.length===0){
+        // 本波清空
+        state.waveActive=false;
+        state.wave++;
+        state.waveProgress = state.wave/state.totalWaves*100;
+        updateHud(); updateCardUI();
+        if(state.wave>=state.totalWaves){ winGame(); return; }
+        state.betweenTimer = 180; // 3 秒间隔
+      }
     }
-    state.waveProgress = Math.min(100, (state.wave + (state.zombiesSpawned/Math.max(1,state.zombiesInWave)))/state.totalWaves*100);
+    state.waveProgress = Math.min(100, (state.wave + (state.waveActive?(state.zombiesSpawned/Math.max(1,state.zombiesInWave)):0))/state.totalWaves*100);
     updateHud();
 
     // 植物
@@ -309,13 +405,13 @@
         if(pl.fireTick>=450){ pl.fireTick=0; spawnSun(pl.x, pl.y-10, false); SFX.bubble(); }
       } else if(def.shooter){
         pl.fireTick++;
-        // 检查同行有僵尸才射击
         var hasZ=false;
         if(def.multiRow){
-          // 三线：检查相邻三行
           for(var zi=0;zi<zombies.length;zi++){ if(Math.abs(zombies[zi].r-pl.r)<=1 && zombies[zi].x>pl.x){ hasZ=true; break; } }
-        } else {
+        } else if(def.antiAir){
           for(var zi=0;zi<zombies.length;zi++){ if(zombies[zi].r===pl.r && zombies[zi].x>pl.x){ hasZ=true; break; } }
+        } else {
+          for(var zi=0;zi<zombies.length;zi++){ if(zombies[zi].r===pl.r && !zombies[zi].flying && zombies[zi].x>pl.x){ hasZ=true; break; } }
         }
         if(hasZ && pl.fireTick>=def.fireRate){
           pl.fireTick=0;
@@ -324,9 +420,10 @@
             if(rows[ri]<0||rows[ri]>=ROWS) continue;
             var count = def.bulletCount||1;
             for(var bi=0;bi<count;bi++){
-              bullets.push({ x:pl.x+18, y:pl.y-4+(def.multiRow?(rows[ri]-pl.r)*4:0)+(count>1?bi*8-4:0), vx:6, r:rows[ri],
-                dmg:def.damage, slow:pl.key==='iceshooter', splash:def.splash||0,
-                type:def.bulletType, fromX:pl.x });
+              bullets.push({ x:pl.x+20, y:pl.y-6+(def.multiRow?(rows[ri]-pl.r)*6:0)+(count>1?(bi-(count-1)/2)*10:0),
+                vx:6.5, r:rows[ri], dmg:def.damage, slow:pl.key==='snowpea'||pl.key==='iceshooter',
+                splash:def.splash||0, type:def.bulletType, lob:!!def.lob, antiAir:!!def.antiAir,
+                fromX:pl.x, vy:def.lob?-3:0, t:0, targetR:rows[ri] });
             }
           }
           SFX.shoot();
@@ -334,66 +431,66 @@
       } else if(pl.key==='cherry'){
         pl.bombTick++;
         if(pl.bombTick>=60){
-          // 爆炸：3x3 范围
-          SFX.boom();
-          spawnParticles(pl.x, pl.y, '#e53935', 30);
+          SFX.boom(); spawnParticles(pl.x, pl.y, '#e53935', 30);
           for(var z2=zombies.length-1;z2>=0;z2--){
             var zz=zombies[z2];
             if(Math.abs(zz.x-pl.x)<CELL_W*1.5 && Math.abs(zz.y-pl.y)<CELL_H*1.5){
-              zz.hp -= 300; spawnParticles(zz.x, zz.y, '#e53935', 10);
+              damageZombie(zz, 600); spawnParticles(zz.x, zz.y, '#e53935', 10);
             }
           }
-          grid[pl.r][pl.c]=null; plants.splice(i,1);
-          continue;
+          grid[pl.r][pl.c]=null; plants.splice(i,1); continue;
+        }
+      } else if(def.jalapeno){
+        // 辣椒：种下即爆，清整行
+        pl.bombTick++;
+        if(pl.bombTick>=30){
+          SFX.boom(); SFX.roar();
+          // 火焰横扫整行
+          for(var fx=0;fx<W;fx+=20){ spawnParticles(fx, pl.y, '#ff5722', 2); }
+          for(var zj=zombies.length-1;zj>=0;zj--){
+            var zjj=zombies[zj];
+            if(zjj.r===pl.r && !zjj.flying){ damageZombie(zjj, 900); spawnParticles(zjj.x, zjj.y, '#ff5722', 12); }
+          }
+          grid[pl.r][pl.c]=null; plants.splice(i,1); continue;
         }
       } else if(pl.potato){
-        // 土豆地雷：装填后触发
         if(!pl.armed){
           pl.armingTick--;
           if(pl.armingTick<=0){ pl.armed=true; }
         } else {
-          // 检查踩到
           for(var zp=zombies.length-1;zp>=0;zp--){
             var zb=zombies[zp];
-            if(zb.r===pl.r && Math.abs(zb.x-pl.x)<24){
-              // 引爆
-              SFX.boom();
-              spawnParticles(pl.x, pl.y, '#ff5722', 26);
+            if(zb.r===pl.r && !zb.flying && Math.abs(zb.x-pl.x)<26){
+              SFX.boom(); spawnParticles(pl.x, pl.y, '#ff5722', 26);
               for(var z2b=zombies.length-1;z2b>=0;z2b--){
                 var zzb=zombies[z2b];
-                if(zzb.r===pl.r && Math.abs(zzb.x-pl.x)<CELL_W*0.9){
-                  zzb.hp -= 250; spawnParticles(zzb.x, zzb.y, '#ff5722', 8);
+                if(zzb.r===pl.r && !zzb.flying && Math.abs(zzb.x-pl.x)<CELL_W*0.9){
+                  damageZombie(zzb, 450); spawnParticles(zzb.x, zzb.y, '#ff5722', 8);
                 }
               }
-              grid[pl.r][pl.c]=null; plants.splice(i,1);
-              break;
+              grid[pl.r][pl.c]=null; plants.splice(i,1); break;
             }
           }
         }
       } else if(pl.chomper){
-        // 大嘴花：吞食前方的僵尸，吞完咀嚼
         if(pl.chewing>0){ pl.chewing--; }
         else {
           for(var zc=zombies.length-1;zc>=0;zc--){
             var zcc=zombies[zc];
-            if(zcc.r===pl.r && zcc.x>pl.x-12 && zcc.x<pl.x+44){
-              // 吞噬（非铁桶直接秒，铁桶造成重创）
-              SFX.chomp ? SFX.chomp() : SFX.hit();
-              spawnParticles(zcc.x, zcc.y, '#8bc34a', 18);
-              if(zcc.bucket && zcc.hp>200){ zcc.hp -= 200; }
-              else { zcc.hp = 0; }
-              pl.chewing = 720; // 12 秒咀嚼
-              break;
+            if(zcc.r===pl.r && !zcc.flying && zcc.x>pl.x-12 && zcc.x<pl.x+50){
+              SFX.hit(); spawnParticles(zcc.x, zcc.y, '#8bc34a', 18);
+              if(zcc.huge){ damageZombie(zcc, 300); }
+              else { damageZombie(zcc, 9999); }
+              pl.chewing = 600; break;
             }
           }
         }
       } else if(pl.squash){
-        // 窝瓜：发现同行/邻近僵尸就跳起压扁
-        if(!pl.squashTarget){
+        if(!pl.squashTarget || pl.squashTarget.hp<=0){
           var nearest=null, nd=Infinity;
-          for(var zs=zombies.length-1;zs>=0;zs--){
+          for(var zs=0;zs<zombies.length;zs++){
             var zss=zombies[zs];
-            if(Math.abs(zss.r-pl.r)<=0 && zss.x>pl.x-30 && zss.x<pl.x+200){
+            if(zss.r===pl.r && !zss.flying && zss.x>pl.x-30 && zss.x<pl.x+220){
               var d=Math.abs(zss.x-pl.x);
               if(d<nd){ nd=d; nearest=zss; }
             }
@@ -401,17 +498,38 @@
           pl.squashTarget = nearest;
         }
         if(pl.squashTarget){
-          pl.squashTarget.squashed = true;
-          // 落点伤害
           for(var zsq=zombies.length-1;zsq>=0;zsq--){
             var zsqq=zombies[zsq];
-            if(zsqq.r===pl.r && Math.abs(zsqq.x-pl.squashTarget.x)<36){
-              zsqq.hp -= 300; spawnParticles(zsqq.x, zsqq.y, '#8bc34a', 10);
+            if(zsqq.r===pl.r && !zsqq.flying && Math.abs(zsqq.x-pl.squashTarget.x)<40){
+              damageZombie(zsqq, 600); spawnParticles(zsqq.x, zsqq.y, '#8bc34a', 10);
             }
           }
           SFX.hit();
-          grid[pl.r][pl.c]=null; plants.splice(i,1);
-          continue;
+          grid[pl.r][pl.c]=null; plants.splice(i,1); continue;
+        }
+      } else if(def.spike){
+        // 地刺：踩到的僵尸掉血+减速，自身会被巨人碾压
+        pl.fireTick++;
+        for(var zsp=0;zsp<zombies.length;zsp++){
+          var zspz=zombies[zsp];
+          if(!zspz.flying && zspz.r===pl.r && Math.abs(zspz.x-pl.x)<30){
+            if(pl.fireTick%30===0){ damageZombie(zspz, 15); spawnParticles(zspz.x, zspz.y+10, '#888', 4); }
+            zspz.slow = Math.max(zspz.slow, 60);
+          }
+        }
+      } else if(def.torchwall){
+        // 火炬：被动，子弹穿过变火球（在子弹更新中处理）
+      } else if(def.garlic){
+        // 大蒜：让吃它的僵尸换行
+        for(var zg=0;zg<zombies.length;zg++){
+          var zgz=zombies[zg];
+          if(!zgz.flying && zgz.r===pl.r && Math.abs(zgz.x-pl.x)<30 && zgz.eating){
+            // 换到相邻行
+            var newR = zgz.r + (Math.random()<0.5?-1:1);
+            if(newR<0) newR=1; if(newR>=ROWS) newR=ROWS-2;
+            zgz.r=newR; zgz.y=LAWN_Y+newR*CELL_H+CELL_H/2;
+            spawnParticles(zgz.x, zgz.y, '#cddc39', 6);
+          }
         }
       }
       if(pl.hp<=0){ grid[pl.r][pl.c]=null; plants.splice(i,1); SFX.hurt(); }
@@ -420,44 +538,76 @@
     // 子弹
     for(var b=bullets.length-1;b>=0;b--){
       var bu=bullets[b];
-      bu.x += bu.vx;
+      // 抛射运动
+      if(bu.lob){
+        bu.t++; bu.x+=bu.vx; bu.vy+=0.18; bu.y+=bu.vy;
+      } else {
+        bu.x += bu.vx;
+      }
+      // 火炬变火球
+      if(bu.type==='pea'){
+        for(var tw=0;tw<plants.length;tw++){
+          var tp=plants[tw];
+          if(tp.key==='torchwood' && tp.r===bu.r && Math.abs(tp.x-bu.x)<24){
+            bu.type='fire'; bu.dmg*=2; bu.splash=40; spawnParticles(bu.x, bu.y, '#ff5722', 6);
+            break;
+          }
+        }
+      }
       // 命中僵尸
+      var hit=false;
       for(var zb=zombies.length-1;zb>=0;zb--){
         var zbu=zombies[zb];
-        if(zbu.r===bu.r && Math.abs(zbu.x-bu.x)<22 && zbu.hp>0){
-          zbu.hp -= bu.dmg;
+        if(zbu.hp<=0) continue;
+        var canHit = bu.antiAir ? (zbu.r===bu.r) : (zbu.r===bu.r && !zbu.flying);
+        if(bu.lob) canHit = (zbu.r===bu.targetR && !zbu.flying); // 投手越盾打地面
+        if(canHit && Math.abs(zbu.x-bu.x)<24 && Math.abs(zbu.y-bu.y)<30){
+          damageZombie(zbu, bu.dmg);
           if(bu.slow) zbu.slow=300;
-          spawnParticles(bu.x, bu.y, bu.type==='ice'?'#4dd0e1':(bu.type==='fire'?'#ff5722':'#9c27b0'), 4);
-          // 火焰溅射：周围同行僵尸受伤
+          spawnParticles(bu.x, bu.y, bu.type==='ice'?'#4dd0e1':(bu.type==='fire'?'#ff5722':(bu.type==='cabbage'?'#8bc34a':'#9c27b0')), 4);
           if(bu.splash>0){
             for(var zs2=0;zs2<zombies.length;zs2++){
               var zsp=zombies[zs2];
-              if(zsp!==zbu && zsp.r===bu.r && Math.abs(zsp.x-zbu.x)<44){
-                zsp.hp -= bu.splash;
-                spawnParticles(zsp.x, zsp.y, '#ff9800', 6);
+              if(zsp!==zbu && zsp.r===bu.r && !zsp.flying && Math.abs(zsp.x-zbu.x)<48){
+                damageZombie(zsp, bu.splash); spawnParticles(zsp.x, zsp.y, '#ff9800', 6);
               }
             }
             spawnParticles(bu.x, bu.y, '#ff5722', 12);
           }
-          bullets.splice(b,1);
-          SFX.hit();
-          break;
+          hit=true; SFX.hit(); break;
         }
       }
-      if(bu.x>W+20) bullets.splice(b,1);
+      if(hit){ bullets.splice(b,1); continue; }
+      if(bu.x>W+20 || bu.y>H+20) bullets.splice(b,1);
     }
 
     // 僵尸
     for(var z=zombies.length-1;z>=0;z--){
       var zm=zombies[z];
-      zm.anim += 0.1;
+      zm.anim += zm.small?0.18:(zm.huge?0.06:0.1);
+      zm.anim2 += 0.05;
       if(zm.slow>0) zm.slow--;
+      // 巨人半血扔小鬼
+      if(zm.huge && zm.thrownImp && zm.hp < zm.maxhp*0.5){ gargantuarThrow(zm); }
+      // 读报狂暴：护甲被打掉
+      if(zm.armorType==='news' && zm.armorHp<=0 && !zm.enraged){ zm.enraged=true; zm.speed=zm.rageSpeed; SFX.roar(); spawnParticles(zm.x, zm.y, '#e53935', 10); }
+      // 飞行僵尸只被仙人掌/投手攻击，直接前进
+      if(zm.flying){
+        zm.x -= zm.speed * (zm.slow>0?0.5:1);
+        if(zm.x < LAWN_X-10){ loseGame(); return; }
+        if(zm.hp<=0){ spawnParticles(zm.x, zm.y, zm.color, 14); SFX.hit(); zombies.splice(z,1); }
+        continue;
+      }
       // 撞植物？
       var eatPlant=null;
       if(grid[zm.r]){
         for(var cc=COLS-1;cc>=0;cc--){
           var gp=grid[zm.r][cc];
-          if(gp && Math.abs(gp.x-zm.x)<30){ eatPlant=gp; break; }
+          if(gp && Math.abs(gp.x-zm.x)<30){
+            // 巨人碾压：直接毁掉植物继续走
+            if(zm.crush){ gp.hp=0; SFX.hurt(); spawnParticles(gp.x, gp.y, '#8bc34a', 14); }
+            else { eatPlant=gp; break; }
+          }
         }
       }
       if(eatPlant){
@@ -467,7 +617,6 @@
         zm.eating=false;
         zm.x -= zm.speed * (zm.slow>0?0.5:1);
       }
-      // 到家
       if(zm.x < LAWN_X-10){ loseGame(); return; }
       if(zm.hp<=0){
         spawnParticles(zm.x, zm.y, zm.color, 14); SFX.hit();
@@ -495,177 +644,325 @@
     updateCardUI();
   }
 
+  // 统一伤害：先扣护甲再扣本体
+  function damageZombie(zm, dmg){
+    if(zm.armorHp && zm.armorHp>0){
+      zm.armorHp -= dmg;
+      if(zm.armorHp<0){ zm.hp += zm.armorHp; zm.armorHp=0; }
+    } else {
+      zm.hp -= dmg;
+    }
+  }
+
   function spawnParticles(x,y,color,n){
     for(var i=0;i<n;i++){ var a=Math.random()*Math.PI*2, s=1+Math.random()*4;
       particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); }
   }
 
-  function winGame(){ state.won=true; state.over=true; state.running=false; AOXSound.stopBGM(); SFX.win(); toast('🎉 守卫成功！击退所有僵尸！'); }
+  function winGame(){ state.won=true; state.over=true; state.running=false; AOXSound.stopBGM(); SFX.win(); toast('🎉 守卫成功！击退 30 波僵尸！'); }
   function loseGame(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); toast('💀 僵尸吃掉了你的脑子！'); }
 
   // ===== 渲染 =====
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
   function drawLawn(){
-    // 草坪条纹
+    // 草坪条纹 + 高光阴影
     for(var r=0;r<ROWS;r++){
       for(var c=0;c<COLS;c++){
         var x=LAWN_X+c*CELL_W, y=LAWN_Y+r*CELL_H;
-        ctx.fillStyle = (r+c)%2===0?'#5fb53f':'#4ea035';
+        ctx.fillStyle = (r+c)%2===0?'#6cc04a':'#5fb53f';
         ctx.fillRect(x,y,CELL_W,CELL_H);
-        ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(x,y+CELL_H-3,CELL_W,3);
+        // 顶部高光
+        ctx.fillStyle='rgba(255,255,255,0.10)'; ctx.fillRect(x,y,CELL_W,4);
+        // 底部阴影
+        ctx.fillStyle='rgba(0,0,0,0.10)'; ctx.fillRect(x,y+CELL_H-4,CELL_W,4);
+        // 草点纹理
+        ctx.fillStyle='rgba(0,0,0,0.06)';
+        for(var g=0;g<3;g++){ ctx.fillRect(x+10+g*26, y+20+(g%2)*30, 3, 5); }
       }
     }
     // 边框
-    ctx.strokeStyle='#2e7d32'; ctx.lineWidth=3;
-    ctx.strokeRect(LAWN_X-2,LAWN_Y-2,COLS*CELL_W+4,ROWS*CELL_H+4);
-    // 房子（左侧）
-    ctx.fillStyle='#8b5a2b'; ctx.fillRect(0,LAWN_Y,LAWN_X-4,ROWS*CELL_H);
-    ctx.fillStyle='#5d3a1a'; ctx.fillRect(0,LAWN_Y,LAWN_X-4,8);
-    for(var h=0;h<5;h++){ ctx.fillStyle='#7f7f7f'; ctx.fillRect(2,LAWN_Y+10+h*60,18,40); }
+    ctx.strokeStyle='#2e7d32'; ctx.lineWidth=4;
+    ctx.strokeRect(LAWN_X-3,LAWN_Y-3,COLS*CELL_W+6,ROWS*CELL_H+6);
+    // 房子（左侧，带屋顶）
+    var hx=0, hy=LAWN_Y, hw=LAWN_X-6, hh=ROWS*CELL_H;
+    // 墙
+    ctx.fillStyle='#a0703b'; ctx.fillRect(hx,hy,hw,hh);
+    ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(hx,hy,hw,6); // 顶部阴影
+    // 砖纹
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+    for(var br=0;br<8;br++){ ctx.beginPath(); ctx.moveTo(hx, hy+br*(hh/8)); ctx.lineTo(hx+hw, hy+br*(hh/8)); ctx.stroke(); }
+    for(var bc=0;bc<2;bc++){ ctx.beginPath(); ctx.moveTo(hx+(bc+0.5)*hw, hy); ctx.lineTo(hx+(bc+0.5)*hw, hy+hh); ctx.stroke(); }
+    // 屋顶（斜面三角）
+    ctx.fillStyle='#7a3b1b'; ctx.beginPath(); ctx.moveTo(hx-4,hy); ctx.lineTo(hx+hw/2,hy-26); ctx.lineTo(hx+hw+4,hy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#5d2a12'; ctx.fillRect(hx-4,hy-4,hw+8,6);
+    // 窗户
+    for(var wi=0;wi<3;wi++){
+      var wy=hy+20+wi*((hh-60)/2);
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(12, wy, hw-24, 40);
+      ctx.fillStyle='#9fd6ff'; ctx.fillRect(16, wy+4, hw-32, 32);
+      ctx.strokeStyle='#5d3a1a'; ctx.lineWidth=2; ctx.strokeRect(16, wy+4, hw-32, 32);
+      ctx.beginPath(); ctx.moveTo(16+(hw-32)/2, wy+4); ctx.lineTo(16+(hw-32)/2, wy+36); ctx.stroke();
+    }
   }
 
   function drawPlant(pl){
     var x=pl.x, y=pl.y+Math.sin(pl.anim)*2;
+    ctx.save();
     if(pl.key==='sunflower'){
-      // 茎
       ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,18);
-      // 花瓣
       ctx.fillStyle='#ffd700';
       for(var a=0;a<8;a++){ var ang=a/8*Math.PI*2+pl.anim*0.3; ctx.fillRect(x+Math.cos(ang)*16-5, y-14+Math.sin(ang)*16-5, 10,10); }
-      // 花心
       ctx.fillStyle='#b8860b'; ctx.fillRect(x-10,y-24,20,20);
-      ctx.fillStyle='#8b6508'; ctx.fillRect(x-6,y-20,4,4); ctx.fillRect(x+2,y-20,4,4);
-      ctx.fillStyle='#000'; ctx.fillRect(x-5,y-19,2,2); ctx.fillRect(x+3,y-19,2,2);
+      ctx.fillStyle='#daa520'; ctx.fillRect(x-9,y-23,18,4);
+      ctx.fillStyle='#000'; ctx.fillRect(x-6,y-18,4,4); ctx.fillRect(x+2,y-18,4,4);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-5,y-17,2,2); ctx.fillRect(x+3,y-17,2,2);
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(x-3,y-10,6,3);
     } else if(pl.key==='peashooter'){
       ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
-      ctx.fillStyle='#4caf50'; ctx.fillRect(x-12,y-14,24,22);
-      // 嘴（炮口）
-      ctx.fillStyle='#2e7d32'; ctx.fillRect(x+8,y-10,12,12);
-      ctx.fillStyle='#1b5e20'; ctx.fillRect(x+18,y-7,4,6);
-      // 眼
+      ctx.fillStyle='#4caf50'; roundRect(x-13,y-15,26,24,6); ctx.fill();
+      ctx.fillStyle='#81c784'; ctx.fillRect(x-11,y-13,8,6); // 高光
+      ctx.fillStyle='#2e7d32'; roundRect(x+9,y-11,13,13,3); ctx.fill();
+      ctx.fillStyle='#1b5e20'; ctx.fillRect(x+20,y-8,4,6);
       ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
-    } else if(pl.key==='iceshooter'){
+    } else if(pl.key==='snowpea'||pl.key==='iceshooter'){
       ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
-      ctx.fillStyle='#4dd0e1'; ctx.fillRect(x-12,y-14,24,22);
-      ctx.fillStyle='#00838f'; ctx.fillRect(x+8,y-10,12,12); ctx.fillRect(x+18,y-7,4,6);
+      ctx.fillStyle='#4dd0e1'; roundRect(x-13,y-15,26,24,6); ctx.fill();
+      ctx.fillStyle='#b2ebf2'; ctx.fillRect(x-11,y-13,8,6);
+      ctx.fillStyle='#00838f'; roundRect(x+9,y-11,13,13,3); ctx.fill(); ctx.fillRect(x+20,y-8,4,6);
       ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
-      // 冰晶
-      ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fillRect(x-2,y-20,4,4);
-    } else if(pl.key==='doublepea'){
-      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
-      ctx.fillStyle='#388e3c'; ctx.fillRect(x-12,y-16,24,24);
-      // 双炮口
-      ctx.fillStyle='#1b5e20'; ctx.fillRect(x+8,y-12,12,8); ctx.fillRect(x+8,y,12,8);
-      ctx.fillStyle='#0d3d10'; ctx.fillRect(x+18,y-10,4,4); ctx.fillRect(x+18,y+2,4,4);
-      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
-    } else if(pl.key==='threepeater'){
-      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
-      ctx.fillStyle='#2e7d32'; ctx.fillRect(x-14,y-14,28,24);
-      // 三个头
-      for(var t=-1;t<=1;t++){
-        ctx.fillStyle='#43a047'; ctx.fillRect(x-8, y-12+t*10, 18, 8);
-        ctx.fillStyle='#1b5e20'; ctx.fillRect(x+8, y-10+t*10, 10, 4);
-      }
-      ctx.fillStyle='#fff'; ctx.fillRect(x-4,y-2,3,3); ctx.fillStyle='#000'; ctx.fillRect(x-3,y-1,1,1);
+      ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fillRect(x-2,y-22,4,5);
     } else if(pl.key==='firepea'){
       ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
-      ctx.fillStyle='#ff5722'; ctx.fillRect(x-12,y-14,24,22);
-      ctx.fillStyle='#bf360c'; ctx.fillRect(x+8,y-10,12,12); ctx.fillRect(x+18,y-7,4,6);
+      ctx.fillStyle='#ff5722'; roundRect(x-13,y-15,26,24,6); ctx.fill();
+      ctx.fillStyle='#ff8a65'; ctx.fillRect(x-11,y-13,8,6);
+      ctx.fillStyle='#bf360c'; roundRect(x+9,y-11,13,13,3); ctx.fill(); ctx.fillRect(x+20,y-8,4,6);
       ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
-      // 火苗
       var ff = Math.sin(pl.anim*3)>0;
-      ctx.fillStyle= ff?'#ffc107':'#ff9800'; ctx.fillRect(x-2,y-22,4,5);
-      ctx.fillStyle='#ffeb3b'; ctx.fillRect(x-1,y-21,2,3);
+      ctx.fillStyle= ff?'#ffc107':'#ff9800'; ctx.fillRect(x-2,y-24,4,6);
+      ctx.fillStyle='#ffeb3b'; ctx.fillRect(x-1,y-23,2,4);
+    } else if(pl.key==='doublepea'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#388e3c'; roundRect(x-13,y-17,26,26,6); ctx.fill();
+      ctx.fillStyle='#66bb6a'; ctx.fillRect(x-11,y-15,8,6);
+      ctx.fillStyle='#1b5e20'; ctx.fillRect(x+9,y-13,12,8); ctx.fillRect(x+9,y-1,12,8);
+      ctx.fillStyle='#0d3d10'; ctx.fillRect(x+19,y-11,4,4); ctx.fillRect(x+19,y+1,4,4);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
+    } else if(pl.key==='gatling'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#2e7d32'; roundRect(x-14,y-18,28,30,6); ctx.fill();
+      ctx.fillStyle='#43a047'; ctx.fillRect(x-12,y-16,8,6);
+      ctx.fillStyle='#1b5e20';
+      for(var gp=0;gp<4;gp++){ ctx.fillRect(x+9, y-16+gp*7, 13, 5); }
+      ctx.fillStyle='#0d3d10'; for(var gp2=0;gp2<4;gp2++){ ctx.fillRect(x+20, y-15+gp2*7, 3, 3); }
+      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-6,4,4); ctx.fillStyle='#000'; ctx.fillRect(x-5,y-5,2,2);
+    } else if(pl.key==='threepeater'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#2e7d32'; roundRect(x-15,y-15,30,26,6); ctx.fill();
+      ctx.fillStyle='#43a047'; ctx.fillRect(x-13,y-13,8,6);
+      for(var t=-1;t<=1;t++){
+        ctx.fillStyle='#4caf50'; ctx.fillRect(x-8, y-13+t*9, 18, 7);
+        ctx.fillStyle='#1b5e20'; ctx.fillRect(x+9, y-12+t*9, 10, 4);
+      }
+      ctx.fillStyle='#fff'; ctx.fillRect(x-4,y-1,3,3); ctx.fillStyle='#000'; ctx.fillRect(x-3,y,1,1);
+    } else if(pl.key==='cabbage'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#558b2f'; roundRect(x-14,y-15,28,22,8); ctx.fill();
+      ctx.fillStyle='#7cb342'; ctx.fillRect(x-12,y-13,10,6);
+      // 卷心菜纹理
+      ctx.strokeStyle='#33691e'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(x-2,y-4,8,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x-2,y-4,4,0,Math.PI*2); ctx.stroke();
+      // 弹臂
+      ctx.fillStyle='#33691e'; ctx.fillRect(x+10,y-8,8,4);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-7,4,4); ctx.fillStyle='#000'; ctx.fillRect(x-5,y-6,2,2);
+    } else if(pl.key==='cactus'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-4,y,8,20);
+      // 仙人掌主体（竖长带刺）
+      ctx.fillStyle='#43a047'; roundRect(x-8,y-26,16,30,6); ctx.fill();
+      ctx.fillStyle='#66bb6a'; ctx.fillRect(x-6,y-24,4,18);
+      // 刺
+      ctx.fillStyle='#fff';
+      for(var sp=0;sp<4;sp++){ ctx.fillRect(x-9,y-22+sp*7,2,2); ctx.fillRect(x+7,y-22+sp*7,2,2); }
+      // 两只胳膊
+      ctx.fillStyle='#43a047'; ctx.fillRect(x-16,y-16,8,6); ctx.fillRect(x+8,y-16,8,6);
+      // 眼
+      ctx.fillStyle='#fff'; ctx.fillRect(x-5,y-20,4,4); ctx.fillRect(x+1,y-20,4,4);
+      ctx.fillStyle='#000'; ctx.fillRect(x-3,y-19,2,2); ctx.fillRect(x+2,y-19,2,2);
+    } else if(pl.key==='wallnut'){
+      ctx.fillStyle='#8b5a2b'; roundRect(x-17,y-17,34,34,8); ctx.fill();
+      ctx.fillStyle='#a0703b'; ctx.fillRect(x-15,y-15,12,6);
+      ctx.fillStyle='#6b4220'; ctx.fillRect(x-17,y+9,34,8);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-9,y-5,6,6); ctx.fillRect(x+3,y-5,6,6);
+      ctx.fillStyle='#000'; ctx.fillRect(x-7,y-3,3,3); ctx.fillRect(x+5,y-3,3,3);
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(x-4,y+4,8,3);
+      if(pl.hp<pl.maxhp*0.5){ ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-2,y); ctx.lineTo(x-6,y+8); ctx.stroke(); }
+    } else if(pl.key==='tallnut'){
+      ctx.fillStyle='#8b5a2b'; roundRect(x-17,y-30,34,50,8); ctx.fill();
+      ctx.fillStyle='#a0703b'; ctx.fillRect(x-15,y-28,12,8);
+      ctx.fillStyle='#6b4220'; ctx.fillRect(x-17,y+14,34,6);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-9,y-8,6,6); ctx.fillRect(x+3,y-8,6,6);
+      ctx.fillStyle='#000'; ctx.fillRect(x-7,y-5,3,3); ctx.fillRect(x+5,y-5,3,3);
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(x-5,y+4,10,4);
+    } else if(pl.key==='torchwood'){
+      // 树桩
+      ctx.fillStyle='#6d4c41'; roundRect(x-18,y-12,36,32,8); ctx.fill();
+      ctx.fillStyle='#8d6e63'; ctx.fillRect(x-16,y-10,12,8);
+      // 年轮
+      ctx.fillStyle='#5d4037'; ctx.beginPath(); ctx.arc(x,y+4,12,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#3e2723'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(x,y+4,7,0,Math.PI*2); ctx.stroke();
+      // 火苗
+      var tf=Math.sin(pl.anim*4)>0;
+      ctx.fillStyle= tf?'#ffc107':'#ff5722'; ctx.fillRect(x-4,y-26,8,14);
+      ctx.fillStyle='#ffeb3b'; ctx.fillRect(x-2,y-24,4,8);
+    } else if(pl.key==='spikeweed'){
+      // 地刺：贴地的刺
+      ctx.fillStyle='#5d4037'; roundRect(x-20,y+10,40,10,4); ctx.fill();
+      ctx.fillStyle='#7cb342';
+      for(var sw=0;sw<5;sw++){ ctx.beginPath(); ctx.moveTo(x-16+sw*8,y+10); ctx.lineTo(x-13+sw*8,y-2); ctx.lineTo(x-10+sw*8,y+10); ctx.fill(); }
+    } else if(pl.key==='garlic'){
+      ctx.fillStyle='#cddc39'; roundRect(x-14,y-14,28,28,10); ctx.fill();
+      ctx.fillStyle='#dce775'; ctx.fillRect(x-12,y-12,10,6);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-8,y-4,5,5); ctx.fillRect(x+3,y-4,5,5);
+      ctx.fillStyle='#000'; ctx.fillRect(x-6,y-3,2,2); ctx.fillRect(x+5,y-3,2,2);
+      ctx.fillStyle='#7e57c2'; ctx.fillRect(x-3,y+4,6,2); ctx.fillRect(x-4,y+6,8,2);
     } else if(pl.key==='potato'){
       if(pl.armed){
-        // 已装填：露出土面
-        ctx.fillStyle='#8d6e63'; ctx.fillRect(x-14,y-6,28,16);
-        ctx.fillStyle='#6d4c41'; ctx.fillRect(x-14,y+6,28,4);
-        ctx.fillStyle='#a1887f'; ctx.fillRect(x-10,y-2,4,4); ctx.fillRect(x+2,y-2,4,4);
-        // 引线闪烁
-        if(Math.floor(pl.anim*2)%2===0){ ctx.fillStyle='#ff5722'; ctx.fillRect(x+10,y-10,3,4); }
+        ctx.fillStyle='#8d6e63'; roundRect(x-14,y-6,28,16,5); ctx.fill();
+        ctx.fillStyle='#a1887f'; ctx.fillRect(x-12,y-4,8,4);
+        ctx.fillStyle='#5d4037'; ctx.fillRect(x-14,y+6,28,4);
+        if(Math.floor(pl.anim*2)%2===0){ ctx.fillStyle='#ff5722'; ctx.fillRect(x+10,y-12,3,6); }
       } else {
-        // 未装填：埋在土里只露小芽
-        ctx.fillStyle='#6d4c41'; ctx.fillRect(x-6,y+4,12,6);
-        ctx.fillStyle='#8bc34a'; ctx.fillRect(x-1,y-2,2,8);
-        // 装填进度条
-        var prog = 1 - pl.armingTick/360;
-        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-14,y+12,28,3);
-        ctx.fillStyle='#ffd700'; ctx.fillRect(x-14,y+12,28*prog,3);
+        ctx.fillStyle='#6d4c41'; ctx.fillRect(x-6,y+6,12,6);
+        ctx.fillStyle='#8bc34a'; ctx.fillRect(x-1,y-2,2,10);
+        var prog = 1 - pl.armingTick/300;
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-14,y+14,28,3);
+        ctx.fillStyle='#ffd700'; ctx.fillRect(x-14,y+14,28*prog,3);
       }
     } else if(pl.key==='chomper'){
       ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
       if(pl.chewing>0){
-        // 咀嚼闭嘴
-        ctx.fillStyle='#c62828'; ctx.fillRect(x-14,y-14,28,22);
+        ctx.fillStyle='#c62828'; roundRect(x-14,y-14,28,22,6); ctx.fill();
         ctx.fillStyle='#000'; ctx.fillRect(x-10,y-6,20,3);
       } else {
-        // 张嘴
-        ctx.fillStyle='#c62828'; ctx.fillRect(x-14,y-18,28,20);
-        ctx.fillStyle='#000'; ctx.fillRect(x-14,y-6,28,10);
-        // 牙齿
+        ctx.fillStyle='#c62828'; roundRect(x-14,y-20,28,22,6); ctx.fill();
+        ctx.fillStyle='#000'; ctx.fillRect(x-14,y-6,28,12);
         ctx.fillStyle='#fff';
         for(var tk=-2;tk<=2;tk++){ ctx.fillRect(x+tk*5-1,y-6,2,4); ctx.fillRect(x+tk*5-1,y,2,4); }
-        ctx.fillStyle='#e91e63'; ctx.fillRect(x-4,y-18,8,6);
+        ctx.fillStyle='#e91e63'; ctx.fillRect(x-4,y-20,8,6);
       }
-      ctx.fillStyle='#fff'; ctx.fillRect(x-10,y-16,3,3);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-10,y-18,3,3);
     } else if(pl.key==='squash'){
-      // 窝瓜：绿色椭圆脸
-      ctx.fillStyle='#558b2f'; ctx.fillRect(x-16,y-14,32,28);
-      ctx.fillStyle='#33691e'; ctx.fillRect(x-16,y+8,32,6);
-      ctx.fillStyle='#7cb342'; ctx.fillRect(x-12,y-12,8,6); // 高光
-      // 脸
+      ctx.fillStyle='#558b2f'; roundRect(x-17,y-15,34,30,12); ctx.fill();
+      ctx.fillStyle='#7cb342'; ctx.fillRect(x-13,y-13,10,6);
+      ctx.fillStyle='#33691e'; ctx.fillRect(x-17,y+9,34,6);
       ctx.fillStyle='#fff'; ctx.fillRect(x-8,y-4,5,5); ctx.fillRect(x+3,y-4,5,5);
       ctx.fillStyle='#000'; ctx.fillRect(x-6,y-3,2,2); ctx.fillRect(x+5,y-3,2,2);
       ctx.fillStyle='#000'; ctx.fillRect(x-4,y+4,8,2);
-    } else if(pl.key==='wallnut'){
-      ctx.fillStyle='#8b5a2b'; ctx.fillRect(x-16,y-16,32,32);
-      ctx.fillStyle='#6b4220'; ctx.fillRect(x-16,y+8,32,8); ctx.fillRect(x-16,y-16,32,4);
-      // 脸
-      ctx.fillStyle='#fff'; ctx.fillRect(x-8,y-4,5,5); ctx.fillRect(x+3,y-4,5,5);
-      ctx.fillStyle='#000'; ctx.fillRect(x-6,y-3,2,2); ctx.fillRect(x+5,y-3,2,2);
-      // 血量裂纹
-      if(pl.hp<pl.maxhp*0.5){ ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-2,y); ctx.lineTo(x-6,y+8); ctx.stroke(); }
     } else if(pl.key==='cherry'){
       var flash = pl.bombTick>40 && Math.floor(pl.bombTick/3)%2===0;
       ctx.fillStyle = flash?'#fff':'#e53935';
-      ctx.fillRect(x-14,y-10,16,16); ctx.fillRect(x-2,y-10,16,16);
-      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-2,y-18,4,10); ctx.fillRect(x+1,y-16,8,4);
+      roundRect(x-15,y-11,17,17,6); ctx.fill(); roundRect(x-2,y-11,17,17,6); ctx.fill();
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-2,y-19,4,10); ctx.fillRect(x+1,y-17,8,4);
       ctx.fillStyle='#fff'; ctx.fillRect(x-10,y-5,3,3); ctx.fillRect(x+5,y-5,3,3);
+    } else if(pl.key==='jalapeno'){
+      var jf=Math.sin(pl.anim*5)>0;
+      ctx.fillStyle = jf?'#e53935':'#c62828';
+      roundRect(x-8,y-20,16,34,8); ctx.fill();
+      ctx.fillStyle='#ffeb3b'; ctx.fillRect(x-5,y-18,3,4); ctx.fillRect(x+1,y-14,3,4);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-5,y-6,3,3); ctx.fillRect(x+2,y-6,3,3);
+      ctx.fillStyle='#000'; ctx.fillRect(x-4,y-5,1,2); ctx.fillRect(x+3,y-5,1,2);
+      // 火苗尾
+      ctx.fillStyle='#ff9800'; ctx.fillRect(x-3,y-26,6,6);
     }
     // 血条
-    if(pl.hp < pl.maxhp && pl.key!=='cherry'){
-      ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-16,y-26,32,4);
-      ctx.fillStyle='#4caf50'; ctx.fillRect(x-16,y-26,32*(pl.hp/pl.maxhp),4);
+    if(pl.hp < pl.maxhp && pl.key!=='cherry' && pl.key!=='jalapeno' && pl.key!=='squash'){
+      ctx.fillStyle='rgba(0,0,0,0.5)'; roundRect(x-17,y-30,34,5,2); ctx.fill();
+      ctx.fillStyle='#4caf50'; roundRect(x-17,y-30,34*(pl.hp/pl.maxhp),5,2); ctx.fill();
     }
+    ctx.restore();
   }
 
   function drawZombie(zm){
     var x=zm.x, y=zm.y+Math.sin(zm.anim)*2;
+    var scale = zm.huge?1.5:(zm.small?0.7:1);
+    ctx.save();
+    ctx.translate(x,y); ctx.scale(scale,scale); ctx.translate(-x,-y);
     var arm = zm.eating? Math.sin(zm.anim*4)*4 : 0;
-    // 腿
     var lo=Math.sin(zm.anim)*3;
+    // 影子
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x,y+18,16,5,0,0,7); ctx.fill();
+    // 腿
     ctx.fillStyle='#1565c0'; ctx.fillRect(x-6,y+8+lo,5,12); ctx.fillRect(x+2,y+8-lo,5,12);
-    // 身体（僵尸青绿）
-    ctx.fillStyle=zm.color; ctx.fillRect(x-10,y-8,20,18);
+    ctx.fillStyle='#0d47a1'; ctx.fillRect(x-6,y+18+lo,5,3); ctx.fillRect(x+2,y+18-lo,5,3);
+    // 身体
+    ctx.fillStyle=zm.color; roundRect(x-10,y-8,20,18,3); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(x-9,y-7,18,3); // 高光
+    // 衣服纹路
+    ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.fillRect(x-10,y+2,20,2);
     // 手臂前伸
     ctx.fillStyle=zm.color; ctx.fillRect(x+8,y-6+arm,14,6); ctx.fillRect(x+8,y+2+arm,14,6);
+    ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.fillRect(x+8,y-6+arm,14,1);
     // 头
-    ctx.fillStyle=zm.color; ctx.fillRect(x-8,y-22,16,14);
+    ctx.fillStyle=zm.color; roundRect(x-8,y-22,16,14,3); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(x-7,y-21,14,3);
     ctx.fillStyle='#2e7d32'; ctx.fillRect(x-8,y-22,16,3);
     // 眼
     ctx.fillStyle='#fff'; ctx.fillRect(x-5,y-16,4,4); ctx.fillRect(x+2,y-16,4,4);
-    ctx.fillStyle='#000'; ctx.fillRect(x-4,y-15,2,2); ctx.fillRect(x+3,y-15,2,2);
+    ctx.fillStyle = zm.enraged?'#e53935':'#000'; ctx.fillRect(x-4,y-15,2,2); ctx.fillRect(x+3,y-15,2,2);
     // 嘴
     ctx.fillStyle='#000'; ctx.fillRect(x-4,y-10,8,2);
     // 防具
-    if(zm.bucket){ ctx.fillStyle='#7f7f7f'; ctx.fillRect(x-9,y-24,18,8); ctx.fillStyle='#555'; ctx.fillRect(x-9,y-18,18,2); }
-    else if(zm.cone){ ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.moveTo(x,y-34); ctx.lineTo(x-8,y-22); ctx.lineTo(x+8,y-22); ctx.fill(); ctx.fillStyle='#e65100'; ctx.fillRect(x-1,y-30,2,4); }
-    // 减速冰冻效果
-    if(zm.slow>0){ ctx.fillStyle='rgba(77,208,225,0.3)'; ctx.fillRect(x-12,y-24,24,36); }
-    // 血条
-    if(zm.hp<zm.maxhp){
-      ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-12,y-30,24,3);
-      ctx.fillStyle='#e53935'; ctx.fillRect(x-12,y-30,24*(zm.hp/zm.maxhp),3);
+    if(zm.armorType==='bucket' && zm.armorHp>0){
+      ctx.fillStyle='#9e9e9e'; roundRect(x-9,y-24,18,9,2); ctx.fill();
+      ctx.fillStyle='#bdbdbd'; ctx.fillRect(x-8,y-23,16,2);
+      ctx.fillStyle='#616161'; ctx.fillRect(x-9,y-17,18,2);
+    } else if(zm.armorType==='cone' && zm.armorHp>0){
+      ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.moveTo(x,y-36); ctx.lineTo(x-9,y-22); ctx.lineTo(x+9,y-22); ctx.fill();
+      ctx.fillStyle='#e65100'; ctx.fillRect(x-1,y-32,2,4); ctx.fillRect(x-2,y-28,4,2);
+    } else if(zm.armorType==='football' && zm.armorHp>0){
+      // 橄榄球头盔+肩甲
+      ctx.fillStyle='#1b5e20'; roundRect(x-10,y-24,20,10,3); ctx.fill();
+      ctx.fillStyle='#ffc107'; ctx.fillRect(x-3,y-22,6,4); ctx.fillRect(x-3,y-16,6,2);
+      ctx.fillStyle='#0d3d10'; roundRect(x-12,y-4,24,10,3); ctx.fill(); // 肩甲
+    } else if(zm.armorType==='news' && zm.armorHp>0){
+      // 报纸
+      ctx.fillStyle='#f5f5dc'; ctx.fillRect(x+6,y-12,16,18);
+      ctx.fillStyle='#000'; ctx.fillRect(x+8,y-10,12,1); ctx.fillRect(x+8,y-7,12,1); ctx.fillRect(x+8,y-4,12,1);
+    }
+    // 巨人特征
+    if(zm.huge){
+      // 电线杆武器
+      ctx.fillStyle='#8d6e63'; ctx.save(); ctx.translate(x-14,y-10); ctx.rotate(Math.sin(zm.anim2)*0.2); ctx.fillRect(-3,-30,6,40); ctx.restore();
+      // 背着的小鬼
+      if(zm.thrownImp){ ctx.fillStyle='#7a5a8f'; ctx.fillRect(x-16,y-14,8,10); }
+    }
+    // 气球
+    if(zm.flying){
+      ctx.strokeStyle='#888'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,y-22); ctx.lineTo(x,y-44); ctx.stroke();
+      var bcol = ['#e53935','#1976d2','#ffc107'][Math.floor(zm.anim2)%3];
+      ctx.fillStyle=bcol; ctx.beginPath(); ctx.ellipse(x,y-50,12,15,0,0,7); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(x-4,y-54,3,5,0,0,7); ctx.fill();
+    }
+    // 减速冰冻
+    if(zm.slow>0){ ctx.fillStyle='rgba(77,208,225,0.3)'; roundRect(x-12,y-24,24,36,3); ctx.fill(); }
+    ctx.restore();
+    // 血条（护甲+本体）
+    if(zm.hp<zm.maxhp || (zm.armorMax && zm.armorHp<zm.armorMax)){
+      var by = zm.huge? y-48 : (zm.flying? y-66 : y-32);
+      // 本体
+      ctx.fillStyle='rgba(0,0,0,0.5)'; roundRect(x-14,by,28,4,1); ctx.fill();
+      ctx.fillStyle='#e53935'; roundRect(x-14,by,28*(zm.hp/zm.maxhp),4,1); ctx.fill();
+      // 护甲
+      if(zm.armorMax && zm.armorHp>0){
+        ctx.fillStyle='rgba(0,0,0,0.5)'; roundRect(x-14,by-5,28,3,1); ctx.fill();
+        ctx.fillStyle='#ffc107'; roundRect(x-14,by-5,28*(zm.armorHp/zm.armorMax),3,1); ctx.fill();
+      }
     }
   }
 
@@ -673,33 +970,41 @@
     if(su.collected) return;
     var bob = Math.sin(su.bob)*2;
     var x=su.x, y=su.y+bob;
-    // 光晕
-    ctx.fillStyle='rgba(255,215,0,0.3)'; ctx.beginPath(); ctx.arc(x,y,22,0,7); ctx.fill();
+    var grad=ctx.createRadialGradient(x,y,4,x,y,24);
+    grad.addColorStop(0,'rgba(255,235,59,0.9)'); grad.addColorStop(0.5,'rgba(255,215,0,0.4)'); grad.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(x,y,24,0,7); ctx.fill();
     ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(x,y,15,0,7); ctx.fill();
     ctx.fillStyle='#ffeb3b'; ctx.beginPath(); ctx.arc(x,y,9,0,7); ctx.fill();
-    // 光线
     for(var a=0;a<8;a++){ var ang=a/8*Math.PI*2+su.bob; ctx.fillStyle='#ffd700'; ctx.fillRect(x+Math.cos(ang)*17-2, y+Math.sin(ang)*17-2, 4,4); }
   }
 
   function drawBullet(bu){
+    // 拖尾
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.fillRect(bu.x-10, bu.y-1, 8, 2);
     if(bu.type==='pea'){ ctx.fillStyle='#4caf50'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill(); ctx.fillStyle='#2e7d32'; ctx.fillRect(bu.x-1,bu.y+2,4,3); }
     else if(bu.type==='fire'){
+      var f1=Math.sin(bu.x*0.3)>0;
       ctx.fillStyle='rgba(255,87,34,0.5)'; ctx.beginPath(); ctx.arc(bu.x,bu.y,10,0,7); ctx.fill();
-      ctx.fillStyle='#ff5722'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill();
+      ctx.fillStyle= f1?'#ff5722':'#ff9800'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill();
       ctx.fillStyle='#ffc107'; ctx.fillRect(bu.x-2,bu.y-3,4,4);
     }
+    else if(bu.type==='cabbage'){ ctx.fillStyle='#8bc34a'; ctx.beginPath(); ctx.arc(bu.x,bu.y,7,0,7); ctx.fill(); ctx.strokeStyle='#33691e'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(bu.x,bu.y,4,0,7); ctx.stroke(); }
+    else if(bu.type==='spike'){ ctx.fillStyle='#fff'; ctx.fillRect(bu.x-1,bu.y-5,3,10); ctx.fillStyle='#bdbdbd'; ctx.fillRect(bu.x-4,bu.y-1,9,2); }
     else { ctx.fillStyle='#4dd0e1'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(bu.x-2,bu.y-3,3,3); }
   }
 
   function draw(){
-    // 背景
-    ctx.fillStyle='#3d8b2a'; ctx.fillRect(0,0,W,H);
+    // 天空渐变背景
+    var sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#7ec0ee'); sky.addColorStop(1,'#5fb53f');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
     drawLawn();
 
-    // 按行排序绘制（前面盖后面）
+    // 按行排序绘制
     var allEntities=[];
     plants.forEach(function(pl){ allEntities.push({y:pl.y, draw:function(){drawPlant(pl);}}); });
-    zombies.forEach(function(zm){ allEntities.push({y:zm.y, draw:function(){drawZombie(zm);}}); });
+    zombies.forEach(function(zm){ allEntities.push({y:zm.y+(zm.flying?-40:0), draw:function(){drawZombie(zm);}}); });
     allEntities.sort(function(a,b){ return a.y-b.y; });
     allEntities.forEach(function(e){ e.draw(); });
 
@@ -733,20 +1038,20 @@
       ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
       ctx.textAlign='center';
       if(state.won){
-        ctx.fillStyle='#4caf50'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillStyle='#4caf50'; ctx.font='30px "Press Start 2P", monospace';
         ctx.fillText('🎉 守卫成功！', W/2, H/2-20);
         ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P", monospace';
-        ctx.fillText('击退了全部 '+state.totalWaves+' 波僵尸', W/2, H/2+15);
+        ctx.fillText('击退了全部 30 波僵尸', W/2, H/2+15);
       } else if(state.over){
-        ctx.fillStyle='#e53935'; ctx.font='28px "Press Start 2P", monospace';
+        ctx.fillStyle='#e53935'; ctx.font='30px "Press Start 2P", monospace';
         ctx.fillText('游戏结束', W/2, H/2-20);
         ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P", monospace';
         ctx.fillText('坚持到了第 '+(state.wave+1)+' 波', W/2, H/2+15);
       } else {
-        ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P", monospace';
+        ctx.fillStyle='#ffd700'; ctx.font='24px "Press Start 2P", monospace';
         ctx.fillText('准备就绪', W/2, H/2-10);
-        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P", monospace';
-        ctx.fillText('点击开始按钮种植物守家', W/2, H/2+25);
+        ctx.fillStyle='#fff'; ctx.font='12px "Press Start 2P", monospace';
+        ctx.fillText('点击开始按钮 · 30 波挑战', W/2, H/2+25);
       }
     }
   }
@@ -760,10 +1065,9 @@
   }
   function handleTap(px, py){
     if(!state.running||state.over) return;
-    // 先检查阳光收集
     for(var i=suns.length-1;i>=0;i--){
       var s=suns[i];
-      if(!s.collected && Math.hypot(s.x-px, s.y-py)<22){ collectSun(s); return; }
+      if(!s.collected && Math.hypot(s.x-px, s.y-py)<24){ collectSun(s); return; }
     }
     var cell = cellAt(px, py);
     if(!cell) return;
@@ -789,12 +1093,10 @@
     updateCardUI(); SFX.click();
   });
 
-  // 开始第一波延迟启动
   function start(){
-    init(); state.running=true;
+    init(); state.running=true; state.betweenTimer=300;
     AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select();
-    toast('种向日葵产阳光，豌豆射手打僵尸！');
-    setTimeout(startWave, 5000);
+    toast('种向日葵产阳光，豌豆射手打僵尸！植物随波次解锁');
   }
 
   function loop(){ update(); draw(); requestAnimationFrame(loop); }
