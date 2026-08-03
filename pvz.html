@@ -75,7 +75,7 @@
   <p class="subtitle">种植物守卫家园，挡住僵尸大军！</p>
 
   <div style="margin-top:18px; display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap;">
-    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">50</span></div>
+    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">150</span></div>
     <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 波</div></div>
     <div class="shovel-btn" id="shovelBtn" title="铲除植物">🪏</div>
   </div>
@@ -114,43 +114,43 @@
 
   // ===== 植物定义 =====
   var PLANTS = {
-    sunflower:   { name:'向日葵', icon:'🌻', cost:50,  hp:80,  cooldown:7,  recharge:5,
+    sunflower:   { name:'向日葵', icon:'🌻', cost:25,  hp:80,  cooldown:7,  recharge:4,
       desc:'产阳光' },
-    peashooter:  { name:'豌豆射手', icon:'🌱', cost:100, hp:100, cooldown:7,  recharge:5,
-      desc:'射豌豆', fireRate:90,  damage:20, shooter:true, bulletType:'pea' },
-    doublepea:   { name:'双发射手', icon:'🌿', cost:200, hp:100, cooldown:7,  recharge:6,
-      desc:'射双发', fireRate:90,  damage:20, shooter:true, bulletType:'pea', bulletCount:2 },
-    threepeater: { name:'三线射手', icon:'🎯', cost:325, hp:100, cooldown:7,  recharge:8,
-      desc:'三行齐射', fireRate:110, damage:20, shooter:true, bulletType:'pea', multiRow:true },
-    wallnut:     { name:'坚果墙', icon:'🥜', cost:50,  hp:400, cooldown:20, recharge:15,
+    peashooter:  { name:'豌豆射手', icon:'🌱', cost:50,  hp:100, cooldown:7,  recharge:4,
+      desc:'射豌豆', fireRate:90,  damage:25, shooter:true, bulletType:'pea' },
+    doublepea:   { name:'双发射手', icon:'🌿', cost:100, hp:100, cooldown:7,  recharge:5,
+      desc:'射双发', fireRate:90,  damage:25, shooter:true, bulletType:'pea', bulletCount:2 },
+    threepeater: { name:'三线射手', icon:'🎯', cost:150, hp:100, cooldown:7,  recharge:6,
+      desc:'三行齐射', fireRate:110, damage:25, shooter:true, bulletType:'pea', multiRow:true },
+    wallnut:     { name:'坚果墙', icon:'🥜', cost:25,  hp:500, cooldown:20, recharge:10,
       desc:'高血量阻挡' },
-    iceshooter:  { name:'寒冰射手', icon:'❄️', cost:175, hp:100, cooldown:7,  recharge:6,
-      desc:'减速僵尸', fireRate:90,  damage:20, shooter:true, bulletType:'ice' },
-    firepea:     { name:'火爆射手', icon:'🔥', cost:175, hp:100, cooldown:7,  recharge:6,
-      desc:'火焰溅射', fireRate:90,  damage:25, shooter:true, bulletType:'fire', splash:45 },
-    potato:      { name:'土豆地雷', icon:'🥔', cost:25,  hp:60,  cooldown:15, recharge:12,
+    iceshooter:  { name:'寒冰射手', icon:'❄️', cost:75,  hp:100, cooldown:7,  recharge:5,
+      desc:'减速僵尸', fireRate:90,  damage:25, shooter:true, bulletType:'ice' },
+    firepea:     { name:'火爆射手', icon:'🔥', cost:75,  hp:100, cooldown:7,  recharge:5,
+      desc:'火焰溅射', fireRate:90,  damage:30, shooter:true, bulletType:'fire', splash:50 },
+    potato:      { name:'土豆地雷', icon:'🥔', cost:15,  hp:60,  cooldown:15, recharge:8,
       desc:'埋伏爆炸', potato:true },
-    chomper:     { name:'大嘴花', icon:'🦷', cost:150, hp:100, cooldown:8,  recharge:7,
+    chomper:     { name:'大嘴花', icon:'🦷', cost:75,  hp:100, cooldown:8,  recharge:6,
       desc:'吞食僵尸', chomper:true },
-    squash:      { name:'窝瓜', icon:'🥒', cost:50,  hp:1,   cooldown:20, recharge:15,
+    squash:      { name:'窝瓜', icon:'🥒', cost:25,  hp:1,   cooldown:20, recharge:10,
       desc:'压扁僵尸', squash:true },
-    cherry:      { name:'樱桃炸弹', icon:'🍒', cost:150, hp:1,   cooldown:30, recharge:25,
+    cherry:      { name:'樱桃炸弹', icon:'🍒', cost:75,  hp:1,   cooldown:30, recharge:20,
       desc:'范围爆炸', bomb:true }
   };
   var CARD_ORDER = ['sunflower','peashooter','doublepea','threepeater','wallnut','iceshooter','firepea','potato','chomper','squash','cherry'];
 
   // ===== 僵尸定义 =====
   var ZOMBIES = {
-    normal: { hp:100, speed:0.35, dmg:8, color:'#4a8b6b' },
-    cone:   { hp:200, speed:0.35, dmg:8, color:'#4a8b6b', cone:true },
-    bucket: { hp:400, speed:0.32, dmg:8, color:'#4a8b6b', bucket:true },
-    fast:   { hp:120, speed:0.65, dmg:8, color:'#6b4a8b', fast:true }
+    normal: { hp:60,  speed:0.32, dmg:6, color:'#4a8b6b' },
+    cone:   { hp:120, speed:0.32, dmg:6, color:'#4a8b6b', cone:true },
+    bucket: { hp:220, speed:0.30, dmg:6, color:'#4a8b6b', bucket:true },
+    fast:   { hp:70,  speed:0.55, dmg:6, color:'#6b4a8b', fast:true }
   };
 
   var state, grid, plants, zombies, bullets, suns, particles, selectedCard, shovelMode, mouse;
 
   function init(){
-    state = { running:false, over:false, won:false, sun:50, wave:0, totalWaves:6,
+    state = { running:false, over:false, won:false, sun:150, wave:0, totalWaves:6,
               waveTimer:0, waveProgress:0, zombiesInWave:0, zombiesSpawned:0,
               spawnTick:0, sunDropTick:0, flagWave:false, msg:'' };
     grid = []; // [row][col] = plant对象或null
@@ -209,7 +209,7 @@
 
   // ===== 阳光 =====
   function spawnSun(x, y, fromSky){
-    suns.push({ x:x, y:fromSky?-20:y, tx:x, ty:fromSky? (LAWN_Y+Math.random()*(H-LAWN_Y-40)) :y, val:25, life:600, collected:false, bob:Math.random()*6, fromSky:fromSky, vy:0 });
+    suns.push({ x:x, y:fromSky?-20:y, tx:x, ty:fromSky? (LAWN_Y+Math.random()*(H-LAWN_Y-40)) :y, val:50, life:720, collected:false, bob:Math.random()*6, fromSky:fromSky, vy:0 });
   }
   function collectSun(s){
     if(s.collected) return;
@@ -280,7 +280,7 @@
 
     // 天降阳光
     state.sunDropTick++;
-    if(state.sunDropTick>=600){ state.sunDropTick=0; spawnSun(LAWN_X+Math.random()*(COLS*CELL_W), 0, true); }
+    if(state.sunDropTick>=400){ state.sunDropTick=0; spawnSun(LAWN_X+Math.random()*(COLS*CELL_W), 0, true); }
 
     // 波次推进
     if(state.zombiesSpawned < state.zombiesInWave){
@@ -306,7 +306,7 @@
       var def = PLANTS[pl.key];
       if(pl.key==='sunflower'){
         pl.fireTick++;
-        if(pl.fireTick>=600){ pl.fireTick=0; spawnSun(pl.x, pl.y-10, false); SFX.bubble(); }
+        if(pl.fireTick>=450){ pl.fireTick=0; spawnSun(pl.x, pl.y-10, false); SFX.bubble(); }
       } else if(def.shooter){
         pl.fireTick++;
         // 检查同行有僵尸才射击
