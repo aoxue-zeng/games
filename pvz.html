@@ -114,18 +114,30 @@
 
   // ===== 植物定义 =====
   var PLANTS = {
-    sunflower: { name:'向日葵', icon:'🌻', cost:50, hp:80, cooldown:7, recharge:5,
+    sunflower:   { name:'向日葵', icon:'🌻', cost:50,  hp:80,  cooldown:7,  recharge:5,
       desc:'产阳光' },
-    peashooter: { name:'豌豆射手', icon:'🌱', cost:100, hp:100, cooldown:7, recharge:5,
-      desc:'射豌豆', fireRate:90, damage:20 },
-    wallnut: { name:'坚果墙', icon:'🥜', cost:50, hp:400, cooldown:20, recharge:15,
+    peashooter:  { name:'豌豆射手', icon:'🌱', cost:100, hp:100, cooldown:7,  recharge:5,
+      desc:'射豌豆', fireRate:90,  damage:20, shooter:true, bulletType:'pea' },
+    doublepea:   { name:'双发射手', icon:'🌿', cost:200, hp:100, cooldown:7,  recharge:6,
+      desc:'射双发', fireRate:90,  damage:20, shooter:true, bulletType:'pea', bulletCount:2 },
+    threepeater: { name:'三线射手', icon:'🎯', cost:325, hp:100, cooldown:7,  recharge:8,
+      desc:'三行齐射', fireRate:110, damage:20, shooter:true, bulletType:'pea', multiRow:true },
+    wallnut:     { name:'坚果墙', icon:'🥜', cost:50,  hp:400, cooldown:20, recharge:15,
       desc:'高血量阻挡' },
-    iceshooter: { name:'寒冰射手', icon:'❄️', cost:175, hp:100, cooldown:7, recharge:6,
-      desc:'减速僵尸', fireRate:90, damage:20, slow:true },
-    cherry: { name:'樱桃炸弹', icon:'🍒', cost:150, hp:1, cooldown:30, recharge:25,
+    iceshooter:  { name:'寒冰射手', icon:'❄️', cost:175, hp:100, cooldown:7,  recharge:6,
+      desc:'减速僵尸', fireRate:90,  damage:20, shooter:true, bulletType:'ice' },
+    firepea:     { name:'火爆射手', icon:'🔥', cost:175, hp:100, cooldown:7,  recharge:6,
+      desc:'火焰溅射', fireRate:90,  damage:25, shooter:true, bulletType:'fire', splash:45 },
+    potato:      { name:'土豆地雷', icon:'🥔', cost:25,  hp:60,  cooldown:15, recharge:12,
+      desc:'埋伏爆炸', potato:true },
+    chomper:     { name:'大嘴花', icon:'🦷', cost:150, hp:100, cooldown:8,  recharge:7,
+      desc:'吞食僵尸', chomper:true },
+    squash:      { name:'窝瓜', icon:'🥒', cost:50,  hp:1,   cooldown:20, recharge:15,
+      desc:'压扁僵尸', squash:true },
+    cherry:      { name:'樱桃炸弹', icon:'🍒', cost:150, hp:1,   cooldown:30, recharge:25,
       desc:'范围爆炸', bomb:true }
   };
-  var CARD_ORDER = ['sunflower','peashooter','wallnut','iceshooter','cherry'];
+  var CARD_ORDER = ['sunflower','peashooter','doublepea','threepeater','wallnut','iceshooter','firepea','potato','chomper','squash','cherry'];
 
   // ===== 僵尸定义 =====
   var ZOMBIES = {
@@ -215,7 +227,10 @@
   function plantAt(r, c, key){
     var p = PLANTS[key];
     var plant = { key:key, r:r, c:c, x:LAWN_X+c*CELL_W+CELL_W/2, y:LAWN_Y+r*CELL_H+CELL_H/2,
-      hp:p.hp, maxhp:p.hp, fireTick:0, anim:Math.random()*6, bomb:p.bomb, bombTick:p.bomb?-1:0 };
+      hp:p.hp, maxhp:p.hp, fireTick:0, anim:Math.random()*6, bomb:p.bomb, bombTick:p.bomb?-1:0,
+      potato:p.potato, armingTick:p.potato?360:0, armed:false,
+      chomper:p.chomper, chewing:0,
+      squash:p.squash, squashTarget:null };
     grid[r][c]=plant; plants.push(plant);
     state.sun -= p.cost; p._cd = p.recharge;
     SFX.place(); spawnParticles(plant.x, plant.y, '#5fb53f', 8);
@@ -292,14 +307,28 @@
       if(pl.key==='sunflower'){
         pl.fireTick++;
         if(pl.fireTick>=600){ pl.fireTick=0; spawnSun(pl.x, pl.y-10, false); SFX.bubble(); }
-      } else if(pl.key==='peashooter'||pl.key==='iceshooter'){
+      } else if(def.shooter){
         pl.fireTick++;
         // 检查同行有僵尸才射击
         var hasZ=false;
-        for(var zi=0;zi<zombies.length;zi++){ if(zombies[zi].r===pl.r && zombies[zi].x>pl.x){ hasZ=true; break; } }
+        if(def.multiRow){
+          // 三线：检查相邻三行
+          for(var zi=0;zi<zombies.length;zi++){ if(Math.abs(zombies[zi].r-pl.r)<=1 && zombies[zi].x>pl.x){ hasZ=true; break; } }
+        } else {
+          for(var zi=0;zi<zombies.length;zi++){ if(zombies[zi].r===pl.r && zombies[zi].x>pl.x){ hasZ=true; break; } }
+        }
         if(hasZ && pl.fireTick>=def.fireRate){
           pl.fireTick=0;
-          bullets.push({ x:pl.x+18, y:pl.y-4, vx:6, r:pl.r, dmg:def.damage, slow:pl.key==='iceshooter', type:pl.key==='iceshooter'?'ice':'pea' });
+          var rows = def.multiRow ? [pl.r-1, pl.r, pl.r+1] : [pl.r];
+          for(var ri=0;ri<rows.length;ri++){
+            if(rows[ri]<0||rows[ri]>=ROWS) continue;
+            var count = def.bulletCount||1;
+            for(var bi=0;bi<count;bi++){
+              bullets.push({ x:pl.x+18, y:pl.y-4+(def.multiRow?(rows[ri]-pl.r)*4:0)+(count>1?bi*8-4:0), vx:6, r:rows[ri],
+                dmg:def.damage, slow:pl.key==='iceshooter', splash:def.splash||0,
+                type:def.bulletType, fromX:pl.x });
+            }
+          }
           SFX.shoot();
         }
       } else if(pl.key==='cherry'){
@@ -317,6 +346,73 @@
           grid[pl.r][pl.c]=null; plants.splice(i,1);
           continue;
         }
+      } else if(pl.potato){
+        // 土豆地雷：装填后触发
+        if(!pl.armed){
+          pl.armingTick--;
+          if(pl.armingTick<=0){ pl.armed=true; }
+        } else {
+          // 检查踩到
+          for(var zp=zombies.length-1;zp>=0;zp--){
+            var zb=zombies[zp];
+            if(zb.r===pl.r && Math.abs(zb.x-pl.x)<24){
+              // 引爆
+              SFX.boom();
+              spawnParticles(pl.x, pl.y, '#ff5722', 26);
+              for(var z2b=zombies.length-1;z2b>=0;z2b--){
+                var zzb=zombies[z2b];
+                if(zzb.r===pl.r && Math.abs(zzb.x-pl.x)<CELL_W*0.9){
+                  zzb.hp -= 250; spawnParticles(zzb.x, zzb.y, '#ff5722', 8);
+                }
+              }
+              grid[pl.r][pl.c]=null; plants.splice(i,1);
+              break;
+            }
+          }
+        }
+      } else if(pl.chomper){
+        // 大嘴花：吞食前方的僵尸，吞完咀嚼
+        if(pl.chewing>0){ pl.chewing--; }
+        else {
+          for(var zc=zombies.length-1;zc>=0;zc--){
+            var zcc=zombies[zc];
+            if(zcc.r===pl.r && zcc.x>pl.x-12 && zcc.x<pl.x+44){
+              // 吞噬（非铁桶直接秒，铁桶造成重创）
+              SFX.chomp ? SFX.chomp() : SFX.hit();
+              spawnParticles(zcc.x, zcc.y, '#8bc34a', 18);
+              if(zcc.bucket && zcc.hp>200){ zcc.hp -= 200; }
+              else { zcc.hp = 0; }
+              pl.chewing = 720; // 12 秒咀嚼
+              break;
+            }
+          }
+        }
+      } else if(pl.squash){
+        // 窝瓜：发现同行/邻近僵尸就跳起压扁
+        if(!pl.squashTarget){
+          var nearest=null, nd=Infinity;
+          for(var zs=zombies.length-1;zs>=0;zs--){
+            var zss=zombies[zs];
+            if(Math.abs(zss.r-pl.r)<=0 && zss.x>pl.x-30 && zss.x<pl.x+200){
+              var d=Math.abs(zss.x-pl.x);
+              if(d<nd){ nd=d; nearest=zss; }
+            }
+          }
+          pl.squashTarget = nearest;
+        }
+        if(pl.squashTarget){
+          pl.squashTarget.squashed = true;
+          // 落点伤害
+          for(var zsq=zombies.length-1;zsq>=0;zsq--){
+            var zsqq=zombies[zsq];
+            if(zsqq.r===pl.r && Math.abs(zsqq.x-pl.squashTarget.x)<36){
+              zsqq.hp -= 300; spawnParticles(zsqq.x, zsqq.y, '#8bc34a', 10);
+            }
+          }
+          SFX.hit();
+          grid[pl.r][pl.c]=null; plants.splice(i,1);
+          continue;
+        }
       }
       if(pl.hp<=0){ grid[pl.r][pl.c]=null; plants.splice(i,1); SFX.hurt(); }
     }
@@ -331,7 +427,18 @@
         if(zbu.r===bu.r && Math.abs(zbu.x-bu.x)<22 && zbu.hp>0){
           zbu.hp -= bu.dmg;
           if(bu.slow) zbu.slow=300;
-          spawnParticles(bu.x, bu.y, bu.type==='ice'?'#4dd0e1':'#9c27b0', 4);
+          spawnParticles(bu.x, bu.y, bu.type==='ice'?'#4dd0e1':(bu.type==='fire'?'#ff5722':'#9c27b0'), 4);
+          // 火焰溅射：周围同行僵尸受伤
+          if(bu.splash>0){
+            for(var zs2=0;zs2<zombies.length;zs2++){
+              var zsp=zombies[zs2];
+              if(zsp!==zbu && zsp.r===bu.r && Math.abs(zsp.x-zbu.x)<44){
+                zsp.hp -= bu.splash;
+                spawnParticles(zsp.x, zsp.y, '#ff9800', 6);
+              }
+            }
+            spawnParticles(bu.x, bu.y, '#ff5722', 12);
+          }
           bullets.splice(b,1);
           SFX.hit();
           break;
@@ -443,6 +550,73 @@
       ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
       // 冰晶
       ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fillRect(x-2,y-20,4,4);
+    } else if(pl.key==='doublepea'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#388e3c'; ctx.fillRect(x-12,y-16,24,24);
+      // 双炮口
+      ctx.fillStyle='#1b5e20'; ctx.fillRect(x+8,y-12,12,8); ctx.fillRect(x+8,y,12,8);
+      ctx.fillStyle='#0d3d10'; ctx.fillRect(x+18,y-10,4,4); ctx.fillRect(x+18,y+2,4,4);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
+    } else if(pl.key==='threepeater'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#2e7d32'; ctx.fillRect(x-14,y-14,28,24);
+      // 三个头
+      for(var t=-1;t<=1;t++){
+        ctx.fillStyle='#43a047'; ctx.fillRect(x-8, y-12+t*10, 18, 8);
+        ctx.fillStyle='#1b5e20'; ctx.fillRect(x+8, y-10+t*10, 10, 4);
+      }
+      ctx.fillStyle='#fff'; ctx.fillRect(x-4,y-2,3,3); ctx.fillStyle='#000'; ctx.fillRect(x-3,y-1,1,1);
+    } else if(pl.key==='firepea'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      ctx.fillStyle='#ff5722'; ctx.fillRect(x-12,y-14,24,22);
+      ctx.fillStyle='#bf360c'; ctx.fillRect(x+8,y-10,12,12); ctx.fillRect(x+18,y-7,4,6);
+      ctx.fillStyle='#fff'; ctx.fillRect(x-6,y-8,5,5); ctx.fillStyle='#000'; ctx.fillRect(x-4,y-7,2,2);
+      // 火苗
+      var ff = Math.sin(pl.anim*3)>0;
+      ctx.fillStyle= ff?'#ffc107':'#ff9800'; ctx.fillRect(x-2,y-22,4,5);
+      ctx.fillStyle='#ffeb3b'; ctx.fillRect(x-1,y-21,2,3);
+    } else if(pl.key==='potato'){
+      if(pl.armed){
+        // 已装填：露出土面
+        ctx.fillStyle='#8d6e63'; ctx.fillRect(x-14,y-6,28,16);
+        ctx.fillStyle='#6d4c41'; ctx.fillRect(x-14,y+6,28,4);
+        ctx.fillStyle='#a1887f'; ctx.fillRect(x-10,y-2,4,4); ctx.fillRect(x+2,y-2,4,4);
+        // 引线闪烁
+        if(Math.floor(pl.anim*2)%2===0){ ctx.fillStyle='#ff5722'; ctx.fillRect(x+10,y-10,3,4); }
+      } else {
+        // 未装填：埋在土里只露小芽
+        ctx.fillStyle='#6d4c41'; ctx.fillRect(x-6,y+4,12,6);
+        ctx.fillStyle='#8bc34a'; ctx.fillRect(x-1,y-2,2,8);
+        // 装填进度条
+        var prog = 1 - pl.armingTick/360;
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-14,y+12,28,3);
+        ctx.fillStyle='#ffd700'; ctx.fillRect(x-14,y+12,28*prog,3);
+      }
+    } else if(pl.key==='chomper'){
+      ctx.fillStyle='#3d8b2a'; ctx.fillRect(x-3,y,6,20);
+      if(pl.chewing>0){
+        // 咀嚼闭嘴
+        ctx.fillStyle='#c62828'; ctx.fillRect(x-14,y-14,28,22);
+        ctx.fillStyle='#000'; ctx.fillRect(x-10,y-6,20,3);
+      } else {
+        // 张嘴
+        ctx.fillStyle='#c62828'; ctx.fillRect(x-14,y-18,28,20);
+        ctx.fillStyle='#000'; ctx.fillRect(x-14,y-6,28,10);
+        // 牙齿
+        ctx.fillStyle='#fff';
+        for(var tk=-2;tk<=2;tk++){ ctx.fillRect(x+tk*5-1,y-6,2,4); ctx.fillRect(x+tk*5-1,y,2,4); }
+        ctx.fillStyle='#e91e63'; ctx.fillRect(x-4,y-18,8,6);
+      }
+      ctx.fillStyle='#fff'; ctx.fillRect(x-10,y-16,3,3);
+    } else if(pl.key==='squash'){
+      // 窝瓜：绿色椭圆脸
+      ctx.fillStyle='#558b2f'; ctx.fillRect(x-16,y-14,32,28);
+      ctx.fillStyle='#33691e'; ctx.fillRect(x-16,y+8,32,6);
+      ctx.fillStyle='#7cb342'; ctx.fillRect(x-12,y-12,8,6); // 高光
+      // 脸
+      ctx.fillStyle='#fff'; ctx.fillRect(x-8,y-4,5,5); ctx.fillRect(x+3,y-4,5,5);
+      ctx.fillStyle='#000'; ctx.fillRect(x-6,y-3,2,2); ctx.fillRect(x+5,y-3,2,2);
+      ctx.fillStyle='#000'; ctx.fillRect(x-4,y+4,8,2);
     } else if(pl.key==='wallnut'){
       ctx.fillStyle='#8b5a2b'; ctx.fillRect(x-16,y-16,32,32);
       ctx.fillStyle='#6b4220'; ctx.fillRect(x-16,y+8,32,8); ctx.fillRect(x-16,y-16,32,4);
@@ -509,6 +683,11 @@
 
   function drawBullet(bu){
     if(bu.type==='pea'){ ctx.fillStyle='#4caf50'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill(); ctx.fillStyle='#2e7d32'; ctx.fillRect(bu.x-1,bu.y+2,4,3); }
+    else if(bu.type==='fire'){
+      ctx.fillStyle='rgba(255,87,34,0.5)'; ctx.beginPath(); ctx.arc(bu.x,bu.y,10,0,7); ctx.fill();
+      ctx.fillStyle='#ff5722'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill();
+      ctx.fillStyle='#ffc107'; ctx.fillRect(bu.x-2,bu.y-3,4,4);
+    }
     else { ctx.fillStyle='#4dd0e1'; ctx.beginPath(); ctx.arc(bu.x,bu.y,6,0,7); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(bu.x-2,bu.y-3,3,3); }
   }
 
@@ -538,7 +717,7 @@
       var cell = cellAt(mouse.x, mouse.y);
       if(cell && !grid[cell.r][cell.c]){
         ctx.globalAlpha=0.5; var p=PLANTS[selectedCard];
-        var fakePlant = {key:selectedCard, x:LAWN_X+cell.c*CELL_W+CELL_W/2, y:LAWN_Y+cell.r*CELL_H+CELL_H/2, hp:1, maxhp:1, anim:0, fireTick:0, bombTick:0};
+        var fakePlant = {key:selectedCard, x:LAWN_X+cell.c*CELL_W+CELL_W/2, y:LAWN_Y+cell.r*CELL_H+CELL_H/2, hp:1, maxhp:1, anim:0, fireTick:0, bombTick:0, armed:true, armingTick:0, chewing:0};
         drawPlant(fakePlant); ctx.globalAlpha=1;
         ctx.strokeStyle='#ffd700'; ctx.lineWidth=2;
         ctx.strokeRect(LAWN_X+cell.c*CELL_W, LAWN_Y+cell.r*CELL_H, CELL_W, CELL_H);
