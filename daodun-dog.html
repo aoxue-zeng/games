@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>刀盾狗进化战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a1a1a; cursor:none; touch-action:none; display:block; max-width:100%; border-radius:8px; }
+  .form-bar { display:flex; gap:6px; justify-content:center; margin:12px auto; flex-wrap:wrap; max-width:760px; }
+  .form-slot {
+    width:64px; padding:6px 4px; text-align:center; background:var(--mc-panel);
+    border:3px solid var(--mc-black); border-radius:6px; position:relative; opacity:0.45;
+    box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow);
+    transition:all 0.2s;
+  }
+  .form-slot.unlocked { opacity:1; }
+  .form-slot.current { border-color:var(--mc-gold); box-shadow:0 0 14px var(--mc-gold); transform:translateY(-3px); }
+  .form-slot .icon { font-size:30px; line-height:30px; }
+  .form-slot .nm { font-family:'Press Start 2P',monospace; font-size:7px; color:#fff; text-shadow:1px 1px 0 #000; margin-top:2px; }
+  .form-slot .lk { position:absolute; top:-6px; right:-6px; font-size:14px; }
+  .skill-box {
+    max-width:680px; margin:8px auto; padding:10px 14px; background:rgba(0,0,0,0.4);
+    border:2px solid var(--mc-gold); border-radius:6px; text-align:center; color:#ffd700;
+    font-size:15px; min-height:24px;
+  }
+  .skill-box b { color:#fff; }
+  .toast-fx {
+    position:fixed; top:30%; left:50%; transform:translateX(-50%);
+    font-family:'Press Start 2P',monospace; font-size:28px; color:#ffd700;
+    text-shadow:4px 4px 0 #000, 0 0 20px #ff5252; z-index:50; pointer-events:none;
+    animation:bigPop 1.6s forwards;
+  }
+  @keyframes bigPop{ 0%{opacity:0;transform:translate(-50%,-20px) scale(0.5);} 15%{opacity:1;transform:translate(-50%,0) scale(1.2);} 30%{transform:translate(-50%,0) scale(1);} 80%{opacity:1;} 100%{opacity:0;transform:translate(-50%,-30px) scale(1);} }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="daodun-dog.html">刀盾狗进化</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="dragon.html">末影龙</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🐕 刀盾狗进化战</h1>
+  <p class="subtitle">击败更高级的刀盾狗，你就能变成它！</p>
+
+  <div style="max-width:680px;margin:12px auto;padding:16px 20px;text-align:left;background:rgba(0,0,0,0.35);border-left:4px solid #ff5722;border-radius:6px;color:#e8e8e8;font-size:15px;line-height:1.7;">
+    <span style="color:#ff8a65;font-family:'Press Start 2P',monospace;font-size:10px;">📍 起源 · 熔岩犬的觉醒</span><br>
+    你本是地心深处的一条<b style="color:#ff5722">熔岩刀盾狗</b>，浑身滚烫，刀盾相击会发出震耳「<b>响</b>」声。
+    传闻竞技场之上还有更强的形态——会<b style="color:#8bc34a">对你笑的白菜</b>、<b style="color:#ffa726">橘子肌肉人</b>、<b style="color:#90caf9">蓝铁肌肉人</b>，以及传说中的<b style="color:#ffd700">黄金刀盾王</b>。
+    <b style="color:#ffd700">击败谁，就成为谁</b>，继承它的技能一路进化！
+  </div>
+
+  <div class="form-bar" id="formBar"></div>
+  <div class="skill-box" id="skillBox">熔岩咆哮：按空格发出震响，震退并灼烧周围敌人 🔥</div>
+
+  <div class="hud" style="margin-top:8px;">
+    <div class="hud-item"><span class="label">当前形态</span><span id="curForm">熔岩刀盾</span></div>
+    <div class="hud-item"><span class="label">击杀</span><span id="kills">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最佳形态</span><span id="bestForm">熔岩刀盾</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:8px;">
+    <canvas id="gameCanvas" width="760" height="500"></canvas>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    WASD/方向键移动 · 鼠标瞄准 · 自动劈砍 · <b style="color:#ffd700">空格放技能</b> · 击败高阶刀盾狗进化成它
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+
+  // ===== 形态定义（5阶进化）=====
+  var FORMS=[
+    { key:'lava',    name:'熔岩刀盾', icon:'🐕', color:'#ff5722', tier:0,
+      hp:120, atk:14, speed:2.6, range:42, fireRate:30,
+      skillName:'熔岩咆哮', skillDesc:'空格发出震响，震退并灼烧周围敌人 🔥',
+      skillType:'roar', skillDmg:40, skillRad:130 },
+    { key:'cabbage', name:'白菜对我笑', icon:'🥬', color:'#8bc34a', tier:1,
+      hp:150, atk:16, speed:2.8, range:46, fireRate:28,
+      skillName:'迷之微笑', skillDesc:'空格抛媚眼，敌人被迷住原地发呆 3 秒 😊',
+      skillType:'charm', skillDmg:0, skillRad:160 },
+    { key:'orange',  name:'橘子肌肉人', icon:'🍊', color:'#ffa726', tier:2,
+      hp:200, atk:22, speed:3.0, range:52, fireRate:24,
+      skillName:'果汁重拳', skillDesc:'空格挥出橙汁重拳，前冲AOE大伤害 🥊',
+      skillType:'punch', skillDmg:80, skillRad:90 },
+    { key:'iron',    name:'蓝铁肌肉人', icon:'💪', color:'#42a5f5', tier:3,
+      hp:280, atk:26, speed:3.0, range:54, fireRate:22,
+      skillName:'钢铁冲撞', skillDesc:'空格向前猛冲，撞飞一路敌人 ⚡',
+      skillType:'dash', skillDmg:70, skillRad:60 },
+    { key:'king',    name:'黄金刀盾王', icon:'👑', color:'#ffd700', tier:4,
+      hp:360, atk:34, speed:3.2, range:58, fireRate:18,
+      skillName:'王之怒吼', skillDesc:'空格召唤金光剑雨，全屏打击 👑',
+      skillType:'storm', skillDmg:100, skillRad:9999 }
+  ];
+  var FORM_BY_KEY={}; FORMS.forEach(function(f){FORM_BY_KEY[f.key]=f;});
+
+  var state,player,enemies,slashes,fxs,keys,mouse,skillCd,spawnTick,bigToast,bestTier;
+
+  function init(){
+    bestTier=parseInt(localStorage.getItem('dogBestTier')||'0',10);
+    state={running:false,over:false,kills:0,combo:0,comboTimer:0,wave:1,time:0};
+    morph('lava');
+    enemies=[];slashes=[];fxs=[];
+    keys={};mouse={x:W/2,y:H/2-80};
+    skillCd=0;spawnTick=0;bigToast=null;
+    buildFormBar(); updateHud();
+  }
+
+  function morph(key){
+    var f=FORM_BY_KEY[key];
+    var prevHp = player ? player.hp/player.maxhp : 1;
+    player={form:f, x:player?player.x:W/2, y:player?player.y:H/2, r:18,
+      hp:Math.round(f.hp*prevHp)||f.hp, maxhp:f.hp, angle:0, atkTick:0};
+    document.getElementById('skillBox').innerHTML='<b>'+f.skillName+'</b>：'+f.skillDesc;
+    document.getElementById('curForm').textContent=f.name;
+    showBigToast('进化 → '+f.icon+' '+f.name+'！', f.color);
+    SFX.levelUp(); SFX.unlock();
+    buildFormBar();
+  }
+
+  function buildFormBar(){
+    var bar=document.getElementById('formBar'); bar.innerHTML='';
+    FORMS.forEach(function(f){
+      var s=document.createElement('div'); s.className='form-slot';
+      if(f.tier<=bestTier)s.classList.add('unlocked');
+      if(player&&player.form.key===f.key)s.classList.add('current');
+      var lock = f.tier>bestTier ? '<div class="lk">🔒</div>' : '';
+      s.innerHTML='<div class="icon">'+(f.tier>bestTier?'❓':f.icon)+'</div><div class="nm">'+f.name+'</div>'+lock;
+      bar.appendChild(s);
+    });
+  }
+
+  function updateHud(){
+    document.getElementById('kills').textContent=state.kills;
+    document.getElementById('combo').textContent=state.combo;
+    var bf=FORMS[bestTier]||FORMS[0];
+    document.getElementById('bestForm').textContent=bf.name;
+  }
+
+  // ===== 敌人：刷出更高阶的刀盾狗，击败后掉落进化核 =====
+  function spawnEnemy(){
+    // 偏向刷玩家当前阶+1 的（挑战目标），混一些同级/低级
+    var tierPool=[];
+    var ct=player.form.tier;
+    tierPool.push(ct+1, ct+1, ct+1); // 高一阶（进化目标）权重高
+    if(ct>=1)tierPool.push(ct, ct);
+    if(ct>=2)tierPool.push(ct-1);
+    if(ct===4)tierPool=[4,4,4]; // 满级后全刷王级
+    var tier=tierPool[Math.floor(Math.random()*tierPool.length)];
+    if(tier>=FORMS.length)tier=FORMS.length-1;
+    var f=FORMS[tier];
+    // 从边缘出生
+    var side=Math.floor(Math.random()*4),x,y;
+    if(side===0){x=Math.random()*W;y=-30;}
+    else if(side===1){x=W+30;y=Math.random()*H;}
+    else if(side===2){x=Math.random()*W;y=H+30;}
+    else{x=-30;y=Math.random()*H;}
+    enemies.push({form:f,x:x,y:y,r:16+tier*2,
+      hp:f.hp+state.wave*8, maxhp:f.hp+state.wave*8, speed:f.speed*0.6,
+      atkTick:0, anim:Math.random()*6, angle:0, hitFlash:0, charm:0});
+  }
+
+  function update(){
+    if(!state.running||state.over) return;
+    state.time+=1/60;
+    // 连击衰减
+    if(state.comboTimer>0){state.comboTimer--; if(state.comboTimer<=0)state.combo=0;}
+    // 玩家移动
+    var mx=0,my=0;
+    if(keys['a']||keys['arrowleft'])mx-=1;
+    if(keys['d']||keys['arrowright'])mx+=1;
+    if(keys['w']||keys['arrowup'])my-=1;
+    if(keys['s']||keys['arrowdown'])my+=1;
+    if(mx||my){ var d=Math.hypot(mx,my); player.x+=mx/d*player.form.speed; player.y+=my/d*player.form.speed; }
+    player.x=Math.max(player.r,Math.min(W-player.r,player.x));
+    player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+    player.angle=Math.atan2(mouse.y-player.y, mouse.x-player.x);
+    // 自动劈砍最近敌人
+    player.atkTick++;
+    var target=nearestEnemy();
+    if(target && player.atkTick>=player.form.fireRate && Math.hypot(target.x-player.x,target.y-player.y)<player.form.range+10){
+      player.atkTick=0;
+      var dmg=player.form.atk+Math.floor(Math.random()*6);
+      damageEnemy(target,dmg);
+      slashes.push({x:player.x,y:player.y,a:player.angle,life:10,form:player.form.key});
+      SFX.hit();
+    }
+    // 技能冷却
+    if(skillCd>0)skillCd--;
+    // 敌人
+    for(var i=enemies.length-1;i>=0;i--){
+      var e=enemies[i];
+      e.anim+=0.1; if(e.hitFlash>0)e.hitFlash--;
+      if(e.charm>0){ e.charm--; }
+      else {
+        var dx=player.x-e.x, dy=player.y-e.y, d=Math.hypot(dx,dy)||1;
+        e.x+=dx/d*e.speed; e.y+=dy/d*e.speed;
+        e.angle=Math.atan2(dy,dx);
+        // 接触伤害
+        if(d<e.r+player.r && e.atkTick<=0){
+          e.atkTick=40;
+          player.hp-=8+e.form.tier*3; state.combo=0;
+          SFX.hurt(); fxs.push({type:'text',x:player.x,y:player.y-20,text:'-'+(8+e.form.tier*3),life:30,color:'#e53935'});
+          if(player.hp<=0){ gameOver(); return; }
+        }
+      }
+      if(e.atkTick>0)e.atkTick--;
+      if(e.hp<=0){ onKill(e); enemies.splice(i,1); }
+    }
+    // 刀光
+    for(var s=slashes.length-1;s>=0;s--){ slashes[s].life--; if(slashes[s].life<=0)slashes.splice(s,1); }
+    // 特效
+    for(var f=fxs.length-1;f>=0;f--){ var fx=fxs[f]; if(fx.type==='text'){fx.y-=1.2;} else {fx.x+=fx.vx;fx.y+=fx.vy;fx.vy+=0.2;} fx.life--; if(fx.life<=0)fxs.splice(f,1); }
+    // 刷怪
+    spawnTick++;
+    var interval=Math.max(50, 130-state.wave*6);
+    if(spawnTick>=interval && enemies.length<8+state.wave){ spawnTick=0; spawnEnemy(); }
+    // 波次（按击杀）
+    if(state.kills>=state.wave*6){ state.wave++; SFX.levelUp(); toast('🌊 第 '+state.wave+' 波！'); }
+    updateHud();
+  }
+
+  function nearestEnemy(){
+    var best=null,bd=Infinity;
+    for(var i=0;i<enemies.length;i++){ var e=enemies[i]; var d=Math.hypot(e.x-player.x,e.y-player.y); if(d<bd){bd=d;best=e;} }
+    return best;
+  }
+
+  function damageEnemy(e,dmg){ e.hp-=dmg; e.hitFlash=8; }
+
+  function onKill(e){
+    state.kills++; state.combo++; state.comboTimer=120;
+    fxs.push({type:'text',x:e.x,y:e.y-10,text:'+'+(10+e.form.tier*5),life:30,color:'#ffd700'});
+    spawnParticles(e.x,e.y,e.form.color,14);
+    SFX.coin();
+    // 击败高阶敌人 → 进化
+    if(e.form.tier>player.form.tier){
+      morph(e.form.key);
+      if(e.form.tier>bestTier){ bestTier=e.form.tier; localStorage.setItem('dogBestTier',bestTier); }
+      // 清场冲击波
+      shockwave(e.form.color);
+    } else if(e.form.tier===player.form.tier && e.form.key!==player.form.key){
+      // 同阶不同形也可切
+      morph(e.form.key);
+    }
+    // 满级后击败王级回血
+    if(player.form.tier===4 && e.form.tier===4){ player.hp=Math.min(player.maxhp,player.hp+30); }
+  }
+
+  function shockwave(color){
+    for(var i=0;i<40;i++){ var a=i/40*6.28; fxs.push({type:'p',x:player.x,y:player.y,vx:Math.cos(a)*6,vy:Math.sin(a)*6,life:30,color:color,size:4}); }
+    SFX.boom();
+  }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*5; fxs.push({type:'p',x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); } }
+
+  // ===== 技能 =====
+  function useSkill(){
+    if(!state.running||state.over||skillCd>0) return;
+    var f=player.form;
+    skillCd=180; // 3秒冷却
+    SFX.roar();
+    if(f.skillType==='roar'){
+      // 震响：范围震退+灼烧
+      enemies.forEach(function(e){
+        if(Math.hypot(e.x-player.x,e.y-player.y)<f.skillRad){
+          damageEnemy(e,f.skillDmg);
+          var dx=e.x-player.x,dy=e.y-player.y,d=Math.hypot(dx,dy)||1;
+          e.x+=dx/d*60; e.y+=dy/d*60; e.charm=30;
+          spawnParticles(e.x,e.y,'#ff5722',10);
+        }
+      });
+      shockwave('#ff5722');
+      fxs.push({type:'ring',x:player.x,y:player.y,r:10,maxr:f.skillRad,life:25,color:'#ff5722'});
+    } else if(f.skillType==='charm'){
+      // 迷之微笑：魅惑
+      enemies.forEach(function(e){
+        if(Math.hypot(e.x-player.x,e.y-player.y)<f.skillRad){ e.charm=180; spawnParticles(e.x,e.y,'#ff80ab',8); }
+      });
+      fxs.push({type:'ring',x:player.x,y:player.y,r:10,maxr:f.skillRad,life:30,color:'#ff80ab'});
+      SFX.bubble();
+    } else if(f.skillType==='punch'){
+      // 果汁重拳：前冲AOE
+      var px=player.x+Math.cos(player.angle)*60, py=player.y+Math.sin(player.angle)*60;
+      enemies.forEach(function(e){
+        if(Math.hypot(e.x-px,e.y-py)<f.skillRad){
+          damageEnemy(e,f.skillDmg); spawnParticles(e.x,e.y,'#ffa726',12);
+          var dx=e.x-px,dy=e.y-py,d=Math.hypot(dx,dy)||1; e.x+=dx/d*40; e.y+=dy/d*40;
+        }
+      });
+      for(var k=0;k<20;k++){ fxs.push({type:'p',x:px,y:py,vx:Math.cos(player.angle+(Math.random()-0.5))*6,vy:Math.sin(player.angle+(Math.random()-0.5))*6,life:25,color:'#ffa726',size:4}); }
+      player.x=px; player.y=py;
+    } else if(f.skillType==='dash'){
+      // 钢铁冲撞：直线冲撞
+      var dx2=Math.cos(player.angle)*200, dy2=Math.sin(player.angle)*200;
+      var steps=10;
+      for(var st=0;st<steps;st++){
+        var cx=player.x+dx2*st/steps, cy=player.y+dy2*st/steps;
+        enemies.forEach(function(e){ if(Math.hypot(e.x-cx,e.y-cy)<f.skillRad){ damageEnemy(e,f.skillDmg); spawnParticles(e.x,e.y,'#42a5f5',8); } });
+      }
+      player.x+=dx2; player.y+=dy2;
+      player.x=Math.max(player.r,Math.min(W-player.r,player.x)); player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+      SFX.shoot();
+    } else if(f.skillType==='storm'){
+      // 王之怒吼：全屏剑雨
+      enemies.forEach(function(e){ damageEnemy(e,f.skillDmg); spawnParticles(e.x,e.y,'#ffd700',14); });
+      for(var r=0;r<60;r++){ fxs.push({type:'p',x:Math.random()*W,y:-10,vx:0,vy:8+Math.random()*6,life:40,color:'#ffd700',size:5}); }
+      SFX.boom(); SFX.win();
+    }
+  }
+
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); toast('💀 倒下了！击杀 '+state.kills+' · 进化到 '+player.form.name); }
+
+  // ===== 渲染 =====
+  function draw(){
+    var g=ctx.createRadialGradient(W/2,H/2,80,W/2,H/2,W*0.7);
+    g.addColorStop(0,'#2a2a2a'); g.addColorStop(1,'#0d0d0d');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 网格
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    for(var gx=0;gx<=W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<=H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    // 环形特效
+    fxs.forEach(function(fx){ if(fx.type==='ring'){ ctx.globalAlpha=fx.life/25; ctx.strokeStyle=fx.color; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(fx.x,fx.y,fx.maxr*(1-fx.life/25)+10,0,7); ctx.stroke(); ctx.globalAlpha=1; } });
+
+    // 敌人
+    enemies.forEach(drawDog);
+
+    // 玩家
+    drawDog({form:player.form,x:player.x,y:player.y,r:player.r,angle:player.angle,anim:state.time*8,hp:player.hp,maxhp:player.maxhp,isPlayer:true,hitFlash:0});
+
+    // 刀光
+    slashes.forEach(function(s){
+      ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.a);
+      ctx.globalAlpha=s.life/10;
+      var col=player.form.color;
+      ctx.strokeStyle=col; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(0,0,player.form.range,-0.8,0.8); ctx.stroke();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0,0,player.form.range,-0.6,0.6); ctx.stroke();
+      ctx.restore(); ctx.globalAlpha=1;
+    });
+
+    // 粒子/文字
+    fxs.forEach(function(fx){
+      if(fx.type==='text'){ ctx.globalAlpha=Math.min(1,fx.life/20); ctx.fillStyle=fx.color; ctx.font='bold 14px "Press Start 2P",monospace'; ctx.textAlign='center'; ctx.fillText(fx.text,fx.x,fx.y); }
+      else if(fx.type==='p'){ ctx.globalAlpha=fx.life/30; ctx.fillStyle=fx.color; ctx.fillRect(fx.x,fx.y,fx.size,fx.size); }
+      ctx.globalAlpha=1;
+    });
+
+    // 准星
+    ctx.strokeStyle='rgba(255,215,0,0.6)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(mouse.x,mouse.y,10,0,7); ctx.stroke();
+
+    // 技能冷却环
+    if(skillCd>0){
+      ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(player.x,player.y,player.r+8,-Math.PI/2,-Math.PI/2+(1-skillCd/180)*6.28); ctx.stroke();
+    } else {
+      ctx.strokeStyle=player.form.color; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x,player.y,player.r+8,0,7); ctx.stroke();
+    }
+
+    // 玩家血条
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(player.x-22,player.y-player.r-14,44,5);
+    ctx.fillStyle=player.form.color; ctx.fillRect(player.x-22,player.y-player.r-14,44*(player.hp/player.maxhp),5);
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#e53935'; ctx.font='24px "Press Start 2P",monospace'; ctx.fillText('倒下了',W/2,H/2-25); ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('击杀 '+state.kills+' · 最终形态 '+player.form.name,W/2,H/2+10); }
+      else { ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('刀盾狗进化战',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · WASD移动 空格技能',W/2,H/2+25); }
+    }
+  }
+
+  // 通用绘制：根据形态画不同的狗
+  function drawDog(d){
+    var x=d.x,y=d.y+Math.sin(d.anim)*2;
+    ctx.save(); ctx.translate(x,y);
+    // 影子
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0,d.r-2,d.r,d.r*0.35,0,0,7); ctx.fill();
+    var f=d.form;
+    // hit闪白
+    var flash = d.hitFlash>0 && Math.floor(d.hitFlash/2)%2===0;
+    var charm = d.charm>0;
+
+    if(f.key==='lava'){
+      // 熔岩狗：橙红身体+刀盾
+      ctx.fillStyle= flash?'#fff':(charm?'#ff80ab':'#d84315');
+      ctx.fillRect(-12,-10,24,20); // 身体
+      ctx.fillStyle='#bf360c'; ctx.fillRect(-12,4,24,6);
+      ctx.fillStyle= flash?'#fff':'#ff7043'; ctx.fillRect(-8,-18,16,10); // 头
+      ctx.fillStyle='#fff'; ctx.fillRect(-5,-15,3,3); ctx.fillRect(2,-15,3,3);
+      ctx.fillStyle='#000'; ctx.fillRect(-4,-14,1,1); ctx.fillRect(3,-14,1,1);
+      ctx.fillStyle='#1a1a1a'; ctx.fillRect(-3,-10,6,2); // 嘴
+      // 刀（朝向）
+      ctx.rotate(d.angle);
+      ctx.fillStyle='#cfd8dc'; ctx.fillRect(d.r-2,-2,16,4); // 刀刃
+      ctx.fillStyle='#90a4ae'; ctx.fillRect(d.r+10,-3,4,6);
+      // 盾（背向）
+      ctx.fillStyle='#5d4037'; ctx.fillRect(-d.r-8,-8,8,16);
+      ctx.fillStyle='#8d6e63'; ctx.fillRect(-d.r-7,-7,4,14);
+      ctx.fillStyle='#ff5722'; ctx.fillRect(-d.r-5,-2,2,4);
+    } else if(f.key==='cabbage'){
+      // 白菜对我笑：绿色菜叶头+笑脸
+      ctx.fillStyle= flash?'#fff':(charm?'#ff80ab':'#7cb342');
+      // 菜叶
+      for(var l=0;l<6;l++){ var la=l/6*6.28; ctx.save(); ctx.rotate(la); ctx.fillStyle= flash?'#fff':'#9ccc65'; ctx.fillRect(-3,-d.r-6,6,10); ctx.restore(); }
+      ctx.fillStyle= flash?'#fff':'#8bc34a'; ctx.beginPath(); ctx.arc(0,0,d.r,0,7); ctx.fill();
+      // 笑脸
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-5,-3,3,0,7); ctx.arc(5,-3,3,0,7); ctx.fill();
+      ctx.fillStyle='#33691e'; ctx.beginPath(); ctx.arc(-5,-3,1.5,0,7); ctx.arc(5,-3,1.5,0,7); ctx.fill();
+      ctx.strokeStyle='#33691e'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,2,6,0.1,Math.PI-0.1); ctx.stroke();
+      // 小刀盾
+      ctx.rotate(d.angle);
+      ctx.fillStyle='#cfd8dc'; ctx.fillRect(d.r-2,-2,14,4);
+      ctx.fillStyle='#5d4037'; ctx.fillRect(-d.r-6,-6,6,12);
+    } else if(f.key==='orange'){
+      // 橘子肌肉人：圆橘子身+粗胳膊
+      ctx.fillStyle= flash?'#fff':(charm?'#ff80ab':'#fb8c00');
+      ctx.beginPath(); ctx.arc(0,0,d.r+2,0,7); ctx.fill();
+      ctx.fillStyle='#ef6c00'; ctx.fillRect(-3,-d.r-8,6,4); // 蒂
+      ctx.fillStyle='#e65100'; ctx.beginPath(); ctx.arc(0,0,d.r-3,0,7); ctx.stroke();
+      // 肌肉胳膊
+      ctx.fillStyle= flash?'#fff':'#ffa726';
+      ctx.rotate(d.angle);
+      ctx.fillRect(d.r-4,-8,16,16); // 粗臂
+      ctx.fillStyle='#fff'; ctx.fillRect(d.r+8,-6,8,12); // 拳头
+      ctx.fillStyle= flash?'#fff':'#ffa726'; ctx.fillRect(-d.r-12,-8,12,16);
+      ctx.rotate(-d.angle);
+      // 脸
+      ctx.fillStyle='#fff'; ctx.fillRect(-6,-5,4,4); ctx.fillRect(2,-5,4,4);
+      ctx.fillStyle='#000'; ctx.fillRect(-5,-4,2,2); ctx.fillRect(3,-4,2,2);
+      ctx.fillStyle='#000'; ctx.fillRect(-3,3,6,2);
+    } else if(f.key==='iron'){
+      // 蓝铁肌肉人
+      ctx.fillStyle= flash?'#fff':(charm?'#ff80ab':'#1565c0');
+      ctx.fillRect(-14,-12,28,24);
+      ctx.fillStyle='#0d47a1'; ctx.fillRect(-14,6,28,6);
+      // 钢铁高光
+      ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(-14,-12,28,4);
+      ctx.fillStyle= flash?'#fff':'#42a5f5'; ctx.fillRect(-10,-20,20,10); // 头盔
+      ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(-10,-20,20,3);
+      ctx.fillStyle='#fff'; ctx.fillRect(-6,-12,4,4); ctx.fillRect(2,-12,4,4);
+      ctx.fillStyle='#000'; ctx.fillRect(-5,-11,2,2); ctx.fillRect(3,-11,2,2);
+      ctx.rotate(d.angle);
+      ctx.fillStyle= flash?'#fff':'#1976d2'; ctx.fillRect(d.r-2,-10,18,20);
+      ctx.fillStyle='#cfd8dc'; ctx.fillRect(d.r+12,-8,10,16);
+      ctx.fillStyle='#5d4037'; ctx.fillRect(-d.r-10,-10,10,20);
+    } else if(f.key==='king'){
+      // 黄金刀盾王
+      ctx.fillStyle= flash?'#fff':(charm?'#ff80ab':'#f9a825');
+      ctx.beginPath(); ctx.arc(0,0,d.r+3,0,7); ctx.fill();
+      ctx.fillStyle='#f57f17'; ctx.beginPath(); ctx.arc(0,0,d.r-2,0,7); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(-5,-5,5,0,7); ctx.fill();
+      // 王冠
+      ctx.fillStyle='#ffd700'; ctx.fillRect(-10,-d.r-10,20,4);
+      ctx.beginPath(); ctx.moveTo(-10,-d.r-10); ctx.lineTo(-10,-d.r-16); ctx.lineTo(-6,-d.r-12); ctx.lineTo(0,-d.r-18); ctx.lineTo(6,-d.r-12); ctx.lineTo(10,-d.r-16); ctx.lineTo(10,-d.r-10); ctx.fill();
+      // 脸
+      ctx.fillStyle='#fff'; ctx.fillRect(-7,-6,4,4); ctx.fillRect(3,-6,4,4);
+      ctx.fillStyle='#000'; ctx.fillRect(-6,-5,2,2); ctx.fillRect(4,-5,2,2);
+      ctx.fillStyle='#b71c1c'; ctx.fillRect(-4,2,8,2);
+      // 大刀盾
+      ctx.rotate(d.angle);
+      ctx.fillStyle='#ffd700'; ctx.fillRect(d.r-2,-3,22,6);
+      ctx.fillStyle='#fff'; ctx.fillRect(d.r+16,-4,6,8);
+      ctx.fillStyle='#ff6f00'; ctx.fillRect(-d.r-12,-10,12,20);
+      ctx.fillStyle='#ffd700'; ctx.fillRect(-d.r-10,-8,4,16);
+    }
+    ctx.restore();
+
+    // 敌人血条 + 阶级标识
+    if(!d.isPlayer && d.hp<d.maxhp){
+      ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(x-18,y-d.r-10,36,4);
+      ctx.fillStyle=d.form.color; ctx.fillRect(x-18,y-d.r-10,36*(d.hp/d.maxhp),4);
+    }
+    // 阶级↑提示（比玩家高）
+    if(!d.isPlayer && d.form.tier>player.form.tier){
+      ctx.fillStyle='#ffd700'; ctx.font='bold 10px "Press Start 2P",monospace'; ctx.textAlign='center';
+      ctx.fillText('⬆进化',x,y-d.r-16);
+    }
+  }
+
+  // ===== 输入 =====
+  document.addEventListener('keydown',function(e){
+    var k=e.key.toLowerCase(); keys[k]=true;
+    if(k===' '){ e.preventDefault(); useSkill(); }
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
+  });
+  document.addEventListener('keyup',function(e){ keys[e.key.toLowerCase()]=false; });
+  function getPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX);
+    var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY);
+    return {x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height)};
+  }
+  canvas.addEventListener('mousemove',function(e){var p=getPos(e);mouse.x=p.x;mouse.y=p.y;});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();var p=getPos(e);mouse.x=p.x;mouse.y=p.y;},{passive:false});
+
+  function showBigToast(text,color){
+    var old=document.querySelector('.toast-fx'); if(old)old.remove();
+    var el=document.createElement('div'); el.className='toast-fx'; el.textContent=text; if(color)el.style.color=color;
+    document.body.appendChild(el); setTimeout(function(){el.remove();},1600);
+  }
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); showBigToast('🐕 熔岩刀盾 觉醒！','#ff5722'); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>
