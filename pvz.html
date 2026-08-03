@@ -75,7 +75,7 @@
   <p class="subtitle">种植物守卫家园，挡住僵尸大军！</p>
 
   <div style="margin-top:18px; display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap;">
-    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">150</span></div>
+    <div class="sun-counter"><span class="sun-icon">☀️</span><span id="sunCount">400</span></div>
     <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 波</div></div>
     <div class="shovel-btn" id="shovelBtn" title="铲除植物">🪏</div>
   </div>
@@ -150,7 +150,7 @@
   var state, grid, plants, zombies, bullets, suns, particles, selectedCard, shovelMode, mouse;
 
   function init(){
-    state = { running:false, over:false, won:false, sun:150, wave:0, totalWaves:6,
+    state = { running:false, over:false, won:false, sun:400, wave:0, totalWaves:6,
               waveTimer:0, waveProgress:0, zombiesInWave:0, zombiesSpawned:0,
               spawnTick:0, sunDropTick:0, flagWave:false, msg:'' };
     grid = []; // [row][col] = plant对象或null
