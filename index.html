@@ -79,7 +79,7 @@
     <p style="font-size:20px; line-height:1.6;">
       嗨！我是 <strong style="color:var(--mc-grass-dark);">AoXuan</strong>。这是一个用像素方块搭建的个人网站，
       灵感来自 <strong style="color:var(--mc-diamond);">Minecraft</strong>。
-      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">109 个小游戏</strong> ——
+      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">113 个小游戏</strong> ——
       涵盖马里奥、我的世界、动作射击、益智逻辑、经典街机、博弈竞猜、策略对战等 9 大分类，
       电脑手机都能玩。拿上你的键盘，开始挖掘吧！⛏️
     </p>
@@ -102,19 +102,19 @@
     <div class="filter-bar">
       <input type="text" id="gameSearch" class="search-box" placeholder="🔍 搜索游戏名..." autocomplete="off">
       <div class="cat-bar" id="catBar">
-        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">109</span></button>
+        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">113</span></button>
         <button class="cat-btn" data-cat="马里奥">🍄 马里奥 <span class="cat-cnt" id="cnt-马里奥">15</span></button>
-        <button class="cat-btn" data-cat="我的世界">⛏ 我的世界 <span class="cat-cnt" id="cnt-我的世界">15</span></button>
-        <button class="cat-btn" data-cat="动作射击">🎮 动作射击 <span class="cat-cnt" id="cnt-动作射击">39</span></button>
-        <button class="cat-btn" data-cat="益智逻辑">🧠 益智逻辑 <span class="cat-cnt" id="cnt-益智逻辑">14</span></button>
-        <button class="cat-btn" data-cat="经典街机">🕹️ 经典街机 <span class="cat-cnt" id="cnt-经典街机">12</span></button>
+        <button class="cat-btn" data-cat="我的世界">⛏ 我的世界 <span class="cat-cnt" id="cnt-我的世界">16</span></button>
+        <button class="cat-btn" data-cat="动作射击">🎮 动作射击 <span class="cat-cnt" id="cnt-动作射击">40</span></button>
+        <button class="cat-btn" data-cat="益智逻辑">🧠 益智逻辑 <span class="cat-cnt" id="cnt-益智逻辑">16</span></button>
+        <button class="cat-btn" data-cat="经典街机">🕹️ 经典街机 <span class="cat-cnt" id="cnt-经典街机">13</span></button>
         <button class="cat-btn" data-cat="博弈竞猜">🎲 博弈竞猜 <span class="cat-cnt" id="cnt-博弈竞猜">3</span></button>
         <button class="cat-btn" data-cat="策略对战">♟️ 策略对战 <span class="cat-cnt" id="cnt-策略对战">2</span></button>
-        <button class="cat-btn" data-cat="创造休闲">🎨 创造休闲 <span class="cat-cnt" id="cnt-创造休闲">4</span></button>
+        <button class="cat-btn" data-cat="创造休闲">🎨 创造休闲 <span class="cat-cnt" id="cnt-创造休闲">5</span></button>
         <button class="cat-btn" data-cat="文字">⌨️ 文字 <span class="cat-cnt" id="cnt-文字">3</span></button>
       </div>
     </div>
-    <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 72 个游戏</p>
+    <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 76 个游戏</p>
 
     <div class="game-grid" id="gameGrid">
       <a href="practice.html" class="game-card" data-cat="文字">
@@ -649,6 +649,11 @@
 
       <a href="mc3d.html" class="game-card" data-cat="我的世界"><span class="play-tag" style="background:#5fb53f;">3D</span><div class="thumb" style="background:linear-gradient(135deg,#5fb53f,#3d8b2a)">⛏</div><div class="info"><h3>3D我的世界</h3><p>真正的3D沙盒！第一人称挖矿/打怪/升级。挖煤铁金钻石，杀僵尸获经验，昼夜交替，放方块建造。</p></div></a>
       <a href="sandbox3d.html" class="game-card" data-cat="创造休闲"><span class="play-tag" style="background:#4dd0e1;">3D</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#4dd0e1)">🧱</div><div class="info"><h3>3D方块沙盒</h3><p>3D自由建造！16色方块，飞行模式，左键破坏右键放置。保存/加载作品到localStorage，无限创造。</p></div></a>
+
+      <a href="dodge.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#0a0a2a,#ff5252)">💥</div><div class="info"><h3>弹幕躲避</h3><p>鼠标控制光球躲漫天弹幕！螺旋/追踪/扇形/横扫四种弹幕轮换，每10秒升级，存活越久分越高。</p></div></a>
+      <a href="stack.html" class="game-card" data-cat="经典街机"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#1a1a2e,#ffd700)">🧱</div><div class="info"><h3>方块堆叠</h3><p>把握时机放下方块堆高塔！完美对齐不缩小，错位部分掉落，越堆越快，挑战最高层数。</p></div></a>
+      <a href="color.html" class="game-card" data-cat="益智逻辑"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#e53935,#1976d2,#43a047)">🎨</div><div class="info"><h3>颜色反应</h3><p>Stroop测试！按字的「颜色」而非字义选答案，6色干扰，限时答题，连击升级，3命挑战。</p></div></a>
+      <a href="flip.html" class="game-card" data-cat="益智逻辑"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#4caf50,#1b5e20)">🃏</div><div class="info"><h3>记忆配对</h3><p>翻牌找相同图案！3D翻转动画，三档难度（4×3/4×4/6×4），记录最少步数，配对消除。</p></div></a>
     </div>
   </section>
 
@@ -656,7 +661,7 @@
   <section class="mc-panel-dark" style="margin-top:50px;">
     <h2 style="color:var(--mc-diamond); font-size:16px; margin-bottom:18px;">📊 世界数据</h2>
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:16px;">
-      <div class="hud-item"><span class="label">游戏数量</span>109</div>
+      <div class="hud-item"><span class="label">游戏数量</span>113</div>
       <div class="hud-item"><span class="label">像素方块</span>∞</div>
       <div class="hud-item"><span class="label">乐趣指数</span>100%</div>
       <div class="hud-item"><span class="label">钻石</span>💎💎💎</div>

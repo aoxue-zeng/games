@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方块堆叠 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a1a2e; cursor:pointer; touch-action:none; display:block; max-width:100%; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="tetris.html">俄罗斯</a>
+    <a href="2048.html">2048</a>
+    <a href="stack.html">方块堆叠</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="jigsaw.html">拼图</a>
+    <a href="slide.html">华容道</a>
+    <a href="match3.html">三消</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🧱 方块堆叠</h1>
+  <p class="subtitle">把握时机放下方块，对齐堆成高塔！</p>
+  <div class="hud" style="margin-top:16px;">
+    <div class="hud-item"><span class="label">层数</span><span id="height">0</span></div>
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="480" height="640"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    点击/空格放下方块 · 完美对齐不缩小 · 错位部分会掉落 · 方块越来越快
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var BW=160; // 初始方块宽
+  var BH=28;  // 方块高
+  var BASE_Y=H-40;
+  var state,blocks,current,dir,fallings,particles;
+  var best=parseInt(localStorage.getItem('stackBest')||'0',10);
+  document.getElementById('best').textContent=best;
+
+  var PALETTE=['#e53935','#ff9800','#ffd700','#4caf50','#4dd0e1','#3f51b5','#9c27b0','#e91e63'];
+
+  function init(){
+    state={running:false,over:false,score:0,height:0,combo:0,camY:0};
+    blocks=[{x:W/2-BW/2,y:BASE_Y,w:BW,h:BH,color:PALETTE[0]}];
+    fallings=[];particles=[];
+    spawnCurrent();
+    updateHud();
+  }
+
+  function spawnCurrent(){
+    var top=blocks[blocks.length-1];
+    var level=blocks.length;
+    var speed=Math.min(7,2.5+level*0.18);
+    current={x: level%2===0? 20 : W-20-top.w, y: top.y-BH, w:top.w, h:BH,
+      color:PALETTE[level%PALETTE.length], dir: level%2===0?1:-1, speed:speed};
+  }
+
+  function updateHud(){
+    document.getElementById('height').textContent=state.height;
+    document.getElementById('score').textContent=Math.floor(state.score);
+    document.getElementById('combo').textContent=state.combo;
+    document.getElementById('best').textContent=best;
+  }
+
+  function place(){
+    var top=blocks[blocks.length-1];
+    var c=current;
+    var left=Math.max(c.x,top.x);
+    var right=Math.min(c.x+c.w, top.x+top.w);
+    var overlap=right-left;
+    if(overlap<=0){ // 完全错过
+      // 整块掉落
+      fallings.push({x:c.x,y:c.y,w:c.w,h:c.h,color:c.color,vy:-3,vx:c.dir*2,rot:0,vr:c.dir*0.1});
+      SFX.lose();
+      gameOver(); return;
+    }
+    // 切割
+    var newX=left, newW=overlap;
+    var perfect = Math.abs(c.x-top.x)<3 && Math.abs((c.x+c.w)-(top.x+top.w))<3;
+    if(perfect){ newW=top.w; newX=top.x; state.combo++; SFX.coin(); toast('✨ PERFECT! +'+(50+state.combo*10)); state.score+=50+state.combo*10;
+      // 完美粒子
+      for(var p=0;p<16;p++){ var a=Math.random()*6.28; particles.push({x:newX+newW/2,y:c.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,life:30,color:'#ffd700',size:3}); }
+    } else {
+      state.combo=0;
+      // 掉落被切掉的部分
+      if(c.x<top.x){ // 左边多出
+        fallings.push({x:c.x,y:c.y,w:top.x-c.x,h:c.h,color:c.color,vy:0,vx:-1.5,rot:0,vr:-0.05});
+      }
+      if(c.x+c.w>top.x+top.w){ // 右边多出
+        fallings.push({x:top.x+top.w,y:c.y,w:(c.x+c.w)-(top.x+top.w),h:c.h,color:c.color,vy:0,vx:1.5,rot:0,vr:0.05});
+      }
+      SFX.place();
+    }
+    blocks.push({x:newX,y:c.y,w:newW,h:c.h,color:c.color});
+    state.height++;
+    state.score+=10;
+    // 相机跟随
+    if(c.y < H/2){ state.camY += BH; }
+    spawnCurrent();
+    updateHud();
+  }
+
+  function gameOver(){
+    state.over=true; state.running=false;
+    if(state.height>best){ best=state.height; localStorage.setItem('stackBest',best); updateHud(); }
+    AOXSound.stopBGM(); 
+  }
+
+  function update(){
+    if(!state.running) return;
+    if(!state.over){
+      // 当前块移动
+      current.x += current.dir*current.speed;
+      if(current.x<0){ current.x=0; current.dir=1; }
+      if(current.x+current.w>W){ current.x=W-current.w; current.dir=-1; }
+    }
+    // 掉落块
+    for(var i=fallings.length-1;i>=0;i--){
+      var f=fallings[i];
+      f.vy+=0.4; f.x+=f.vx; f.y+=f.vy; f.rot+=f.vr;
+      if(f.y>H+100) fallings.splice(i,1);
+    }
+    // 粒子
+    for(var j=particles.length-1;j>=0;j--){ var pt=particles[j]; pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--; if(pt.life<=0) particles.splice(j,1); }
+  }
+
+  function draw(){
+    // 背景渐变（随高度变色）
+    var hue=(state.height*8)%360;
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'hsl('+hue+',40%,12%)'); g.addColorStop(1,'hsl('+hue+',40%,5%)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 星点
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    for(var s=0;s<30;s++){ var sx=(s*73)%W, sy=(s*131+state.height*2)%H; ctx.fillRect(sx,sy,1.5,1.5); }
+
+    ctx.save();
+    ctx.translate(0, state.camY);
+    // 已堆叠方块（带阴影立体感）
+    blocks.forEach(function(b,i){
+      ctx.fillStyle=b.color;
+      ctx.fillRect(b.x,b.y,b.w,b.h);
+      // 高光
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(b.x,b.y,b.w,4);
+      // 阴影
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(b.x,b.y+b.h-4,b.w,4);
+      // 描边
+      ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=1; ctx.strokeRect(b.x,b.y,b.w,b.h);
+    });
+    // 当前方块
+    if(current && !state.over){
+      ctx.fillStyle=current.color;
+      ctx.fillRect(current.x,current.y,current.w,current.h);
+      ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(current.x,current.y,current.w,4);
+      ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.strokeRect(current.x,current.y,current.w,current.h);
+      // 对齐辅助线
+      var top=blocks[blocks.length-1];
+      ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(top.x,current.y-4); ctx.lineTo(top.x,current.y+current.h+4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(top.x+top.w,current.y-4); ctx.lineTo(top.x+top.w,current.y+current.h+4); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // 掉落块
+    fallings.forEach(function(f){
+      ctx.save(); ctx.translate(f.x+f.w/2,f.y+f.h/2); ctx.rotate(f.rot);
+      ctx.fillStyle=f.color; ctx.fillRect(-f.w/2,-f.h/2,f.w,f.h);
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(-f.w/2,-f.h/2,f.w,4);
+      ctx.restore();
+    });
+    // 粒子
+    particles.forEach(function(pt){ ctx.globalAlpha=pt.life/30; ctx.fillStyle=pt.color; ctx.fillRect(pt.x-pt.size/2,pt.y-pt.size/2,pt.size,pt.size); });
+    ctx.globalAlpha=1;
+    ctx.restore();
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('倒塌了！',W/2,H/2-30);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P",monospace'; ctx.fillText('堆了 '+state.height+' 层',W/2,H/2+5);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点击重新开始',W/2,H/2+40);
+      } else {
+        ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('方块堆叠',W/2,H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点击开始按钮',W/2,H/2+25);
+      }
+    }
+  }
+
+  function handle(){ if(state.running && !state.over){ place(); } else if(state.over){ start(); } }
+  canvas.addEventListener('click',function(){ AOXSound.ensure(); handle(); });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); AOXSound.ensure(); handle(); },{passive:false});
+  document.addEventListener('keydown',function(e){ if(e.code==='Space'){ e.preventDefault(); if(state.running&&!state.over){place();} else if(state.over){start();} } });
+
+  function start(){ AOXSound.ensure(); AOXSound.startBGM('game'); init(); state.running=true; SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

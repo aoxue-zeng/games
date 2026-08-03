@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>弹幕躲避 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0a0a1a; cursor:none; touch-action:none; display:block; max-width:100%; }
+  .dodge-hud { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="shooter.html">飞机大战</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="dodge.html">弹幕躲避</a>
+    <a href="breakout.html">打砖块</a>
+    <a href="pong.html">乒乓</a>
+    <a href="reaction.html">反应</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">💥 弹幕躲避</h1>
+  <p class="subtitle">移动光球躲开漫天弹幕，存活越久分数越高！</p>
+  <div class="dodge-hud">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">0</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">0.0</span>s</div>
+    <div class="hud-item"><span class="label">难度</span><span id="diff">★</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    鼠标/触屏控制移动 · 躲开所有子弹 · 每 10 秒难度升级 · 撞到子弹游戏结束
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,player,bullets,particles,stars,mouse,spawnTick,patternTick,pattern;
+  var best=parseInt(localStorage.getItem('dodgeBest')||'0',10);
+  document.getElementById('best').textContent=best;
+
+  function init(){
+    state={running:false,over:false,score:0,time:0,diff:1};
+    player={x:W/2,y:H-80,r:9,trail:[]};
+    bullets=[];particles=[];mouse={x:W/2,y:H-80,active:false};
+    spawnTick=0;patternTick=0;pattern=0;
+    stars=[];
+    for(var i=0;i<60;i++){ stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+0.3,v:Math.random()*0.5+0.2}); }
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent=Math.floor(state.score);
+    document.getElementById('time').textContent=state.time.toFixed(1);
+    document.getElementById('diff').textContent='★'.repeat(Math.min(5,Math.ceil(state.diff)));
+  }
+
+  // 弹幕发射器：从屏幕边缘随机点发射，瞄准玩家或扇形
+  function spawnBullet(x,y,vx,vy,color,r){
+    bullets.push({x:x,y:y,vx:vx,vy:vy,r:r||5,color:color||'#ff5252',life:600});
+  }
+
+  function emitPattern(){
+    var cx,cy;
+    if(pattern===0){
+      // 螺旋：从中心发射
+      cx=W/2; cy=120;
+      var n=12+Math.floor(state.diff*2);
+      for(var i=0;i<n;i++){
+        var a=i/n*Math.PI*2+patternTick*0.3;
+        var sp=2+state.diff*0.3;
+        spawnBullet(cx,cy,Math.cos(a)*sp,Math.sin(a)*sp,'#ff5252',5);
+      }
+    } else if(pattern===1){
+      // 瞄准玩家：从两侧
+      for(var s=0;s<2;s++){
+        var sx=s===0?20:W-20;
+        var sy=80+Math.random()*(H-200);
+        var dx=player.x-sx, dy=player.y-sy, d=Math.hypot(dx,dy)||1;
+        var sp=3+state.diff*0.4;
+        spawnBullet(sx,sy,dx/d*sp,dy/d*sp,'#4dd0e1',6);
+      }
+    } else if(pattern===2){
+      // 扇形：从顶部随机点
+      cx=60+Math.random()*(W-120); cy=80;
+      var fn=5+Math.floor(state.diff);
+      var base=Math.atan2(player.y-cy,player.x-cx);
+      for(var f=-fn;f<=fn;f++){
+        var aa=base+f*0.18;
+        var sp=2.6+state.diff*0.3;
+        spawnBullet(cx,cy,Math.cos(aa)*sp,Math.sin(aa)*sp,'#ffd700',5);
+      }
+    } else {
+      // 横扫：一整排从左/右
+      var fromLeft=patternTick%2===0;
+      for(var r=0;r<3+Math.floor(state.diff);r++){
+        var yy=100+r*70;
+        spawnBullet(fromLeft?-10:W+10, yy, fromLeft?(3+state.diff*0.4):-(3+state.diff*0.4), 0, '#ba68c8', 6);
+      }
+    }
+    SFX.shoot();
+  }
+
+  function update(){
+    if(!state.running||state.over) return;
+    state.time+=1/60;
+    state.score=state.time*10;
+    state.diff=1+state.time/10;
+    if(Math.floor(state.time)%10===0 && state.diff>1){}
+
+    // 玩家跟随鼠标
+    if(mouse.active){
+      player.x += (mouse.x-player.x)*0.35;
+      player.y += (mouse.y-player.y)*0.35;
+    }
+    player.x=Math.max(player.r,Math.min(W-player.r,player.x));
+    player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+    player.trail.push({x:player.x,y:player.y});
+    if(player.trail.length>14) player.trail.shift();
+
+    // 发射节奏
+    spawnTick++;
+    var interval=Math.max(8,30-state.diff*3);
+    if(spawnTick>=interval){ spawnTick=0; emitPattern(); }
+    patternTick++;
+    if(patternTick%140===0){ pattern=(pattern+1)%4; toast(['🌀 螺旋弹幕','🎯 追踪弹幕','🌻 扇形弹幕','➡️ 横扫弹幕'][pattern]); }
+
+    // 子弹移动
+    for(var i=bullets.length-1;i>=0;i--){
+      var b=bullets[i];
+      b.x+=b.vx; b.y+=b.vy; b.life--;
+      if(b.life<=0||b.x<-30||b.x>W+30||b.y<-30||b.y>H+30){ bullets.splice(i,1); continue; }
+      // 碰撞
+      if(Math.hypot(b.x-player.x,b.y-player.y)<b.r+player.r){
+        // 爆炸
+        for(var p=0;p<24;p++){ var a=Math.random()*6.28,s=1+Math.random()*5;
+          particles.push({x:player.x,y:player.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:40,color:'#fff',size:2+Math.random()*3}); }
+        SFX.boom();
+        gameOver(); return;
+      }
+    }
+
+    // 粒子
+    for(var j=particles.length-1;j>=0;j--){
+      var pt=particles[j];
+      pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.1; pt.life--;
+      if(pt.life<=0) particles.splice(j,1);
+    }
+    // 星空
+    stars.forEach(function(s){ s.y+=s.v; if(s.y>H){ s.y=0; s.x=Math.random()*W; } });
+
+    updateHud();
+  }
+
+  function gameOver(){
+    state.over=true; state.running=false;
+    if(Math.floor(state.score)>best){ best=Math.floor(state.score); localStorage.setItem('dodgeBest',best); document.getElementById('best').textContent=best; }
+    AOXSound.stopBGM(); SFX.lose();
+  }
+
+  function draw(){
+    // 背景渐变
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0a0a2a'); g.addColorStop(1,'#000');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 星空
+    stars.forEach(function(s){ ctx.fillStyle='rgba(255,255,255,'+(0.3+s.s*0.4)+')'; ctx.fillRect(s.x,s.y,s.s,s.s); });
+    // 网格扫描线
+    ctx.strokeStyle='rgba(77,208,225,0.06)'; ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=40){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+    for(var gy=0;gy<H;gy+=40){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+    // 子弹
+    bullets.forEach(function(b){
+      var grd=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2.2);
+      grd.addColorStop(0,'#fff'); grd.addColorStop(0.4,b.color); grd.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*2.2,0,7); ctx.fill();
+      ctx.fillStyle=b.color; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+    });
+
+    // 玩家拖尾
+    player.trail.forEach(function(t,i){
+      ctx.globalAlpha=(i/player.trail.length)*0.5;
+      ctx.fillStyle='#4dd0e1'; ctx.beginPath(); ctx.arc(t.x,t.y,player.r*(i/player.trail.length),0,7); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    // 玩家光球
+    var pg=ctx.createRadialGradient(player.x,player.y,0,player.x,player.y,player.r*2.5);
+    pg.addColorStop(0,'#fff'); pg.addColorStop(0.5,'#4dd0e1'); pg.addColorStop(1,'rgba(77,208,225,0)');
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(player.x,player.y,player.r*2.5,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,7); ctx.fill();
+
+    // 粒子
+    particles.forEach(function(pt){ ctx.globalAlpha=pt.life/40; ctx.fillStyle=pt.color; ctx.fillRect(pt.x,pt.y,pt.size,pt.size); });
+    ctx.globalAlpha=1;
+
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      if(state.over){
+        ctx.fillStyle='#e53935'; ctx.font='28px "Press Start 2P",monospace'; ctx.fillText('被击中了！',W/2,H/2-20);
+        ctx.fillStyle='#ffd700'; ctx.font='14px "Press Start 2P",monospace'; ctx.fillText('得分 '+Math.floor(state.score)+' · 存活 '+state.time.toFixed(1)+'s',W/2,H/2+15);
+      } else {
+        ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('准备躲避',W/2,H/2-10);
+        ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('鼠标控制 · 点开始按钮',W/2,H/2+25);
+      }
+    }
+  }
+
+  function getPos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX);
+    var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY);
+    return {x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height)};
+  }
+  canvas.addEventListener('mousemove',function(e){ var p=getPos(e); mouse.x=p.x; mouse.y=p.y; mouse.active=true; });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); var p=getPos(e); mouse.x=p.x; mouse.y=p.y; mouse.active=true; },{passive:false});
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); var p=getPos(e); mouse.x=p.x; mouse.y=p.y; mouse.active=true; },{passive:false});
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

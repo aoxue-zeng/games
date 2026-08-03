@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>颜色反应 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .stroop-word {
+    font-family:'Press Start 2P',monospace; font-size:64px; margin:30px auto;
+    text-shadow:4px 4px 0 #000; min-height:80px; text-align:center; transition:transform 0.1s;
+  }
+  .stroop-prompt { color:#fff; text-shadow:2px 2px 0 #000; font-size:18px; text-align:center; margin-top:10px; }
+  .color-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:20px 0; }
+  .color-btn {
+    width:90px; height:90px; border:4px solid #000; cursor:pointer;
+    box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.3), inset -3px -3px 0 0 rgba(0,0,0,0.3), 4px 4px 0 0 rgba(0,0,0,0.4);
+    font-family:'Press Start 2P',monospace; font-size:13px; color:#fff; text-shadow:2px 2px 0 #000;
+    display:flex; align-items:center; justify-content:center; transition:transform 0.08s;
+  }
+  .color-btn:hover{ transform:translate(-2px,-2px); }
+  .color-btn:active{ transform:translate(2px,2px); }
+  .color-btn.correct{ animation:flashGreen 0.3s; }
+  .color-btn.wrong{ animation:flashRed 0.3s; }
+  @keyframes flashGreen{ 0%,100%{box-shadow:0 0 0 #000;} 50%{box-shadow:0 0 30px #4caf50;} }
+  @keyframes flashRed{ 0%,100%{box-shadow:0 0 0 #000;} 50%{box-shadow:0 0 30px #e53935;} }
+  .timer-bar { width:100%; max-width:400px; height:14px; background:#1a1a2e; border:2px solid #000; margin:10px auto; }
+  .timer-fill { height:100%; background:linear-gradient(90deg,#4caf50,#ffd700,#e53935); transition:width 0.1s linear; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="reaction.html">反应测试</a>
+    <a href="color.html">颜色反应</a>
+    <a href="math.html">算术</a>
+    <a href="typing.html">打字</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="whack.html">打地鼠</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🎨 颜色反应</h1>
+  <p class="subtitle">看「字的颜色」选答案，别被文字骗了！</p>
+  <div class="hud" style="margin-top:16px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">❤❤❤</span></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+  <div class="stroop-prompt" id="prompt">点开始按钮，按 <b style="color:#4dd0e1">文字的颜色</b> 选按钮</div>
+  <div class="stroop-word" id="word" style="color:#888;">准备</div>
+  <div class="color-btns" id="btns"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    ⚠ 注意是字的<b style="color:#ffd700">颜色</b>不是字义！答错扣命，答对加分加时
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var COLORS=[
+    {key:'红',hex:'#e53935'},{key:'蓝',hex:'#1976d2'},{key:'绿',hex:'#43a047'},
+    {key:'黄',hex:'#fdd835'},{key:'紫',hex:'#8e24aa'},{key:'橙',hex:'#fb8c00'}
+  ];
+  var state,word,choices,timer,raf;
+  var wordEl=document.getElementById('word');
+  var btnsEl=document.getElementById('btns');
+  var promptEl=document.getElementById('prompt');
+
+  function init(){
+    state={running:false,over:false,score:0,combo:0,level:1,lives:3,time:0,maxTime:5};
+    buildButtons(); updateHud(); wordEl.textContent='准备'; wordEl.style.color='#888';
+    document.getElementById('timerFill').style.width='100%';
+    promptEl.innerHTML='点开始按钮，按 <b style="color:#4dd0e1">文字的颜色</b> 选按钮';
+  }
+
+  function buildButtons(){
+    btnsEl.innerHTML='';
+    COLORS.forEach(function(c){
+      var b=document.createElement('div');
+      b.className='color-btn'; b.style.background=c.hex; b.textContent=c.key;
+      b.dataset.key=c.key;
+      b.addEventListener('click',function(){ answer(c.key,b); });
+      b.addEventListener('touchstart',function(e){ e.preventDefault(); answer(c.key,b); },{passive:false});
+      btnsEl.appendChild(b);
+    });
+  }
+
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('combo').textContent=state.combo;
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('lives').textContent='❤'.repeat(state.lives)+'🖤'.repeat(3-state.lives);
+  }
+
+  function nextRound(){
+    // 随机一个词（字义）和一个颜色（显示色），尽量不一致造成干扰
+    var wIdx=Math.floor(Math.random()*COLORS.length);
+    var cIdx=Math.floor(Math.random()*COLORS.length);
+    while(state.level>1 && cIdx===wIdx && Math.random()<0.7){ cIdx=Math.floor(Math.random()*COLORS.length); }
+    word={text:COLORS[wIdx].key, color:COLORS[cIdx].hex, answer:COLORS[cIdx].key};
+    wordEl.textContent=word.text; wordEl.style.color=word.color;
+    wordEl.style.transform='scale(1.1)'; setTimeout(function(){ wordEl.style.transform='scale(1)'; },100);
+    state.time=state.maxTime;
+    promptEl.innerHTML='这个字的 <b style="color:#ffd700">颜色</b> 是什么？';
+  }
+
+  function answer(key,btn){
+    if(!state.running||state.over) return;
+    AOXSound.ensure();
+    if(key===word.answer){
+      state.combo++;
+      var gain=10+state.combo*2;
+      state.score+=gain;
+      btn.classList.add('correct');
+      setTimeout(function(){ btn.classList.remove('correct'); },300);
+      SFX.coin();
+      // 升级
+      if(state.score>=state.level*100){ state.level++; state.maxTime=Math.max(2,state.maxTime-0.2); SFX.levelUp(); toast('⬆ 升级！第 '+state.level+' 关'); }
+      state.time=state.maxTime; // 加满时间
+      nextRound();
+    } else {
+      state.combo=0; state.lives--;
+      btn.classList.add('wrong'); setTimeout(function(){ btn.classList.remove('wrong'); },300);
+      SFX.error();
+      if(state.lives<=0){ gameOver(); return; }
+      nextRound();
+    }
+    updateHud();
+  }
+
+  function tick(){
+    if(!state.running||state.over) return;
+    state.time-=0.016;
+    document.getElementById('timerFill').style.width=Math.max(0,state.time/state.maxTime*100)+'%';
+    if(state.time<=0){ state.lives--; state.combo=0; SFX.error(); updateHud(); if(state.lives<=0){ gameOver(); return; } nextRound(); }
+  }
+
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); wordEl.textContent='结束'; wordEl.style.color='#e53935'; promptEl.innerHTML='最终得分 <b style="color:#ffd700">'+state.score+'</b> · 点击重新开始'; }
+
+  function start(){ AOXSound.ensure(); AOXSound.startBGM('game'); init(); state.running=true; SFX.select(); nextRound(); updateHud(); }
+  function loop(){ tick(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

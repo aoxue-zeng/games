@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆配对 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .flip-grid { display:grid; gap:10px; justify-content:center; margin:20px auto; perspective:800px; }
+  .flip-card { width:72px; height:72px; cursor:pointer; position:relative; transform-style:preserve-3d; transition:transform 0.4s; }
+  .flip-card.flipped{ transform:rotateY(180deg); }
+  .flip-card.matched{ animation:matchPulse 0.5s; }
+  @keyframes matchPulse{ 0%,100%{transform:rotateY(180deg) scale(1);} 50%{transform:rotateY(180deg) scale(1.12);} }
+  .flip-face { position:absolute; inset:0; backface-visibility:hidden; display:flex; align-items:center; justify-content:center;
+    border:3px solid #000; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2), inset -2px -2px 0 0 rgba(0,0,0,0.3), 3px 3px 0 0 rgba(0,0,0,0.3); }
+  .flip-back { background:linear-gradient(135deg,#4caf50,#1b5e20); font-size:30px; }
+  .flip-back::after{ content:'❓'; }
+  .flip-front { transform:rotateY(180deg); background:linear-gradient(135deg,#fffde7,#fff59d); font-size:36px; }
+  .diff-btns { display:flex; gap:10px; justify-content:center; margin:14px 0; }
+  .diff-btn { padding:8px 18px; }
+  .diff-btn.active{ box-shadow:0 0 14px var(--mc-gold); border-color:var(--mc-gold); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="flip.html">记忆配对</a>
+    <a href="match3.html">三消</a>
+    <a href="sudoku.html">数独</a>
+    <a href="linkup.html">连连看</a>
+    <a href="spotdiff.html">找不同</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🃏 记忆配对</h1>
+  <p class="subtitle">翻开方块找出相同图案，全部配对即胜！</p>
+  <div class="hud" style="margin-top:16px;">
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">配对</span><span id="pairs">0</span>/<span id="total">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="time">0.0</span>s</div>
+    <div class="hud-item"><span class="label">最佳步数</span><span id="best">—</span></div>
+  </div>
+  <div class="diff-btns" id="diffBtns">
+    <button class="mc-btn diff-btn active" data-d="0">简单 4×3</button>
+    <button class="mc-btn diff-btn" data-d="1">中等 4×4</button>
+    <button class="mc-btn diff-btn" data-d="2">困难 6×4</button>
+  </div>
+  <div id="board"></div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="restartBtn">🔄 重新开始</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    点击翻牌 · 找出两张相同图案 · 用最少步数通关
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var ICONS=['🍎','🍌','🍇','🍓','🍑','🍍','🍉','🥝','🥕','🌽','🍅','🍆','🌟','💎','🔥','⚡','🌙','☀'];
+  var DIFFS=[{cols:4,rows:3},{cols:4,rows:4},{cols:6,rows:4}];
+  var state,diff=0,lock,startTime,timer;
+
+  function init(){
+    var cfg=DIFFS[diff];
+    var total=cfg.cols*cfg.rows;
+    var pairs=total/2;
+    var icons=ICONS.slice(0,pairs).concat(ICONS.slice(0,pairs));
+    // 洗牌
+    for(var i=icons.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=icons[i]; icons[i]=icons[j]; icons[j]=t; }
+    state={cards:[],flipped:[],moves:0,matched:0,pairs:pairs,total:total,started:false,over:false};
+    lock=false; startTime=0;
+    for(var k=0;k<icons.length;k++){ state.cards.push({icon:icons[k],flipped:false,matched:false}); }
+    document.getElementById('total').textContent=pairs;
+    document.getElementById('best').textContent=localStorage.getItem('flipBest'+diff)||'—';
+    render(); updateHud();
+    if(timer) clearInterval(timer);
+    document.getElementById('time').textContent='0.0';
+  }
+
+  function render(){
+    var cfg=DIFFS[diff];
+    var board=document.getElementById('board');
+    board.className='flip-grid';
+    board.style.gridTemplateColumns='repeat('+cfg.cols+',72px)';
+    board.innerHTML='';
+    state.cards.forEach(function(c,idx){
+      var card=document.createElement('div');
+      card.className='flip-card'+(c.flipped?' flipped':'')+(c.matched?' matched':'');
+      card.innerHTML='<div class="flip-face flip-back"></div><div class="flip-face flip-front">'+c.icon+'</div>';
+      card.addEventListener('click',function(){ flip(idx); });
+      card.addEventListener('touchstart',function(e){ e.preventDefault(); flip(idx); },{passive:false});
+      if(c.matched){ card.style.opacity='0.55'; card.style.filter='grayscale(0.4)'; }
+      board.appendChild(card);
+    });
+  }
+
+  function updateHud(){
+    document.getElementById('moves').textContent=state.moves;
+    document.getElementById('pairs').textContent=state.matched;
+  }
+
+  function flip(idx){
+    if(lock||state.over) return;
+    var c=state.cards[idx];
+    if(c.flipped||c.matched) return;
+    AOXSound.ensure();
+    if(!state.started){ state.started=true; startTime=Date.now(); timer=setInterval(updateTime,100); }
+    c.flipped=true; state.flipped.push(idx); SFX.select();
+    render();
+    if(state.flipped.length===2){
+      state.moves++; updateHud();
+      var a=state.cards[state.flipped[0]], b=state.cards[state.flipped[1]];
+      lock=true;
+      if(a.icon===b.icon){
+        setTimeout(function(){
+          a.matched=true; b.matched=true; state.matched+=1; state.flipped=[]; lock=false;
+          SFX.coin(); render(); updateHud();
+          if(state.matched>=state.pairs){ win(); }
+        },350);
+      } else {
+        setTimeout(function(){
+          a.flipped=false; b.flipped=false; state.flipped=[]; lock=false; SFX.error(); render();
+        },800);
+      }
+    }
+  }
+
+  function updateTime(){ if(state.started&&!state.over){ document.getElementById('time').textContent=((Date.now()-startTime)/1000).toFixed(1); } }
+
+  function win(){
+    state.over=true; clearInterval(timer); SFX.win(); AOXSound.stopBGM();
+    var best=parseInt(localStorage.getItem('flipBest'+diff)||'9999',10);
+    if(state.moves<best){ localStorage.setItem('flipBest'+diff,state.moves); document.getElementById('best').textContent=state.moves; }
+    toast('🎉 通关！'+state.moves+' 步');
+  }
+
+  document.querySelectorAll('.diff-btn').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.diff-btn').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); diff=parseInt(b.dataset.d,10); init(); SFX.click();
+    });
+  });
+  document.getElementById('restartBtn').addEventListener('click',function(){ init(); SFX.click(); });
+  init();
+})();
+</script>
+</body>
+</html>
