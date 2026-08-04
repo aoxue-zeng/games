@@ -319,7 +319,7 @@
       hp:Math.round(f.hp*lvlBonus),maxhp:Math.round(f.hp*lvlBonus),angle:0,atkTick:0};
     var bf=FORMS[ar.boss];
     var bossLvl = ar.key==='rematch'?2:1;
-    boss={form:bf,x:W/2,y:80,r:30+bf.tier*3,hp:Math.round(bf.maxhp*1.5*bossLvl),maxhp:Math.round(bf.maxhp*1.5*bossLvl),
+    boss={form:bf,x:W/2,y:80,r:30+bf.tier*3,hp:Math.round(bf.maxhp*0.8*bossLvl),maxhp:Math.round(bf.maxhp*0.8*bossLvl),
       speed:bf.speed*0.5*bossLvl,atkTick:0,angle:0,anim:0,hitFlash:0,skillTick:0,entering:true,isBoss:true};
     minions=[];spawnTick=0;
     state={running:true,over:false,won:false};
@@ -355,7 +355,7 @@
       if(tgt && Math.hypot(tgt.x-player.x,tgt.y-player.y)<player.weapon.range+tgt.r+8){
         player.atkTick=0;
         var lvlBonus=1+(gearLvl-1)*0.15;
-        var dmg=Math.round((player.weapon.atk+Math.floor(Math.random()*6))*lvlBonus);
+        var dmg=Math.round((player.weapon.atk*1.6+Math.floor(Math.random()*8))*lvlBonus);
         damageEnemy(tgt,dmg);
         slashes.push({x:player.x,y:player.y,a:Math.atan2(tgt.y-player.y,tgt.x-player.x),life:10,form:player.weapon.color});
         SFX.hit();
@@ -379,7 +379,7 @@
       boss.x=Math.max(boss.r, Math.min(W-boss.r, boss.x));
       boss.y=Math.max(boss.r, Math.min(H-boss.r, boss.y));
       // 接触伤害
-      if(dd<boss.r+player.r && boss.atkTick<=0){ boss.atkTick=36; player.hp-=8+boss.form.tier*4; SFX.hurt(); fxs.push({type:'text',x:player.x,y:player.y-20,text:'-'+(8+boss.form.tier*4),life:30,color:'#e53935'}); if(player.hp<=0){ loseBattle(); return; } }
+      if(dd<boss.r+player.r && boss.atkTick<=0){ boss.atkTick=40; player.hp-=6+boss.form.tier*3; SFX.hurt(); fxs.push({type:'text',x:player.x,y:player.y-20,text:'-'+(6+boss.form.tier*3),life:30,color:'#e53935'}); if(player.hp<=0){ loseBattle(); return; } }
       if(boss.atkTick>0)boss.atkTick--;
       boss.skillTick++;
       if(boss.skillTick>=240){ boss.skillTick=0; bossSkill(); }
