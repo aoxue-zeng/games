@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贪吃蛇大乱斗 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0d1117; cursor:none; touch-action:none; display:block; max-width:100%; border-radius:8px; border:3px solid #000; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="snake-arena.html">贪吃蛇大乱斗</a>
+    <a href="tron.html">双人光线</a>
+    <a href="snake-maze.html">迷宫蛇</a>
+    <a href="2psnake.html">双人贪吃蛇</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🐍 贪吃蛇大乱斗</h1>
+  <p class="subtitle">和 AI 蛇抢地盘！吃食物变长，撞死对手就赢</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">我的长度</span><span id="myLen">3</span></div>
+    <div class="hud-item"><span class="label">击杀</span><span id="kills">0</span></div>
+    <div class="hud-item"><span class="label">剩余对手</span><span id="alive">3</span></div>
+    <div class="hud-item"><span class="label">最佳击杀</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    方向键/WASD 控制 · 吃食物变长 · 撞墙撞身体都死 · 让对手撞死你就能淘汰它 · 击杀所有AI获胜
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var CELL=20, COLS=W/CELL, ROWS=H/CELL;
+  var state,snakes,foods,particles,keys,dead,tick,bestKills;
+  bestKills=parseInt(localStorage.getItem('snakeArenaBest')||'0',10);
+  document.getElementById('best').textContent=bestKills;
+  var COLORS=['#4dd0e1','#e53935','#ffd700','#ba68c8','#8bc34a'];
+
+  function init(){
+    state={running:false,over:false,kills:0};
+    snakes=[]; foods=[]; particles=[]; keys={}; tick=0;
+    // 玩家 + 3 AI
+    var spawns=[[5,5],[COLS-6,5],[5,ROWS-6],[COLS-6,ROWS-6]];
+    spawns.forEach(function(s,i){
+      snakes.push({body:[{x:s[0],y:s[1]},{x:s[0]-1,y:s[1]},{x:s[0]-2,y:s[1]}],
+        dir:{x:1,y:0}, nextDir:{x:1,y:0}, color:COLORS[i], isPlayer:i===0, alive:true, grow:0, deadTick:0});
+    });
+    for(var f=0;f<5;f++) spawnFood();
+    updateHud();
+  }
+  function spawnFood(){ foods.push({x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}); }
+  function updateHud(){
+    var me=snakes[0];
+    document.getElementById('myLen').textContent=me?me.body.length:0;
+    document.getElementById('kills').textContent=state.kills;
+    document.getElementById('alive').textContent=snakes.filter(function(s){return s.alive;}).length-1<0?0:snakes.filter(function(s){return s.alive&&s.isPlayer;}).length?snakes.filter(function(s){return s.alive&&!s.isPlayer;}).length:0;
+    document.getElementById('best').textContent=bestKills;
+  }
+
+  function update(){
+    if(!state.running||state.over) return;
+    tick++;
+    if(tick%7!==0) return; // 移动节奏
+    // 玩家方向
+    var me=snakes[0];
+    if(me.alive){
+      if(keys['arrowup']||keys['w']){ if(me.dir.y===0) me.nextDir={x:0,y:-1}; }
+      else if(keys['arrowdown']||keys['s']){ if(me.dir.y===0) me.nextDir={x:0,y:1}; }
+      else if(keys['arrowleft']||keys['a']){ if(me.dir.x===0) me.nextDir={x:-1,y:0}; }
+      else if(keys['arrowright']||keys['d']){ if(me.dir.x===0) me.nextDir={x:1,y:0}; }
+    }
+    // AI 方向
+    snakes.forEach(function(s,i){ if(!s.alive||s.isPlayer)return; aiMove(s); });
+
+    // 移动 + 碰撞
+    snakes.forEach(function(s){
+      if(!s.alive)return;
+      s.dir=s.nextDir;
+      var head={x:s.body[0].x+s.dir.x, y:s.body[0].y+s.dir.y};
+      // 撞墙
+      if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS){ killSnake(s); return; }
+      // 撞任意蛇身
+      for(var k=0;k<snakes.length;k++){ var o=snakes[k]; if(!o.alive)continue;
+        for(var b=0;b<o.body.length;b++){ if(o.body[b].x===head.x&&o.body[b].y===head.y){ killSnake(s); return; } }
+      }
+      s.body.unshift(head);
+      // 吃食物
+      var ate=false;
+      for(var fi=foods.length-1;fi>=0;fi--){ if(foods[fi].x===head.x&&foods[fi].y===head.y){ foods.splice(fi,1); spawnFood(); s.grow+=2; ate=true; if(s.isPlayer){SFX.coin();} break; } }
+      if(s.grow>0) s.grow--; else s.body.pop();
+      if(ate&&s.isPlayer){ /* spawnParticles(head.x*CELL+10,head.y*CELL+10,'#ffd700',6); */ }
+    });
+    updateHud();
+    // 胜负
+    var aliveAI=snakes.filter(function(s){return s.alive&&!s.isPlayer;}).length;
+    if(!snakes[0].alive){ gameOver(false); }
+    else if(aliveAI===0){ gameOver(true); }
+  }
+
+  function killSnake(s){
+    s.alive=false; s.deadTick=10;
+    // 死亡爆炸
+    s.body.forEach(function(b){ spawnParticles(b.x*CELL+10,b.y*CELL+10,s.color,3); });
+    if(!s.isPlayer){ state.kills++; SFX.hit(); toast('💀 淘汰一条 AI 蛇！'); if(state.kills>bestKills){bestKills=state.kills;localStorage.setItem('snakeArenaBest',bestKills);} }
+    else { SFX.lose(); }
+  }
+
+  function aiMove(s){
+    var head=s.body[0];
+    // 找最近食物
+    var target=null,td=Infinity;
+    foods.forEach(function(f){ var d=Math.abs(f.x-head.x)+Math.abs(f.y-head.y); if(d<td){td=d;target=f;} });
+    var dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    // 不能回头
+    dirs=dirs.filter(function(d){ return !(d.x===-s.dir.x&&d.y===-s.dir.y); });
+    // 过滤会死的方向
+    var safe=dirs.filter(function(d){
+      var nx=head.x+d.x, ny=head.y+d.y;
+      if(nx<0||nx>=COLS||ny<0||ny>=ROWS)return false;
+      for(var k=0;k<snakes.length;k++){ var o=snakes[k]; if(!o.alive)continue;
+        for(var b=0;b<o.body.length;b++){ if(o.body[b].x===nx&&o.body[b].y===ny)return false; } }
+      return true;
+    });
+    var pool=safe.length?safe:dirs;
+    // 朝食物方向
+    if(target&&Math.random()<0.8){
+      pool.sort(function(a,b){ var da=Math.abs(head.x+a.x-target.x)+Math.abs(head.y+a.y-target.y); var db=Math.abs(head.x+b.x-target.x)+Math.abs(head.y+b.y-target.y); return da-db; });
+    }
+    s.nextDir=pool[0]||s.dir;
+  }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*3; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:25,color:color,size:2+Math.random()*2}); } }
+  function gameOver(won){ state.over=true; state.running=false; AOXSound.stopBGM(); won?SFX.win():SFX.lose(); toast(won?'🏆 全场冠军！击杀 '+state.kills:'💀 你的蛇死了，击杀 '+state.kills); }
+
+  function draw(){
+    // 背景
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+    // 网格
+    ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=1;
+    for(var gx=0;gx<=COLS;gx++){ctx.beginPath();ctx.moveTo(gx*CELL,0);ctx.lineTo(gx*CELL,H);ctx.stroke();}
+    for(var gy=0;gy<=ROWS;gy++){ctx.beginPath();ctx.moveTo(0,gy*CELL);ctx.lineTo(W,gy*CELL);ctx.stroke();}
+    // 食物
+    foods.forEach(function(f){
+      var grd=ctx.createRadialGradient(f.x*CELL+10,f.y*CELL+10,2,f.x*CELL+10,f.y*CELL+10,12);
+      grd.addColorStop(0,'#fff'); grd.addColorStop(0.5,'#ffd700'); grd.addColorStop(1,'rgba(255,215,0,0)');
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(f.x*CELL+10,f.y*CELL+10,12,0,7); ctx.fill();
+      ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(f.x*CELL+10,f.y*CELL+10,5,0,7); ctx.fill();
+    });
+    // 蛇
+    snakes.forEach(function(s){
+      s.body.forEach(function(b,i){
+        if(!s.alive&&s.deadTick<=0)return;
+        var alpha=s.alive?1:0.3;
+        ctx.globalAlpha=alpha;
+        ctx.fillStyle=s.color;
+        ctx.fillRect(b.x*CELL+1,b.y*CELL+1,CELL-2,CELL-2);
+        if(i===0&&s.alive){ // 头
+          ctx.fillStyle='#fff'; ctx.globalAlpha=0.4; ctx.fillRect(b.x*CELL+1,b.y*CELL+1,CELL-2,4);
+          ctx.globalAlpha=1; ctx.fillStyle='#000';
+          // 眼
+          var ex=b.x*CELL+CELL/2+s.dir.x*5, ey=b.y*CELL+CELL/2+s.dir.y*5;
+          ctx.fillRect(ex-3+(s.dir.y*4),ey-3-(s.dir.x*4),3,3); ctx.fillRect(ex-3-(s.dir.y*4),ey-3+(s.dir.x*4),3,3);
+        }
+      });
+      ctx.globalAlpha=1;
+      if(s.deadTick>0)s.deadTick--;
+    });
+    // 粒子
+    particles.forEach(function(p){ p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--; ctx.globalAlpha=p.life/25; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,p.size,p.size); });
+    ctx.globalAlpha=1; particles=particles.filter(function(p){return p.life>0;});
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){
+        var alive=snakes.filter(function(s){return s.alive&&!s.isPlayer;}).length;
+        if(alive===0&&snakes[0].alive){ ctx.fillStyle='#4caf50'; ctx.font='28px "Press Start 2P",monospace'; ctx.fillText('🏆 全场冠军！',W/2,H/2-15); }
+        else { ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('蛇死了',W/2,H/2-15); }
+        ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('击杀 '+state.kills+' · 长度 '+snakes[0].body.length,W/2,H/2+15);
+      } else { ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('贪吃蛇大乱斗',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 方向键控制',W/2,H/2+25); }
+    }
+  }
+
+  document.addEventListener('keydown',function(e){
+    var k=e.key.toLowerCase(); keys[k]=true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
+  });
+  document.addEventListener('keyup',function(e){ keys[e.key.toLowerCase()]=false; });
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

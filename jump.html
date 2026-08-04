@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极限跳跃 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:linear-gradient(180deg,#4a90d9,#87ceeb); cursor:none; touch-action:none; display:block; max-width:100%; border-radius:8px; border:3px solid #000; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="jump.html">极限跳跃</a>
+    <a href="flappy.html">像素鸟</a>
+    <a href="doodle.html">涂鸦跳跃</a>
+    <a href="stack.html">方块堆叠</a>
+    <a href="runner.html">跑酷</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🦘 极限跳跃</h1>
+  <p class="subtitle">向上跳！踩平台往上爬，掉下去就结束</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">高度</span><span id="height">0</span>m</div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span>m</div>
+    <div class="hud-item"><span class="label">弹簧</span><span id="spring">×1</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    ← →/A D 左右移动 · 自动跳跃 · 踩弹簧飞更高 · 绿平台普通/蓝平台移动/红平台碎裂 · 掉下屏幕结束
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,player,platforms,springs,particles,keys,camY,bestH;
+  bestH=parseInt(localStorage.getItem('jumpBest')||'0',10);
+  document.getElementById('best').textContent=bestH;
+
+  function init(){
+    state={running:false,over:false,height:0};
+    player={x:W/2,y:H-100,r:16,vx:0,vy:0,facing:1,anim:0};
+    platforms=[]; springs=[]; particles=[]; keys={}; camY=0;
+    // 底部大平台
+    platforms.push({x:0,y:H-20,w:W,h:20,type:'static'});
+    // 生成初始平台
+    for(var i=0;i<15;i++){ spawnPlatform(H-100-i*70); }
+    updateHud();
+  }
+
+  function spawnPlatform(y){
+    var r=Math.random();
+    var type=r<0.6?'static':(r<0.8?'move':'break');
+    var w=60+Math.random()*40;
+    var x=Math.random()*(W-w);
+    var p={x:x,y:y,w:w,h:12,type:type,vx:type==='move'?(Math.random()<0.5?1:-1):0};
+    platforms.push(p);
+    // 偶尔加弹簧
+    if(Math.random()<0.18){ springs.push({x:x+w/2-8, y:y-12, w:16, h:12, used:false}); }
+  }
+
+  function updateHud(){ document.getElementById('height').textContent=Math.floor(state.height); document.getElementById('best').textContent=bestH; }
+
+  function update(){
+    if(!state.running||state.over) return;
+    // 输入
+    if(keys['arrowleft']||keys['a']){ player.vx=-4; player.facing=-1; }
+    else if(keys['arrowright']||keys['d']){ player.vx=4; player.facing=1; }
+    else { player.vx*=0.8; }
+    // 重力
+    player.vy+=0.4; if(player.vy>12)player.vy=12;
+    player.x+=player.vx; player.y+=player.vy;
+    player.anim+=0.15;
+    // 左右穿屏
+    if(player.x<-player.r)player.x=W+player.r;
+    if(player.x>W+player.r)player.x=-player.r;
+    // 平台碰撞（仅下落时）
+    if(player.vy>0){
+      platforms.forEach(function(p){
+        if(player.x+player.r>p.x && player.x-player.r<p.x+p.w &&
+           player.y+player.r>p.y && player.y+player.r<p.y+p.h+player.vy){
+          // 弹簧？
+          var bounced=false;
+          for(var si=0;si<springs.length;si++){ var sp=springs[si]; if(!sp.used&&sp.x<p.x+p.w&&sp.x+sp.w>p.x&&Math.abs(sp.y-p.y)<20){ sp.used=true; player.vy=-18; bounced=true; document.getElementById('spring').textContent='×'+(sp.used?'2':'1'); SFX.bubble(); spawnParticles(player.x,player.y,'#ffd700',10); break; } }
+          if(!bounced){ player.vy=-10; SFX.jump(); }
+          player.y=p.y-player.r;
+          if(p.type==='break'){ p.broken=true; p.breakTick=10; }
+        }
+      });
+    }
+    // 移动平台
+    platforms.forEach(function(p){ if(p.type==='move'){ p.x+=p.vx; if(p.x<0||p.x+p.w>W)p.vx*=-1; } });
+    // 破碎平台
+    platforms=platforms.filter(function(p){ if(p.broken){ p.breakTick--; return p.breakTick>0; } return true; });
+    // 相机跟随（上移）
+    if(player.y<H/2){ var dy=H/2-player.y; camY+=dy; player.y=H/2; state.height=Math.floor(camY/10); platforms.forEach(function(p){p.y+=dy;}); springs.forEach(function(s){s.y+=dy;}); }
+    // 生成新平台
+    var topY=platforms[platforms.length-1].y;
+    while(topY>-100){ topY-=60+Math.random()*40; spawnPlatform(topY); }
+    // 清理下方平台
+    platforms=platforms.filter(function(p){return p.y<H+50;});
+    springs=springs.filter(function(s){return s.y<H+50;});
+    // 掉下去
+    if(player.y>H+50){ gameOver(); }
+    // 粒子
+    particles.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;});
+    particles=particles.filter(function(p){return p.life>0;});
+    updateHud();
+  }
+
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*3; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25,color:color,size:2+Math.random()*2}); } }
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); if(state.height>bestH){bestH=state.height;localStorage.setItem('jumpBest',bestH);} }
+
+  function draw(){
+    // 背景渐变随高度变色
+    var hue=(camY*0.1)%360;
+    var g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'hsl('+hue+',60%,55%)'); g.addColorStop(1,'hsl('+hue+',60%,75%)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 云
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    for(var c=0;c<4;c++){ var cy=(c*180+camY*0.3)%H; ctx.beginPath(); ctx.arc((c*97+camY*0.1)%W,cy,20,0,7); ctx.arc((c*97+camY*0.1)%W+22,cy,16,0,7); ctx.fill(); }
+    // 平台
+    platforms.forEach(function(p){
+      if(p.broken&&p.breakTick<5)ctx.globalAlpha=0.4;
+      if(p.type==='static')ctx.fillStyle='#7cb342';
+      else if(p.type==='move')ctx.fillStyle='#42a5f5';
+      else ctx.fillStyle='#ef5350';
+      ctx.fillRect(p.x,p.y,p.w,p.h);
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(p.x,p.y,p.w,3);
+      ctx.globalAlpha=1;
+    });
+    // 弹簧
+    springs.forEach(function(s){
+      ctx.fillStyle=s.used?'#bdbdbd':'#ffd700'; ctx.fillRect(s.x,s.y,s.w,s.h);
+      ctx.fillStyle='#ff8f00'; ctx.fillRect(s.x,s.y,s.w,3); ctx.fillRect(s.x+2,s.y+4,s.w-4,2);
+    });
+    // 玩家
+    ctx.save(); ctx.translate(player.x,player.y+Math.sin(player.anim)*1.5);
+    ctx.scale(player.facing,1);
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0,player.r-2,player.r,player.r*0.3,0,0,7); ctx.fill();
+    ctx.fillStyle='#ff7043'; ctx.fillRect(-12,-8,24,18); ctx.fillStyle='#bf360c'; ctx.fillRect(-12,6,24,4);
+    ctx.fillStyle='#ff7043'; ctx.fillRect(-8,-18,16,12); ctx.fillStyle='#fff'; ctx.fillRect(-5,-15,4,4); ctx.fillRect(2,-15,4,4); ctx.fillStyle='#000'; ctx.fillRect(-3,-14,2,2); ctx.fillRect(3,-14,2,2);
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(-2,-9,4,2);
+    ctx.restore();
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/25;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);});
+    ctx.globalAlpha=1;
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#e53935'; ctx.font='24px "Press Start 2P",monospace'; ctx.fillText('掉下去了！',W/2,H/2-15); ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('高度 '+state.height+'m',W/2,H/2+15); }
+      else { ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('极限跳跃',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 左右移动',W/2,H/2+25); }
+    }
+  }
+
+  document.addEventListener('keydown',function(e){ var k=e.key.toLowerCase(); keys[k]=true; if(['arrowleft','arrowright','arrowup','arrowdown',' '].indexOf(k)>=0)e.preventDefault(); });
+  document.addEventListener('keyup',function(e){ keys[e.key.toLowerCase()]=false; });
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

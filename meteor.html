@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流星雨 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#0a0a2a; cursor:none; touch-action:none; display:block; max-width:100%; border-radius:8px; border:3px solid #000; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="meteor.html">流星雨</a>
+    <a href="catch.html">接贝壳</a>
+    <a href="dodge.html">弹幕躲避</a>
+    <a href="raindrop.html">躲雨滴</a>
+    <a href="falling.html">下落</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">☄️ 流星雨</h1>
+  <p class="subtitle">移动篮子接金色流星加分，躲开炸弹流星！</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">❤❤❤</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gameCanvas" width="500" height="600"></canvas>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    鼠标/左右键移动篮子 · ⭐金星+10 ☄银星+5 💎钻石+25 · 💣炸弹扣血 · 连击翻倍
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state,basket,meteors,particles,stars,mouse,keys,spawnTick,bestScore;
+  bestScore=parseInt(localStorage.getItem('meteorBest')||'0',10);
+  document.getElementById('best').textContent=bestScore;
+  var TYPES=[
+    {t:'gold', icon:'⭐', color:'#ffd700', score:10, w:0.30, vy:3 },
+    {t:'silver', icon:'☄', color:'#cfd8dc', score:5, w:0.30, vy:4 },
+    {t:'diamond', icon:'💎', color:'#4dd0e1', score:25, w:0.10, vy:3.5 },
+    {t:'bomb', icon:'💣', color:'#e53935', score:-1, w:0.30, vy:5 }
+  ];
+
+  function init(){
+    state={running:false,over:false,score:0,lives:3,combo:0,diff:1};
+    basket={x:W/2,y:H-50,w:70,h:40}; meteors=[]; particles=[]; keys={}; mouse={x:W/2,active:false}; spawnTick=0;
+    stars=[]; for(var i=0;i<50;i++){ stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+0.3,v:Math.random()*0.5+0.2,tw:Math.random()*6}); }
+    updateHud();
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('lives').textContent='❤'.repeat(state.lives)+'🖤'.repeat(3-state.lives);
+    document.getElementById('combo').textContent=state.combo;
+    document.getElementById('best').textContent=bestScore;
+  }
+  function pickType(){
+    var r=Math.random(), acc=0;
+    for(var i=0;i<TYPES.length;i++){ acc+=TYPES[i].w; if(r<acc)return TYPES[i]; }
+    return TYPES[0];
+  }
+  function spawn(){
+    var t=pickType();
+    meteors.push({x:30+Math.random()*(W-60),y:-20,vy:t.vy*(1+state.diff*0.1),type:t,rot:0,vr:(Math.random()-0.5)*0.2,icon:t.icon,color:t.color,t:t.t,score:t.score,trail:[]});
+  }
+
+  function update(){
+    if(!state.running||state.over)return;
+    state.diff=1+state.score/200;
+    // 篮子
+    if(mouse.active){ basket.x+=(mouse.x-basket.x)*0.35; }
+    if(keys['arrowleft']||keys['a'])basket.x-=5;
+    if(keys['arrowright']||keys['d'])basket.x+=5;
+    basket.x=Math.max(basket.w/2,Math.min(W-basket.w/2,basket.x));
+    // 流星
+    spawnTick++;
+    if(spawnTick>=Math.max(20,50-state.diff*4)){ spawnTick=0; spawn(); }
+    for(var i=meteors.length-1;i>=0;i--){
+      var m=meteors[i];
+      m.trail.push({x:m.x,y:m.y}); if(m.trail.length>8)m.trail.shift();
+      m.y+=m.vy; m.rot+=m.vr;
+      // 接住
+      if(m.y>m.basket_y_check||true){
+        if(m.x>basket.x-basket.w/2 && m.x<basket.x+basket.w/2 && m.y>basket.y-basket.h/2 && m.y<basket.y+basket.h/2){
+          // 接到了
+          if(m.t==='bomb'){ state.lives--; state.combo=0; SFX.lose(); spawnParticles(m.x,m.y,'#e53935',15); if(state.lives<=0){gameOver();return;} }
+          else { state.combo++; var gain=m.score+Math.floor(state.combo/3); state.score+=gain; SFX.coin(); spawnParticles(m.x,m.y,m.color,10); particles.push({type:'text',x:m.x,y:m.y,text:'+'+gain,life:35,color:m.color}); }
+          meteors.splice(i,1); updateHud(); continue;
+        }
+      }
+      if(m.y>H+30){ meteors.splice(i,1); if(m.t!=='bomb'){ /* 漏掉非炸弹可断连击 */ } }
+    }
+    // 星空
+    stars.forEach(function(s){ s.y+=s.v; s.tw+=0.1; if(s.y>H){s.y=0;s.x=Math.random()*W;} });
+    // 粒子
+    particles.forEach(function(p){ if(p.type==='text'){p.y-=1.2;p.life--;} else {p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;} });
+    particles=particles.filter(function(p){return p.life>0;});
+    updateHud();
+  }
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*4; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:28,color:color,size:2+Math.random()*3}); } }
+  function gameOver(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); if(state.score>bestScore){bestScore=state.score;localStorage.setItem('meteorBest',bestScore);} toast('得分 '+state.score); }
+
+  function draw(){
+    var g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0a0a3a'); g.addColorStop(1,'#000');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 星空闪烁
+    stars.forEach(function(s){ ctx.fillStyle='rgba(255,255,255,'+(0.3+Math.sin(s.tw)*0.3)+')'; ctx.fillRect(s.x,s.y,s.s,s.s); });
+    // 流星拖尾
+    meteors.forEach(function(m){
+      m.trail.forEach(function(t,i){ ctx.globalAlpha=(i/m.trail.length)*0.4; ctx.fillStyle=m.color; ctx.fillRect(t.x-2,t.y-2,4,4); });
+      ctx.globalAlpha=1;
+      var grd=ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,20); grd.addColorStop(0,m.color); grd.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(m.x,m.y,18,0,7); ctx.fill();
+      ctx.save(); ctx.translate(m.x,m.y); ctx.rotate(m.rot); ctx.font='22px sans-serif'; ctx.textAlign='center'; ctx.fillText(m.icon,0,8); ctx.restore();
+    });
+    // 篮子
+    ctx.fillStyle='#8d6e63'; ctx.fillRect(basket.x-basket.w/2,basket.y-basket.h/2,basket.w,basket.h);
+    ctx.fillStyle='#a1887f'; ctx.fillRect(basket.x-basket.w/2,basket.y-basket.h/2,basket.w,5);
+    ctx.fillStyle='#5d4037'; ctx.fillRect(basket.x-basket.w/2,basket.y+basket.h/2-5,basket.w,5);
+    ctx.strokeStyle='#3e2723'; ctx.lineWidth=2; ctx.strokeRect(basket.x-basket.w/2,basket.y-basket.h/2,basket.w,basket.h);
+    // 篮子纹理
+    ctx.strokeStyle='#6d4c41'; ctx.lineWidth=1;
+    for(var bx=0;bx<basket.w;bx+=10){ ctx.beginPath(); ctx.moveTo(basket.x-basket.w/2+bx,basket.y-basket.h/2); ctx.lineTo(basket.x-basket.w/2+bx,basket.y+basket.h/2); ctx.stroke(); }
+    // 粒子
+    particles.forEach(function(p){ if(p.type==='text'){ctx.globalAlpha=Math.min(1,p.life/20);ctx.fillStyle=p.color;ctx.font='bold 16px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText(p.text,p.x,p.y);} else {ctx.globalAlpha=p.life/28;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);} });
+    ctx.globalAlpha=1;
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('生命耗尽',W/2,H/2-15); ctx.fillStyle='#ffd700'; ctx.font='13px "Press Start 2P",monospace'; ctx.fillText('得分 '+state.score,W/2,H/2+15); }
+      else { ctx.fillStyle='#4dd0e1'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('流星雨',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 鼠标移动篮子',W/2,H/2+25); }
+    }
+  }
+
+  function getPos(e){ var rect=canvas.getBoundingClientRect(); var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX); var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY); return {x:(cx-rect.left)*(W/rect.width), y:(cy-rect.top)*(H/rect.height)}; }
+  canvas.addEventListener('mousemove',function(e){var p=getPos(e);mouse.x=p.x;mouse.active=true;});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();var p=getPos(e);mouse.x=p.x;mouse.active=true;},{passive:false});
+  document.addEventListener('keydown',function(e){ keys[e.key.toLowerCase()]=true; if(['arrowleft','arrowright'].indexOf(e.key.toLowerCase())>=0)e.preventDefault(); });
+  document.addEventListener('keyup',function(e){ keys[e.key.toLowerCase()]=false; });
+
+  function start(){ init(); state.running=true; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); loop();
+})();
+</script>
+</body>
+</html>

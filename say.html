@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆大师 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .simon-board { width:360px; height:360px; margin:20px auto; position:relative; }
+  .pad {
+    position:absolute; width:48%; height:48%; cursor:pointer;
+    border:4px solid #000; border-radius:18px; opacity:0.55; transition:all 0.1s;
+    box-shadow: inset 4px 4px 0 rgba(255,255,255,0.2), inset -4px -4px 0 rgba(0,0,0,0.3);
+  }
+  .pad.green  { background:#43a047; top:0; left:0; }
+  .pad.red    { background:#e53935; top:0; right:0; }
+  .pad.yellow { background:#fdd835; bottom:0; left:0; }
+  .pad.blue   { background:#1e88e5; bottom:0; right:0; }
+  .pad.lit    { opacity:1; box-shadow: 0 0 40px currentColor, inset 4px 4px 0 rgba(255,255,255,0.4); transform:scale(0.97); }
+  .pad.locked { cursor:not-allowed; }
+  .pad:hover:not(.locked){ opacity:0.75; }
+  .simon-center {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:120px; height:120px; background:#1a1a2e; border:5px solid #000; border-radius:50%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6), 0 0 0 4px #444;
+  }
+  .simon-center .lvl { font-family:'Press Start 2P',monospace; font-size:24px; color:#ffd700; text-shadow:2px 2px 0 #000; }
+  .simon-center .lbl { font-family:'Press Start 2P',monospace; font-size:8px; color:#888; margin-top:4px; }
+  .simon-status { text-align:center; font-family:'Press Start 2P',monospace; font-size:13px; color:#4dd0e1; text-shadow:2px 2px 0 #000; min-height:20px; margin:8px 0; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="say.html">记忆大师</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="color.html">颜色反应</a>
+    <a href="flip.html">记忆配对</a>
+    <a href="reaction.html">反应测试</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🧠 记忆大师</h1>
+  <p class="subtitle">记住亮灯顺序，照着点一遍！每关多一个，越来越长</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+    <div class="hud-item"><span class="label">状态</span><span id="statusBadge">待开始</span></div>
+  </div>
+  <div class="simon-status" id="status">点开始按钮挑战记忆！</div>
+  <div class="simon-board">
+    <div class="pad green"  data-c="0"></div>
+    <div class="pad red"    data-c="1"></div>
+    <div class="pad yellow" data-c="2"></div>
+    <div class="pad blue"   data-c="3"></div>
+    <div class="simon-center"><div class="lvl" id="centerLvl">0</div><div class="lbl">LEVEL</div></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    看电脑亮灯顺序 → 等提示「该你了」→ 按相同顺序点击 · 每关+1个 · 记错就结束
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var PADS=[
+    {cls:'green', tone:261.63}, {cls:'red', tone:329.63}, {cls:'yellow', tone:392.00}, {cls:'blue', tone:523.25}
+  ];
+  var state, sequence, inputIdx, playing;
+  var best=parseInt(localStorage.getItem('simonBest')||'0',10);
+  document.getElementById('best').textContent=best;
+  var padEls=document.querySelectorAll('.pad');
+  var statusEl=document.getElementById('status');
+  var badgeEl=document.getElementById('statusBadge');
+
+  function init(){
+    state={running:false,over:false,level:0}; sequence=[]; playing=false; lockPads(true);
+    statusEl.textContent='点开始按钮挑战记忆！'; badgeEl.textContent='待开始';
+    document.getElementById('level').textContent=0; document.getElementById('centerLvl').textContent=0;
+  }
+  function lockPads(lock){ padEls.forEach(function(p){ p.classList.toggle('locked',lock); }); }
+  function setStatus(txt,color){ statusEl.textContent=txt; badgeEl.textContent=txt; }
+
+  function nextRound(){
+    state.level++; sequence.push(Math.floor(Math.random()*4));
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('centerLvl').textContent=state.level;
+    setStatus('看清楚顺序','#ffd700');
+    lockPads(true);
+    setTimeout(playSequence, 800);
+  }
+
+  function light(c, dur){
+    return new Promise(function(res){
+      var el=padEls[c]; el.classList.add('lit');
+      playTone(PADS[c].tone);
+      setTimeout(function(){ el.classList.remove('lit'); setTimeout(res, dur||200); }, 400);
+    });
+  }
+  function playTone(freq){
+    try{
+      var ac=AOXSound.ctx||(window.AudioContext||window.webkitAudioContext)?new (window.AudioContext||window.webkitAudioContext)():null;
+      if(!ac)return;
+      var o=ac.createOscillator(), g=ac.createGain();
+      o.frequency.value=freq; o.type='sine'; o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(0.2,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.3);
+      o.start(); o.stop(ac.currentTime+0.3);
+    }catch(e){}
+  }
+
+  async function playSequence(){
+    playing=true;
+    for(var i=0;i<sequence.length;i++){ await light(sequence[i], Math.max(120,400-state.level*15)); }
+    playing=false; inputIdx=0; setStatus('该你了！按顺序点','#4caf50'); lockPads(false);
+  }
+
+  padEls.forEach(function(p){
+    function tap(){ if(playing||state.over||!state.running)return; if(p.classList.contains('locked'))return; AOXSound.ensure(); handleInput(parseInt(p.dataset.c,10),p); }
+    p.addEventListener('click',tap);
+    p.addEventListener('touchstart',function(e){ e.preventDefault(); tap(); },{passive:false});
+  });
+
+  function handleInput(c,el){
+    el.classList.add('lit'); playTone(PADS[c].tone); setTimeout(function(){ el.classList.remove('lit'); },200);
+    SFX.select();
+    if(c===sequence[inputIdx]){
+      inputIdx++;
+      if(inputIdx>=sequence.length){
+        SFX.win(); setStatus('正确！下一关…','#4dd0e1'); lockPads(true);
+        if(state.level>best){ best=state.level; localStorage.setItem('simonBest',best); document.getElementById('best').textContent=best; }
+        setTimeout(nextRound, 900);
+      }
+    } else {
+      // 错了
+      SFX.lose(); setStatus('记错了！游戏结束','#e53935'); lockPads(true); state.over=true; state.running=false;
+      // 闪红
+      padEls.forEach(function(p){p.classList.add('lit');});
+      setTimeout(function(){ padEls.forEach(function(p){p.classList.remove('lit');}); },600);
+    }
+  }
+
+  function start(){ AOXSound.ensure(); AOXSound.startBGM('game'); init(); state.running=true; SFX.select(); nextRound(); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init();
+})();
+</script>
+</body>
+</html>
