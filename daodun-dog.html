@@ -320,7 +320,7 @@
     var bf=FORMS[ar.boss];
     var bossLvl = ar.key==='rematch'?2:1;
     boss={form:bf,x:W/2,y:80,r:30+bf.tier*3,hp:Math.round(bf.maxhp*1.5*bossLvl),maxhp:Math.round(bf.maxhp*1.5*bossLvl),
-      speed:bf.speed*0.5*bossLvl,atkTick:0,angle:0,anim:0,hitFlash:0,skillTick:0,entering:true};
+      speed:bf.speed*0.5*bossLvl,atkTick:0,angle:0,anim:0,hitFlash:0,skillTick:0,entering:true,isBoss:true};
     minions=[];spawnTick=0;
     state={running:true,over:false,won:false};
     slashes=[];fxs=[];keys={};mouse={x:W/2,y:H/2-80};
@@ -559,8 +559,42 @@
       ctx.strokeStyle='#4dd0e1'; ctx.lineWidth=3; ctx.globalAlpha=0.6;
       ctx.beginPath(); ctx.arc(player.x,player.y,player.r+6,0,7); ctx.stroke(); ctx.globalAlpha=1;
     }
+    // ===== Boss 固定大血条（画布顶部，永远可见）=====
+    if(boss && boss.hp>0){
+      var bx=60, by=18, bw=W-120, bh=16;
+      // 底框
+      ctx.fillStyle='rgba(0,0,0,0.8)'; roundRectPath(bx-3,by-3,bw+6,bh+6,4); ctx.fill();
+      // 槽
+      ctx.fillStyle='rgba(40,20,20,0.9)'; roundRectPath(bx,by,bw,bh,3); ctx.fill();
+      // 血量（渐变）
+      var ratio=Math.max(0,boss.hp/boss.maxhp);
+      var bgrad=ctx.createLinearGradient(bx,0,bx+bw,0);
+      bgrad.addColorStop(0,'#e53935'); bgrad.addColorStop(1,boss.form.color);
+      ctx.fillStyle=bgrad; roundRectPath(bx,by,bw*ratio,bh,3); ctx.fill();
+      // 高光
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(bx+2,by+2,bw*ratio-4,3);
+      // 边框
+      ctx.strokeStyle=boss.form.color; ctx.lineWidth=2; roundRectPath(bx,by,bw,bh,3); ctx.stroke();
+      // 名字+血量数字
+      ctx.fillStyle='#fff'; ctx.font='bold 10px "Press Start 2P",monospace'; ctx.textAlign='center';
+      ctx.fillText(boss.form.icon+' '+boss.form.name+'  '+Math.ceil(boss.hp)+'/'+boss.maxhp, W/2, by+12);
+    }
+    // ===== 玩家固定血条（画布底部）=====
+    if(player){
+      var pbx=60, pby=H-26, pbw=W-120, pbh=12;
+      ctx.fillStyle='rgba(0,0,0,0.8)'; roundRectPath(pbx-3,pby-3,pbw+6,pbh+6,4); ctx.fill();
+      ctx.fillStyle='rgba(20,30,40,0.9)'; roundRectPath(pbx,pby,pbw,pbh,3); ctx.fill();
+      var pratio=Math.max(0,player.hp/player.maxhp);
+      var pgrad=ctx.createLinearGradient(pbx,0,pbx+pbw,0);
+      pgrad.addColorStop(0,'#4caf50'); pgrad.addColorStop(1,'#4dd0e1');
+      ctx.fillStyle=pgrad; roundRectPath(pbx,pby,pbw*pratio,pbh,3); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(pbx+2,pby+2,pbw*pratio-4,2);
+      ctx.strokeStyle='#4dd0e1'; ctx.lineWidth=2; roundRectPath(pbx,pby,pbw,pbh,3); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 9px "Press Start 2P",monospace'; ctx.textAlign='center';
+      ctx.fillText('我 '+Math.max(0,Math.ceil(player.hp))+'/'+player.maxhp+'  · 装备Lv.'+gearLvl, W/2, pby+9);
+    }
     // 方向指示：屏幕外Boss箭头（现已钳制，基本不会触发，保留兜底）
-    if(boss.hp>0 && !boss.entering && (boss.x<-10||boss.x>W+10||boss.y<-10||boss.y>H+10)){
+    if(boss && boss.hp>0 && !boss.entering && (boss.x<-10||boss.x>W+10||boss.y<-10||boss.y>H+10)){
       var ax=Math.max(20,Math.min(W-20,boss.x)), ay=Math.max(30,Math.min(H-20,boss.y));
       ctx.fillStyle='#ffd700'; ctx.font='20px sans-serif'; ctx.textAlign='center'; ctx.fillText('⚠', ax, ay);
     }
