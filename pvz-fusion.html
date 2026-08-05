@@ -59,13 +59,6 @@
   <div class="toprow">
     <div class="sun-counter" id="sunCounter"><span class="sun-icon">☀️</span><span id="sunCount">300</span></div>
     <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 / 10 波</div></div>
-    <div class="fusion-area">
-      <span style="font-size:10px;color:#ab47bc;font-family:'Press Start 2P',monospace;">🔀融合台</span>
-      <div class="fslot" id="slot0" data-i="0"></div>
-      <div class="fslot" id="slot1" data-i="1"></div>
-      <div class="fslot" id="slot2" data-i="2"></div>
-      <button class="fbtn" id="fuseBtn">融合!</button>
-    </div>
     <div class="shovel-btn" id="shovelBtn" title="铲除植物">🪏</div>
   </div>
 
@@ -76,7 +69,7 @@
   </div>
 
   <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
-    点卡片入融合台(2-3个)→点融合 · 或草地拖植物叠到另一个上融合 · 攒600阳光解锁无限 · 🛒推车也可融合
+    点卡片选植物 → 点草地种植 · 按住草地植物拖到另一个植物上 = 融合（最多3个链式）· 攒600阳光解锁无限 · 🛒推车可融合
   </p>
   <div style="margin-top:10px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
@@ -149,7 +142,7 @@
   regFusion(['peashooter','sunflower','wallnut'], { id:'artifact', name:'神器三合', icon:'🌟', cost:400, hp:600, recharge:6, color:'#e040fb',
     fused:['🌱','🌻','🥜'], sun:true, shooter:true, fireRate:30, damage:40, bulletType:'fire', splash:50, wall:true, desc:'全属性最强' });
 
-  var state,grid,plants,zombies,bullets,suns,particles,selectedCard,shovelMode,mouse,fusionSlots,cartSpawnTick,drag;
+  var state,grid,plants,zombies,bullets,suns,particles,selectedCard,shovelMode,mouse,cartSpawnTick,drag;
   // 已解锁的融合植物id列表（动态）
   var unlockedFusions={};
 
@@ -158,7 +151,7 @@
             waveProgress:0, zombiesInWave:0, zombiesSpawned:0, spawnTick:0, sunDropTick:0, waveActive:false, betweenTimer:0 };
     grid=[]; for(var r=0;r<ROWS;r++){grid.push(new Array(COLS).fill(null));}
     plants=[]; zombies=[]; bullets=[]; suns=[]; particles=[];
-    selectedCard=null; shovelMode=false; mouse={x:0,y:0,down:false}; fusionSlots=[null,null,null];
+    selectedCard=null; shovelMode=false; mouse={x:0,y:0,down:false};
     cartSpawnTick=0; drag=null;
     unlockedFusions={};
     buildCards(); updateHud();
@@ -186,13 +179,10 @@
     if(!state.running||state.over) return;
     AOXSound.ensure();
     var def=findDef(id);
-    // 优先：融合台未满 → 入槽
-    if(fusionSlots.indexOf(null)>=0 && id!=='cart'){
-      for(var i=0;i<3;i++){ if(!fusionSlots[i]){ fusionSlots[i]=id; SFX.select(); renderSlots(); return; } }
-    }
-    // 否则作为种植选择
+    // 直接作为种植选择
     if(state.infinite){ /* 免费 */ }
     else if(state.sun<def.cost){ SFX.error(); toast('阳光不够'); return; }
+    if(def._cd && def._cd>0){ SFX.error(); toast(def.name+' 冷却中'); return; }
     selectedCard=id; shovelMode=false;
     document.getElementById('shovelBtn').classList.remove('active');
     buildCards();
@@ -203,26 +193,7 @@
     return null;
   }
 
-  // ===== 融合台 =====
-  function renderSlots(){
-    for(var i=0;i<3;i++){
-      var el=document.getElementById('slot'+i);
-      var sid=fusionSlots[i];
-      if(sid){ var d=findDef(sid); el.textContent=d.icon; el.classList.add('filled'); el.title=d.name+'(点击移除)'; }
-      else { el.textContent=''; el.classList.remove('filled'); el.title='空槽'; }
-    }
-    var count=fusionSlots.filter(function(s){return s;}).length;
-    document.getElementById('fuseBtn').disabled = count<2;
-  }
-  document.querySelectorAll('.fslot').forEach(function(el){
-    el.addEventListener('click',function(){
-      var i=parseInt(el.dataset.i,10);
-      if(fusionSlots[i]){ fusionSlots[i]=null; SFX.click(); renderSlots(); }
-    });
-  });
-  document.getElementById('fuseBtn').addEventListener('click',function(){
-    doFuse(fusionSlots.slice());
-  });
+  // ===== 融合（仅拖拽触发，无融合台）=====
   function doFuse(ids){
     ids=ids.filter(function(s){return s;});
     if(ids.length<2){ SFX.error(); toast('至少2个植物'); return; }
@@ -235,7 +206,7 @@
       SFX.select(); toast('🔀 融合出 '+result.name);
     }
     unlockedFusions[result.id]=result;
-    fusionSlots=[null,null,null]; renderSlots(); buildCards();
+    buildCards();
     // 融合特效
     spawnParticles(W/2,H/2,result.color,20);
     SFX.unlock();
@@ -481,10 +452,10 @@
 
   document.getElementById('shovelBtn').addEventListener('click',function(){ if(!state.running||state.over)return; shovelMode=!shovelMode; selectedCard=null; this.classList.toggle('active',shovelMode); buildCards(); SFX.click(); });
 
-  function start(){ init(); state.running=true; state.betweenTimer=240; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); renderSlots(); toast('🌱 点植物卡片放进融合台，攒600阳光解锁无限！'); }
+  function start(){ init(); state.running=true; state.betweenTimer=240; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); toast('🌱 点卡片选植物，点草地种植，拖植物叠到另一个上融合！'); }
   function loop(){ update(); draw(); requestAnimationFrame(loop); }
   document.getElementById('startBtn').addEventListener('click',start);
-  init(); renderSlots(); loop();
+  init(); loop();
 })();
 </script>
 </body>
