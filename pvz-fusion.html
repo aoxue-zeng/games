@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>植物大战僵尸·融合版 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#5fb53f; cursor:pointer; touch-action:none; display:block; max-width:100%; border-radius:8px; }
+  .toprow { display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+  .sun-counter { display:inline-flex; align-items:center; gap:6px; background:var(--mc-night); border:3px solid var(--mc-black); box-shadow: inset 2px 2px 0 0 #2a3f5f, inset -2px -2px 0 0 #000; padding:8px 14px; font-family:'Press Start 2P',monospace; font-size:14px; color:var(--mc-gold); }
+  .sun-counter .sun-icon { font-size:20px; }
+  .sun-counter.inf { color:#4dd0e1; animation:infGlow 1s infinite alternate; }
+  @keyframes infGlow{ from{box-shadow:inset 2px 2px 0 0 #2a3f5f, inset -2px -2px 0 0 #000, 0 0 8px #4dd0e1;} to{box-shadow:inset 2px 2px 0 0 #2a3f5f, inset -2px -2px 0 0 #000, 0 0 20px #4dd0e1;} }
+  .wave-bar { width:240px; height:18px; background:var(--mc-night); border:2px solid #000; position:relative; overflow:hidden; }
+  .wave-fill { height:100%; background:linear-gradient(90deg,#4caf50,#ffd700,#e53935); transition:width 0.3s; }
+  .wave-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Press Start 2P',monospace; font-size:8px; color:#fff; text-shadow:1px 1px 0 #000; }
+  /* 融合台 */
+  .fusion-area { display:flex; gap:8px; align-items:center; background:rgba(0,0,0,0.4); padding:6px 10px; border:2px solid var(--mc-gold); border-radius:8px; }
+  .fslot { width:46px; height:46px; background:rgba(0,0,0,0.5); border:2px dashed #888; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:24px; cursor:pointer; position:relative; transition:all 0.1s; }
+  .fslot.filled { border-style:solid; border-color:var(--mc-gold); background:rgba(255,215,0,0.15); }
+  .fslot.filled:hover { background:rgba(229,57,53,0.3); }
+  .fbtn { padding:8px 14px; background:linear-gradient(180deg,#ab47bc,#6a1b9a); color:#fff; border:2px solid #000; border-radius:6px; font-family:'Press Start 2P',monospace; font-size:10px; cursor:pointer; box-shadow:0 3px 0 #4a148c; text-shadow:1px 1px 0 #000; }
+  .fbtn:hover { transform:translateY(-1px); }
+  .fbtn:active { transform:translateY(2px); box-shadow:0 1px 0 #4a148c; }
+  .fbtn:disabled { opacity:0.4; cursor:not-allowed; }
+  .card-bar { display:flex; gap:5px; justify-content:center; flex-wrap:wrap; margin:10px auto; max-width:920px; }
+  .plant-card { width:56px; background:var(--mc-panel); border:3px solid var(--mc-black); box-shadow: inset 2px 2px 0 0 var(--mc-highlight), inset -2px -2px 0 0 var(--mc-shadow), 3px 3px 0 0 rgba(0,0,0,0.3); padding:4px 2px; text-align:center; cursor:pointer; user-select:none; position:relative; transition:transform 0.05s; }
+  .plant-card:hover { transform:translate(-1px,-1px); }
+  .plant-card.selected { border-color:var(--mc-gold); box-shadow: inset 2px 2px 0 0 var(--mc-highlight), 0 0 12px var(--mc-gold); }
+  .plant-card.disabled { opacity:0.5; cursor:not-allowed; }
+  .plant-card.fused { border-color:#ab47bc; box-shadow: inset 2px 2px 0 0 var(--mc-highlight), 0 0 8px #ab47bc; }
+  .plant-card .icon { font-size:22px; line-height:22px; }
+  .plant-card .cost { font-family:'Press Start 2P',monospace; font-size:7px; color:var(--mc-gold); text-shadow:1px 1px 0 #000; margin-top:2px; }
+  .plant-card .nm { font-size:8px; color:#fff; line-height:1.1; margin-top:1px; }
+  .shovel-btn { width:48px; height:48px; background:#8b5a2b; border:3px solid #000; box-shadow: inset 2px 2px 0 0 #b5651d, inset -2px -2px 0 0 #5d3a1a, 3px 3px 0 0 rgba(0,0,0,0.3); font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; border-radius:4px; }
+  .shovel-btn.active { box-shadow: inset 2px 2px 0 0 #b5651d, 0 0 12px var(--mc-gold); border-color:var(--mc-gold); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="pvz.html">植物战僵尸</a>
+    <a href="pvz-fusion.html">融合版</a>
+    <a href="wallnut-bowl.html">坚果保龄</a>
+    <a href="imp-fling.html">小鬼飞人</a>
+    <a href="pvz-duel.html">植物决斗</a>
+    <a href="zombie-siege.html">僵尸围城</a>
+    <a href="pvz-21.html">植物21点</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🧬 植物大战僵尸·融合版</h1>
+  <p class="subtitle">把植物融合成超强形态！攒满600阳光解锁无限阳光</p>
+
+  <div class="toprow">
+    <div class="sun-counter" id="sunCounter"><span class="sun-icon">☀️</span><span id="sunCount">300</span></div>
+    <div class="wave-bar"><div class="wave-fill" id="waveFill" style="width:0%"></div><div class="wave-label" id="waveLabel">第 1 / 10 波</div></div>
+    <div class="fusion-area">
+      <span style="font-size:10px;color:#ab47bc;font-family:'Press Start 2P',monospace;">🔀融合台</span>
+      <div class="fslot" id="slot0" data-i="0"></div>
+      <div class="fslot" id="slot1" data-i="1"></div>
+      <div class="fslot" id="slot2" data-i="2"></div>
+      <button class="fbtn" id="fuseBtn">融合!</button>
+    </div>
+    <div class="shovel-btn" id="shovelBtn" title="铲除植物">🪏</div>
+  </div>
+
+  <div class="card-bar" id="cardBar"></div>
+
+  <div id="gameStageWrap" class="game-stage" style="margin-top:6px;">
+    <canvas id="gameCanvas" width="900" height="460"></canvas>
+  </div>
+
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
+    点卡片入融合台(2-3个)→点融合 · 或草地拖植物叠到另一个上融合 · 攒600阳光解锁无限 · 🛒推车也可融合
+  </p>
+  <div style="margin-top:10px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var ROWS=5,COLS=9,CELL_W=84,CELL_H=78,LAWN_X=80,LAWN_Y=36;
+
+  // ===== 基础植物（12种）=====
+  var BASE={
+    sunflower:{ name:'向日葵', icon:'🌻', cost:25, hp:80, recharge:3, color:'#ffd700',
+      sun:true },
+    peashooter:{ name:'豌豆射手', icon:'🌱', cost:50, hp:100, recharge:3, color:'#4caf50',
+      shooter:true, fireRate:80, damage:22, bulletType:'pea' },
+    wallnut:{ name:'坚果墙', icon:'🥜', cost:25, hp:500, recharge:8, color:'#8b5a2b', wall:true },
+    snowpea:{ name:'寒冰射手', icon:'❄️', cost:75, hp:100, recharge:4, color:'#4dd0e1',
+      shooter:true, fireRate:80, damage:22, bulletType:'ice', slow:true },
+    cherry:{ name:'樱桃炸弹', icon:'🍒', cost:75, hp:1, recharge:15, color:'#e53935', bomb:true },
+    squash:{ name:'窝瓜', icon:'🥒', cost:25, hp:1, recharge:8, color:'#558b2f', squash:true },
+    chomper:{ name:'大嘴花', icon:'🦷', cost:75, hp:100, recharge:6, color:'#c62828', chomper:true },
+    firepea:{ name:'火爆射手', icon:'🔥', cost:75, hp:100, recharge:4, color:'#ff5722',
+      shooter:true, fireRate:80, damage:28, bulletType:'fire', splash:40 },
+    potato:{ name:'土豆地雷', icon:'🥔', cost:15, hp:60, recharge:6, color:'#8d6e63', potato:true },
+    cactus:{ name:'仙人掌', icon:'🌵', cost:100, hp:100, recharge:4, color:'#43a047',
+      shooter:true, fireRate:80, damage:22, bulletType:'spike', antiAir:true },
+    garlic:{ name:'大蒜', icon:'🧄', cost:50, hp:200, recharge:6, color:'#cddc39', garlic:true },
+    cart:{ name:'手推车', icon:'🛒', cost:0, hp:1, recharge:8, color:'#9e9e9e', mower:true }
+  };
+  // 按id基数排序生成配方key
+  function fkey(ids){ return ids.slice().sort().join('+'); }
+  // ===== 预设融合配方 =====
+  var FUSIONS={};
+  function regFusion(ids, def){ FUSIONS[fkey(ids)]=def; }
+  regFusion(['sunflower','peashooter'], { id:'sunpea', name:'向日葵射手', icon:'🌼', cost:75, hp:120, recharge:4, color:'#ffc107',
+    fused:['🌻','🌱'], sun:true, shooter:true, fireRate:85, damage:24, bulletType:'pea', desc:'产阳光+射豌豆' });
+  regFusion(['peashooter','snowpea'], { id:'iceshooter', name:'冰火双生', icon:'🌀', cost:150, hp:130, recharge:5, color:'#7e57c2',
+    fused:['🌱','❄️'], shooter:true, fireRate:75, damage:30, bulletType:'ice', slow:true, splash:35, desc:'冰减速+火溅射' });
+  regFusion(['wallnut','peashooter'], { id:'wallnutgun', name:'坚果炮台', icon:'🌰', cost:100, hp:400, recharge:8, color:'#a0703b',
+    fused:['🥜','🌱'], shooter:true, fireRate:85, damage:24, bulletType:'pea', desc:'高血量+射击' });
+  regFusion(['cherry','peashooter'], { id:'cherrygun', name:'樱桃机枪', icon:'💥', cost:150, hp:120, recharge:8, color:'#e53935',
+    fused:['🍒','🌱'], shooter:true, fireRate:40, damage:20, bulletType:'pea', bulletCount:2, desc:'连发+范围' });
+  regFusion(['squash','peashooter'], { id:'squashshot', name:'窝瓜射手', icon:'🥒', cost:100, hp:120, recharge:7, color:'#7cb342',
+    fused:['🥒','🌱'], shooter:true, fireRate:85, damage:24, bulletType:'pea', squash:true, desc:'射+压扁近身' });
+  regFusion(['chomper','peashooter'], { id:'chompshot', name:'吞噬射手', icon:'🐉', cost:150, hp:140, recharge:7, color:'#ad1457',
+    fused:['🦷','🌱'], shooter:true, fireRate:85, damage:24, bulletType:'pea', chomper:true, desc:'远射近吞' });
+  regFusion(['cactus','peashooter'], { id:'cactusgun', name:'仙人掌炮', icon:'🎯', cost:150, hp:120, recharge:5, color:'#2e7d32',
+    fused:['🌵','🌱'], shooter:true, fireRate:70, damage:28, bulletType:'spike', antiAir:true, desc:'射+反气球' });
+  regFusion(['potato','peashooter'], { id:'potatoshot', name:'地雷射手', icon:'⛏', cost:100, hp:120, recharge:7, color:'#6d4c41',
+    fused:['🥔','🌱'], shooter:true, fireRate:85, damage:24, bulletType:'pea', potato:true, desc:'射+埋雷' });
+  regFusion(['cart','peashooter'], { id:'cartgun', name:'战车射手', icon:'🚜', cost:200, hp:300, recharge:8, color:'#8bc34a',
+    fused:['🛒','🌱'], shooter:true, fireRate:60, damage:26, bulletType:'pea', mover:true, desc:'移动射击碾压' });
+  regFusion(['cart','wallnut'], { id:'armoredcart', name:'装甲坚果车', icon:'🛡', cost:150, hp:800, recharge:10, color:'#7e57c2',
+    fused:['🛒','🥜'], mover:true, wall:true, desc:'高血碾压车' });
+  // 三合一
+  regFusion(['wallnut','wallnut','wallnut'], { id:'diamondwall', name:'钻石坚果', icon:'💎', cost:200, hp:1500, recharge:12, color:'#4dd0e1',
+    fused:['🥜','🥜','🥜'], wall:true, spike:true, desc:'1500血+反伤' });
+  regFusion(['peashooter','peashooter','peashooter'], { id:'superpea', name:'超级射手', icon:'⭐', cost:250, hp:150, recharge:6, color:'#ffd700',
+    fused:['🌱','🌱','🌱'], shooter:true, fireRate:35, damage:30, bulletType:'pea', bulletCount:3, desc:'三连发高伤' });
+  regFusion(['sunflower','sunflower','sunflower'], { id:'sunqueen', name:'阳光花王', icon:'👑', cost:300, hp:200, recharge:8, color:'#ff8f00',
+    fused:['🌻','🌻','🌻'], sun:true, sunBig:true, shooter:true, fireRate:100, damage:20, bulletType:'pea', desc:'大额阳光+射击' });
+  regFusion(['peashooter','sunflower','wallnut'], { id:'artifact', name:'神器三合', icon:'🌟', cost:400, hp:600, recharge:6, color:'#e040fb',
+    fused:['🌱','🌻','🥜'], sun:true, shooter:true, fireRate:30, damage:40, bulletType:'fire', splash:50, wall:true, desc:'全属性最强' });
+
+  var state,grid,plants,zombies,bullets,suns,particles,selectedCard,shovelMode,mouse,fusionSlots,cartSpawnTick,drag;
+  // 已解锁的融合植物id列表（动态）
+  var unlockedFusions={};
+
+  function init(){
+    state={ running:false, over:false, won:false, sun:300, infinite:false, wave:0, totalWaves:10,
+            waveProgress:0, zombiesInWave:0, zombiesSpawned:0, spawnTick:0, sunDropTick:0, waveActive:false, betweenTimer:0 };
+    grid=[]; for(var r=0;r<ROWS;r++){grid.push(new Array(COLS).fill(null));}
+    plants=[]; zombies=[]; bullets=[]; suns=[]; particles=[];
+    selectedCard=null; shovelMode=false; mouse={x:0,y:0,down:false}; fusionSlots=[null,null,null];
+    cartSpawnTick=0; drag=null;
+    unlockedFusions={};
+    buildCards(); updateHud();
+  }
+
+  // ===== 卡片栏：基础植物 + 已解锁融合植物 =====
+  function getCardList(){
+    var list=[];
+    Object.keys(BASE).forEach(function(k){ list.push(Object.assign({id:k},BASE[k])); });
+    Object.keys(unlockedFusions).forEach(function(k){ list.push(unlockedFusions[k]); });
+    return list;
+  }
+  function buildCards(){
+    var bar=document.getElementById('cardBar'); bar.innerHTML='';
+    getCardList().forEach(function(p){
+      var card=document.createElement('div');
+      card.className='plant-card'+(p.fused?' fused':'')+(p.id===selectedCard?' selected':'');
+      card.dataset.id=p.id;
+      card.innerHTML='<div class="icon">'+p.icon+'</div><div class="cost">'+(p.cost===0?'☀':p.cost)+'</div><div class="nm">'+p.name+'</div>';
+      card.addEventListener('click',function(){ onCardClick(p.id); });
+      bar.appendChild(card);
+    });
+  }
+  function onCardClick(id){
+    if(!state.running||state.over) return;
+    AOXSound.ensure();
+    var def=findDef(id);
+    // 优先：融合台未满 → 入槽
+    if(fusionSlots.indexOf(null)>=0 && id!=='cart'){
+      for(var i=0;i<3;i++){ if(!fusionSlots[i]){ fusionSlots[i]=id; SFX.select(); renderSlots(); return; } }
+    }
+    // 否则作为种植选择
+    if(state.infinite){ /* 免费 */ }
+    else if(state.sun<def.cost){ SFX.error(); toast('阳光不够'); return; }
+    selectedCard=id; shovelMode=false;
+    document.getElementById('shovelBtn').classList.remove('active');
+    buildCards();
+  }
+  function findDef(id){
+    if(BASE[id]) return Object.assign({id:id},BASE[id]);
+    if(unlockedFusions[id]) return unlockedFusions[id];
+    return null;
+  }
+
+  // ===== 融合台 =====
+  function renderSlots(){
+    for(var i=0;i<3;i++){
+      var el=document.getElementById('slot'+i);
+      var sid=fusionSlots[i];
+      if(sid){ var d=findDef(sid); el.textContent=d.icon; el.classList.add('filled'); el.title=d.name+'(点击移除)'; }
+      else { el.textContent=''; el.classList.remove('filled'); el.title='空槽'; }
+    }
+    var count=fusionSlots.filter(function(s){return s;}).length;
+    document.getElementById('fuseBtn').disabled = count<2;
+  }
+  document.querySelectorAll('.fslot').forEach(function(el){
+    el.addEventListener('click',function(){
+      var i=parseInt(el.dataset.i,10);
+      if(fusionSlots[i]){ fusionSlots[i]=null; SFX.click(); renderSlots(); }
+    });
+  });
+  document.getElementById('fuseBtn').addEventListener('click',function(){
+    doFuse(fusionSlots.slice());
+  });
+  function doFuse(ids){
+    ids=ids.filter(function(s){return s;});
+    if(ids.length<2){ SFX.error(); toast('至少2个植物'); return; }
+    var key=fkey(ids);
+    var result;
+    if(FUSIONS[key]){ result=FUSIONS[key]; SFX.win(); toast('✨ 融合出 '+result.name+'！'); }
+    else {
+      // 动态叠加融合
+      result=autoFuse(ids);
+      SFX.select(); toast('🔀 融合出 '+result.name);
+    }
+    unlockedFusions[result.id]=result;
+    fusionSlots=[null,null,null]; renderSlots(); buildCards();
+    // 融合特效
+    spawnParticles(W/2,H/2,result.color,20);
+    SFX.unlock();
+  }
+  function autoFuse(ids){
+    var defs=ids.map(findDef);
+    var dmg=0,hp=100,shoot=false,sun=false,wall=false;
+    defs.forEach(function(d){ hp+=d.hp*0.4; if(d.damage)dmg+=d.damage; if(d.shooter)shoot=true; if(d.sun)sun=true; if(d.wall)wall=true; });
+    var icon=defs[0].icon+'+'+defs[1].icon;
+    var id='auto_'+ids.sort().join('_');
+    return { id:id, name:defs.map(function(d){return d.name[0];}).join('')+'合体', icon:icon, cost:100, hp:Math.round(hp), recharge:5,
+      color:defs[0].color, fused:defs.map(function(d){return d.icon;}),
+      shooter:shoot, fireRate:80, damage:dmg||20, bulletType:'pea', sun:sun, wall:wall, desc:'属性叠加融合' };
+  }
+
+  // ===== 种植 =====
+  function cellAt(px,py){ var c=Math.floor((px-LAWN_X)/CELL_W); var r=Math.floor((py-LAWN_Y)/CELL_H); if(c<0||c>=COLS||r<0||r>=ROWS)return null; return {r:r,c:c}; }
+  function plantAt(r,c,id){
+    var p=findDef(id);
+    var plant={ id:id, def:p, r:r, c:c, x:LAWN_X+c*CELL_W+CELL_W/2, y:LAWN_Y+r*CELL_H+CELL_H/2,
+      hp:p.hp, maxhp:p.hp, fireTick:Math.floor(Math.random()*30), anim:Math.random()*6,
+      bombTick:-1, potatoTick:0, armed:false, chewing:0, squashTarget:null, moverX:0, moverDir:1 };
+    grid[r][c]=plant; plants.push(plant);
+    if(!state.infinite){ state.sun-=p.cost; }
+    p._cd=p.recharge;
+    SFX.place(); spawnParticles(plant.x,plant.y,'#5fb53f',8); updateHud(); updateCardUI();
+  }
+
+  function updateHud(){
+    document.getElementById('sunCount').textContent = state.infinite?'∞':state.sun;
+    document.getElementById('sunCounter').classList.toggle('inf',state.infinite);
+    document.getElementById('waveFill').style.width=Math.min(100,state.waveProgress)+'%';
+    document.getElementById('waveLabel').textContent='第 '+(state.wave+1)+' / '+state.totalWaves+' 波';
+  }
+  function updateCardUI(){
+    document.querySelectorAll('.plant-card').forEach(function(c){
+      var d=findDef(c.dataset.id); if(!d)return;
+      var cd=d._cd&&d._cd>0;
+      var can= state.infinite || state.sun>=d.cost;
+      c.classList.toggle('disabled', !state.infinite && (cd||state.sun<d.cost));
+    });
+  }
+
+  // ===== 阳光 =====
+  function spawnSun(x,y,fromSky,big){ suns.push({x:x,y:fromSky?-20:y,tx:x,ty:fromSky?(LAWN_Y+Math.random()*(H-LAWN_Y-40)):y,val:big?75:25,life:700,collected:false,bob:Math.random()*6,fromSky:fromSky}); }
+  function collectSun(s){ if(s.collected)return; s.collected=true; var oldSun=state.sun; state.sun+=s.val; SFX.coin(); particles.push({type:'text',x:s.x,y:s.y,text:'+'+s.val,life:35,color:'#ffd700'}); checkInfinite(oldSun); updateHud(); updateCardUI(); }
+  function checkInfinite(oldSun){ if(!state.infinite && state.sun>=600){ state.infinite=true; SFX.unlock(); SFX.win(); spawnParticles(W/2,H/2,'#4dd0e1',30); toast('✨ 无限阳光解锁！随便融合吧！'); } }
+
+  // ===== 僵尸 =====
+  var ZOM={ normal:{hp:60,sp:0.30,dmg:6,color:'#5a8f5a'}, cone:{hp:60,sp:0.30,dmg:6,color:'#5a8f5a',armor:70,type:'cone'}, bucket:{hp:60,sp:0.28,dmg:6,color:'#5a8f5a',armor:200,type:'bucket'}, imp:{hp:40,sp:0.65,dmg:5,color:'#7a5a8f',small:true}, gargantuar:{hp:600,sp:0.22,dmg:40,color:'#3a6b4a',huge:true,crush:true}, balloon:{hp:60,sp:0.35,dmg:6,color:'#5a8f5a',flying:true} };
+  var WAVE_PLAN=[
+    {count:5,types:['normal']},
+    {count:6,types:['normal','cone']},
+    {count:7,types:['normal','cone','cone']},
+    {count:8,types:['cone','bucket','imp']},
+    {count:9,types:['cone','bucket','imp','normal'],flag:true},
+    {count:10,types:['bucket','imp','balloon']},
+    {count:11,types:['bucket','imp','balloon','cone']},
+    {count:12,types:['bucket','imp','balloon','gargantuar'],flag:true},
+    {count:14,types:['gargantuar','bucket','imp','balloon']},
+    {count:16,types:['gargantuar','gargantuar','bucket','imp','balloon'],flag:true,final:true}
+  ];
+  function startWave(){
+    if(state.wave>=WAVE_PLAN.length){ winGame(); return; }
+    var plan=WAVE_PLAN[state.wave]; state.zombiesInWave=plan.count; state.zombiesSpawned=0; state.waveActive=true;
+    if(plan.flag){ SFX.roar(); toast('⚠ 大波僵尸！'); } else toast('第 '+(state.wave+1)+' 波');
+  }
+  function spawnZombie(){
+    var plan=WAVE_PLAN[state.wave]; var t=plan.types[Math.floor(Math.random()*plan.types.length)]; var z=ZOM[t];
+    var r=Math.floor(Math.random()*ROWS);
+    zombies.push({type:t,r:r,x:W+20,y:LAWN_Y+r*CELL_H+CELL_H/2,hp:z.hp,maxhp:z.hp,speed:z.sp,dmg:z.dmg,color:z.color,slow:0,eating:false,anim:Math.random()*6,armorType:z.type,armorHp:z.armor||0,armorMax:z.armor||0,flying:!!z.flying,small:!!z.small,huge:!!z.huge,crush:!!z.crush,thrownImp:!!z.huge});
+  }
+  function dmgZ(z,d){ if(z.armorHp>0){ z.armorHp-=d; if(z.armorHp<0){ z.hp+=z.armorHp; z.armorHp=0; } } else z.hp-=d; }
+
+  function update(){
+    if(!state.running||state.over) return;
+    Object.keys(BASE).forEach(function(k){ var p=BASE[k]; if(p._cd&&p._cd>0){p._cd-=1/60;if(p._cd<0)p._cd=0;} });
+    Object.keys(unlockedFusions).forEach(function(k){ var p=unlockedFusions[k]; if(p._cd&&p._cd>0){p._cd-=1/60;if(p._cd<0)p._cd=0;} });
+    // 天降阳光
+    state.sunDropTick++; if(state.sunDropTick>=450){ state.sunDropTick=0; spawnSun(LAWN_X+Math.random()*(COLS*CELL_W),0,true); }
+    // 推车刷新
+    if(!unlockedFusions['cart'] || true){ cartSpawnTick++; if(cartSpawnTick>=1800){ cartSpawnTick=0; spawnCartDrop(); } }
+    // 波次
+    if(!state.waveActive){ state.betweenTimer--; if(state.betweenTimer<=0)startWave(); }
+    else {
+      if(state.zombiesSpawned<state.zombiesInWave){ state.spawnTick++; var intv=state.waveActive&&WAVE_PLAN[state.wave].flag?Math.max(40,80-state.wave*3):Math.max(50,100-state.wave*3); if(state.spawnTick>=intv){ state.spawnTick=0; spawnZombie(); } }
+      else if(zombies.length===0){ state.waveActive=false; state.wave++; state.waveProgress=state.wave/state.totalWaves*100; updateHud(); if(state.wave>=state.totalWaves){ winGame(); return; } state.betweenTimer=150; }
+    }
+    state.waveProgress=Math.min(100,(state.wave+(state.waveActive?state.zombiesSpawned/Math.max(1,state.zombiesInWave):0))/state.totalWaves*100); updateHud();
+    // 植物
+    for(var i=plants.length-1;i>=0;i--){
+      var pl=plants[i]; pl.anim+=0.08; var d=pl.def;
+      if(d.sun){ pl.fireTick++; var rate=d.sunBig?350:500; if(pl.fireTick>=rate){ pl.fireTick=0; spawnSun(pl.x,pl.y-10,false,d.sunBig); SFX.bubble(); } }
+      if(d.shooter){
+        pl.fireTick++;
+        var hasZ=false;
+        for(var zi=0;zi<zombies.length;zi++){ var zz=zombies[zi]; var ok=d.antiAir?zz.r===pl.r:(zz.r===pl.r&&!zz.flying); if(ok&&zz.x>pl.x){ hasZ=true; break; } }
+        if(hasZ&&pl.fireTick>=d.fireRate){
+          pl.fireTick=0; var cnt=d.bulletCount||1;
+          for(var bi=0;bi<cnt;bi++){ bullets.push({x:pl.x+18,y:pl.y-4+(cnt>1?(bi-(cnt-1)/2)*8:0),vx:6.5,r:pl.r,dmg:d.damage,slow:!!d.slow,splash:d.splash||0,type:d.bulletType}); }
+          SFX.shoot();
+        }
+      }
+      if(d.bomb){ pl.bombTick++; if(pl.bombTick>=50){ SFX.boom(); for(var z2=zombies.length-1;z2>=0;z2--){ var zb=zombies[z2]; if(Math.abs(zb.x-pl.x)<CELL_W*1.5&&Math.abs(zb.y-pl.y)<CELL_H*1.5){ dmgZ(zb,600); spawnParticles(zb.x,zb.y,'#e53935',10);} } grid[pl.r][pl.c]=null; plants.splice(i,1); spawnParticles(pl.x,pl.y,'#e53935',30); continue; } }
+      if(d.chomper){ if(pl.chewing>0)pl.chewing--; else { for(var zc=zombies.length-1;zc>=0;zc--){ var zcc=zombies[zc]; if(zcc.r===pl.r&&!zcc.flying&&zcc.x>pl.x-12&&zcc.x<pl.x+50){ SFX.hit(); dmgZ(zcc,zcc.huge?300:9999); pl.chewing=500; spawnParticles(zcc.x,zcc.y,'#8bc34a',14); break; } } } }
+      if(d.squash){ if(!pl.squashTarget||pl.squashTarget.hp<=0){ var near=null,nd=999; for(var zs=0;zs<zombies.length;zs++){ var zss=zombies[zs]; if(zss.r===pl.r&&!zss.flying&&zss.x>pl.x-30&&zss.x<pl.x+200){ var dd=Math.abs(zss.x-pl.x); if(dd<nd){nd=dd;near=zss;} } } pl.squashTarget=near; } if(pl.squashTarget){ for(var zsq=zombies.length-1;zsq>=0;zsq--){ var zsqq=zombies[zsq]; if(zsqq.r===pl.r&&!zsqq.flying&&Math.abs(zsqq.x-pl.squashTarget.x)<40){ dmgZ(zsqq,500); spawnParticles(zsqq.x,zsqq.y,'#8bc34a',10);} } SFX.hit(); grid[pl.r][pl.c]=null; plants.splice(i,1); continue; } }
+      if(d.potato){ if(!pl.armed){ pl.potatoTick++; if(pl.potatoTick>=240)pl.armed=true; } else { for(var zp=zombies.length-1;zp>=0;zp--){ var zpb=zombies[zp]; if(zpb.r===pl.r&&!zpb.flying&&Math.abs(zpb.x-pl.x)<26){ SFX.boom(); for(var z2b=zombies.length-1;z2b>=0;z2b--){ var zp2=zombies[z2b]; if(zp2.r===pl.r&&!zp2.flying&&Math.abs(zp2.x-pl.x)<CELL_W){ dmgZ(zp2,400); } } grid[pl.r][pl.c]=null; plants.splice(i,1); break; } } } }
+      if(d.mower){ pl.moverX+=pl.moverDir*2; if(pl.moverX>80||pl.moverX<-80)pl.moverDir*=-1; var mx=pl.x+pl.moverX; for(var zm=zombies.length-1;zm>=0;zm--){ var zmz=zombies[zm]; if(zmz.r===pl.r&&!zmz.flying&&Math.abs(zmz.x-mx)<30){ dmgZ(zmz,60); spawnParticles(zmz.x,zmz.y,'#888',6); } } }
+      if(d.garlic){ for(var zg=0;zg<zombies.length;zg++){ var zgz=zombies[zg]; if(!zgz.flying&&zgz.r===pl.r&&Math.abs(zgz.x-pl.x)<30&&zgz.eating){ var nr=zgz.r+(Math.random()<0.5?-1:1); if(nr<0)nr=1; if(nr>=ROWS)nr=ROWS-2; zgz.r=nr; zgz.y=LAWN_Y+nr*CELL_H+CELL_H/2; spawnParticles(zgz.x,zgz.y,'#cddc39',6); } } }
+      if(pl.hp<=0){ grid[pl.r][pl.c]=null; plants.splice(i,1); SFX.hurt(); }
+    }
+    // 子弹
+    for(var b=bullets.length-1;b>=0;b--){ var bu=bullets[b]; bu.x+=bu.vx; var hit=false;
+      for(var zb2=zombies.length-1;zb2>=0;zb2--){ var zbu=zombies[zb2]; if(zbu.r===bu.r&&!zbu.flying&&zbu.hp>0&&Math.abs(zbu.x-bu.x)<22&&Math.abs(zbu.y-bu.y)<28){ dmgZ(zbu,bu.dmg); if(bu.slow)zbu.slow=300; spawnParticles(bu.x,bu.y,bu.type==='ice'?'#4dd0e1':(bu.type==='fire'?'#ff5722':'#9c27b0'),4); if(bu.splash>0){ for(var sp=0;sp<zombies.length;sp++){ var zsp=zombies[sp]; if(zsp!==zbu&&zsp.r===bu.r&&!zsp.flying&&Math.abs(zsp.x-zbu.x)<44){ dmgZ(zsp,bu.splash); } } } hit=true; SFX.hit(); break; } }
+      if(hit){ bullets.splice(b,1); continue; } if(bu.x>W+20)bullets.splice(b,1);
+    }
+    // 僵尸
+    for(var z=zombies.length-1;z>=0;z--){ var zm2=zombies[z]; zm2.anim+=zm2.small?0.18:(zm2.huge?0.06:0.1); if(zm2.slow>0)zm2.slow--;
+      if(zm2.flying){ zm2.x-=zm2.speed*(zm2.slow>0?0.5:1); if(zm2.x<LAWN_X-10){ loseGame(); return; } if(zm2.hp<=0){ spawnParticles(zm2.x,zm2.y,zm2.color,14); zombies.splice(z,1); } continue; }
+      var eatP=null;
+      if(grid[zm2.r]){ for(var cc=COLS-1;cc>=0;cc--){ var gp=grid[zm2.r][cc]; if(gp&&Math.abs(gp.x-zm2.x)<30){ if(zm2.crush){ gp.hp=0; SFX.hurt(); } else { eatP=gp; break; } } } }
+      if(eatP){ zm2.eating=true; eatP.hp-=zm2.dmg/60; } else { zm2.eating=false; zm2.x-=zm2.speed*(zm2.slow>0?0.5:1); }
+      if(zm2.x<LAWN_X-10){ loseGame(); return; }
+      if(zm2.hp<=0){ spawnParticles(zm2.x,zm2.y,zm2.color,14); SFX.hit(); zombies.splice(z,1); }
+    }
+    // 阳光
+    for(var s=suns.length-1;s>=0;s--){ var su=suns[s]; su.bob+=0.1; if(su.fromSky&&su.y<su.ty)su.y+=1.2; su.life--; if(su.life<=0)suns.splice(s,1); }
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){ var pt=particles[p]; if(pt.type==='text'){pt.y-=1.2;pt.life--;} else {pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;} if(pt.life<=0)particles.splice(p,1); }
+    updateCardUI();
+  }
+  function spawnParticles(x,y,color,n){ for(var i=0;i<n;i++){ var a=Math.random()*6.28,s=1+Math.random()*4; particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30,color:color,size:2+Math.random()*3}); } }
+  // 推车掉落（草地上的拾取物）
+  function spawnCartDrop(){ suns.push({cartDrop:true,x:LAWN_X+Math.random()*(COLS*CELL_W),y:-20,tx:0,ty:LAWN_Y+Math.random()*(H-LAWN_Y-40),val:0,life:1200,collected:false,bob:0,fromSky:true}); toast('🛒 一辆推车掉落了！点击拾取'); }
+
+  function winGame(){ state.won=true; state.over=true; state.running=false; AOXSound.stopBGM(); SFX.win(); toast('🎉 守卫成功！'); }
+  function loseGame(){ state.over=true; state.running=false; AOXSound.stopBGM(); SFX.lose(); toast('💀 僵尸吃掉了你的脑子！'); }
+
+  // ===== 渲染 =====
+  function drawLawn(){
+    var sky=ctx.createLinearGradient(0,0,0,H); sky.addColorStop(0,'#7ec0ee'); sky.addColorStop(1,'#5fb53f');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+    for(var r=0;r<ROWS;r++){ for(var c=0;c<COLS;c++){ var x=LAWN_X+c*CELL_W,y=LAWN_Y+r*CELL_H; ctx.fillStyle=(r+c)%2===0?'#6cc04a':'#5fb53f'; ctx.fillRect(x,y,CELL_W,CELL_H); ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(x,y,CELL_W,3); ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(x,y+CELL_H-3,CELL_W,3); } }
+    ctx.strokeStyle='#2e7d32'; ctx.lineWidth=4; ctx.strokeRect(LAWN_X-3,LAWN_Y-3,COLS*CELL_W+6,ROWS*CELL_H+6);
+    // 房子
+    ctx.fillStyle='#a0703b'; ctx.fillRect(0,LAWN_Y,LAWN_X-6,ROWS*CELL_H); ctx.fillStyle='#7a3b1b'; ctx.beginPath(); ctx.moveTo(-4,LAWN_Y); ctx.lineTo(LAWN_X/2,LAWN_Y-24); ctx.lineTo(LAWN_X+4,LAWN_Y); ctx.fill();
+  }
+  function drawPlant(pl){
+    var x=pl.x, y=pl.y+Math.sin(pl.anim)*2; var d=pl.def;
+    // 融合光环
+    if(d.fused){ var g=ctx.createRadialGradient(x,y,4,x,y,30); g.addColorStop(0,hexA(d.color,0.35)); g.addColorStop(1,hexA(d.color,0)); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,30,0,7); ctx.fill(); }
+    // 融合植物：多图标拼贴
+    if(d.fused){
+      ctx.font='22px sans-serif'; ctx.textAlign='center';
+      var n=d.fused.length;
+      d.fused.forEach(function(ic,idx){ var ox=(idx-(n-1)/2)*14; ctx.fillText(ic,x+ox,y+2); });
+      // 主标识图标在上方
+      ctx.font='16px sans-serif'; ctx.fillText(d.icon,x,y-18);
+    } else {
+      ctx.font='34px sans-serif'; ctx.textAlign='center'; ctx.fillText(d.icon,x,y+6);
+    }
+    // 血条
+    if(pl.hp<pl.maxhp && !d.bomb && !d.squash){ ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-16,y-30,32,4); ctx.fillStyle='#4caf50'; ctx.fillRect(x-16,y-30,32*(pl.hp/pl.maxhp),4); }
+  }
+  function hexA(hex,a){ var c=hex.replace('#','');var n=parseInt(c,16);return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'; }
+  function drawZombie(zm){
+    var x=zm.x,y=zm.y+Math.sin(zm.anim)*2; ctx.save(); ctx.translate(x,y); var sc=zm.huge?1.5:(zm.small?0.7:1); ctx.scale(sc,sc);
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0,16,14,5,0,0,7); ctx.fill();
+    var lo=Math.sin(zm.anim)*3; ctx.fillStyle='#1565c0'; ctx.fillRect(-6,8+lo,5,10); ctx.fillRect(2,8-lo,5,10);
+    ctx.fillStyle=zm.color; ctx.fillRect(-9,-6,18,16);
+    ctx.fillStyle=zm.color; ctx.fillRect(-7,-18,14,12); ctx.fillStyle='#2e7d32'; ctx.fillRect(-7,-18,14,2);
+    ctx.fillStyle='#fff'; ctx.fillRect(-4,-13,3,3); ctx.fillRect(2,-13,3,3); ctx.fillStyle='#000'; ctx.fillRect(-3,-12,1,1); ctx.fillRect(3,-12,1,1); ctx.fillStyle='#000'; ctx.fillRect(-3,-8,6,1);
+    if(zm.armorType==='bucket'&&zm.armorHp>0){ ctx.fillStyle='#9e9e9e'; ctx.fillRect(-8,-22,16,6); }
+    else if(zm.armorType==='cone'&&zm.armorHp>0){ ctx.fillStyle='#ff9800'; ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(-7,-18); ctx.lineTo(7,-18); ctx.fill(); }
+    if(zm.flying){ ctx.strokeStyle='#888'; ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(0,-40); ctx.stroke(); ctx.fillStyle='#e53935'; ctx.beginPath(); ctx.ellipse(0,-46,10,12,0,0,7); ctx.fill(); }
+    if(zm.slow>0){ ctx.fillStyle='rgba(77,208,225,0.3)'; ctx.fillRect(-10,-22,20,32); }
+    ctx.restore();
+    if(zm.hp<zm.maxhp||(zm.armorMax&&zm.armorHp<zm.armorMax)){ var by=y-30; ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-12,by,24,3); ctx.fillStyle='#e53935'; ctx.fillRect(x-12,by,24*(zm.hp/zm.maxhp),3); }
+  }
+  function drawSun(su){ if(su.collected)return; var bob=Math.sin(su.bob)*2; var x=su.x,y=su.y+bob;
+    if(su.cartDrop){ ctx.font='30px sans-serif'; ctx.textAlign='center'; ctx.fillText('🛒',x,y); ctx.fillStyle='rgba(158,158,158,0.4)'; ctx.beginPath(); ctx.arc(x,y,20,0,7); ctx.fill(); return; }
+    var g=ctx.createRadialGradient(x,y,4,x,y,22); g.addColorStop(0,'rgba(255,235,59,0.9)'); g.addColorStop(0.5,'rgba(255,215,0,0.4)'); g.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,22,0,7); ctx.fill(); ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(x,y,13,0,7); ctx.fill(); ctx.fillStyle='#ffeb3b'; ctx.beginPath(); ctx.arc(x,y,8,0,7); ctx.fill();
+  }
+  function drawBullet(bu){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(bu.x-8,bu.y-1,6,2);
+    if(bu.type==='pea'){ctx.fillStyle='#4caf50';ctx.beginPath();ctx.arc(bu.x,bu.y,6,0,7);ctx.fill();}
+    else if(bu.type==='fire'){ctx.fillStyle='rgba(255,87,34,0.5)';ctx.beginPath();ctx.arc(bu.x,bu.y,9,0,7);ctx.fill();ctx.fillStyle='#ff5722';ctx.beginPath();ctx.arc(bu.x,bu.y,6,0,7);ctx.fill();}
+    else if(bu.type==='spike'){ctx.fillStyle='#fff';ctx.fillRect(bu.x-1,bu.y-5,3,10);}
+    else {ctx.fillStyle='#4dd0e1';ctx.beginPath();ctx.arc(bu.x,bu.y,6,0,7);ctx.fill();}
+  }
+
+  function draw(){
+    drawLawn();
+    // 按y排序
+    var ents=[]; plants.forEach(function(pl){ if(pl.def.mower) pl.drawX=pl.x+pl.moverX; else pl.drawX=pl.x; ents.push({y:pl.y,fn:function(){ var sx=pl.x; pl.x=pl.drawX; drawPlant(pl); pl.x=sx; }}); });
+    zombies.forEach(function(zm){ ents.push({y:zm.y+(zm.flying?-40:0),fn:function(){ drawZombie(zm); }}); });
+    ents.sort(function(a,b){return a.y-b.y;}); ents.forEach(function(e){e.fn();});
+    bullets.forEach(drawBullet); suns.forEach(drawSun);
+    particles.forEach(function(pt){ if(pt.type==='text'){ctx.globalAlpha=Math.min(1,pt.life/20);ctx.fillStyle=pt.color;ctx.font='bold 14px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText(pt.text,pt.x,pt.y);} else {ctx.globalAlpha=pt.life/30;ctx.fillStyle=pt.color;ctx.fillRect(pt.x,pt.y,pt.size,pt.size);} ctx.globalAlpha=1; });
+    // 种植预览
+    if(selectedCard&&mouse.x>0&&!drag){ var cell=cellAt(mouse.x,mouse.y); if(cell&&!grid[cell.r][cell.c]){ var d=findDef(selectedCard); ctx.globalAlpha=0.5; ctx.font='34px sans-serif'; ctx.textAlign='center'; ctx.fillText(d.icon,LAWN_X+cell.c*CELL_W+CELL_W/2,LAWN_Y+cell.r*CELL_H+CELL_H/2+6); ctx.globalAlpha=1; ctx.strokeStyle='#ffd700'; ctx.lineWidth=2; ctx.strokeRect(LAWN_X+cell.c*CELL_W,LAWN_Y+cell.r*CELL_H,CELL_W,CELL_H); } }
+    // 拖拽幽灵
+    if(drag){ ctx.globalAlpha=0.6; ctx.font='30px sans-serif'; ctx.textAlign='center'; ctx.fillText(drag.def.icon,mouse.x,mouse.y+6); ctx.globalAlpha=1; }
+    // 结算
+    if(!state.running){ ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.won){ ctx.fillStyle='#4caf50'; ctx.font='28px "Press Start 2P",monospace'; ctx.fillText('🎉 守卫成功！',W/2,H/2-10); }
+      else if(state.over){ ctx.fillStyle='#e53935'; ctx.font='26px "Press Start 2P",monospace'; ctx.fillText('游戏结束',W/2,H/2-10); }
+      else { ctx.fillStyle='#ffd700'; ctx.font='22px "Press Start 2P",monospace'; ctx.fillText('植物融合版',W/2,H/2-10); ctx.fillStyle='#fff'; ctx.font='11px "Press Start 2P",monospace'; ctx.fillText('点开始 · 融合你的植物',W/2,H/2+22); }
+    }
+  }
+
+  // ===== 输入 =====
+  function getPos(e){ var rect=canvas.getBoundingClientRect(); var cx=e.clientX!==undefined?e.clientX:(e.touches&&e.touches[0].clientX); var cy=e.clientY!==undefined?e.clientY:(e.touches&&e.touches[0].clientY); return {x:(cx-rect.left)*(W/rect.width),y:(cy-rect.top)*(H/rect.height)}; }
+  function handleDown(px,py){
+    if(!state.running||state.over)return;
+    // 收阳光/推车
+    for(var i=suns.length-1;i>=0;i--){ var s=suns[i]; if(!s.collected&&Math.hypot(s.x-px,s.y-py)<24){ if(s.cartDrop){ unlockedFusions['cart']=Object.assign({id:'cart'},BASE.cart); buildCards(); SFX.coin(); toast('🛒 解锁推车！可融合'); suns.splice(i,1); } else collectSun(s); return; } }
+    // 拖拽：点中草地植物开始拖
+    var cell=cellAt(px,py);
+    if(cell&&grid[cell.r][cell.c]&&!shovelMode&&!selectedCard){
+      drag=grid[cell.r][cell.c]; drag._fromR=cell.r; drag._fromC=cell.c;
+      return;
+    }
+    if(shovelMode&&cell&&grid[cell.r][cell.c]){ grid[cell.r][cell.c]=null; plants=plants.filter(function(p){return !(p.r===cell.r&&p.c===cell.c);}); SFX.dig(); shovelMode=false; document.getElementById('shovelBtn').classList.remove('active'); return; }
+    if(selectedCard&&cell){ if(grid[cell.r][cell.c]){SFX.error();return;} plantAt(cell.r,cell.c,selectedCard); selectedCard=null; buildCards(); }
+  }
+  function handleUp(px,py){
+    if(drag){ var cell=cellAt(px,py); if(cell&&grid[cell.r][cell.c]&&!(cell.r===drag._fromR&&cell.c===drag._fromC)){ // 融合
+      var a=drag, b=grid[cell.r][cell.c];
+      doFuse([a.def.id, b.def.id]);
+      // 移除两个原植物
+      grid[a._fromR][a._fromC]=null; grid[cell.r][cell.c]=null;
+      plants=plants.filter(function(p){return p!==a&&p!==b;});
+      SFX.place();
+    } drag=null; }
+  }
+  canvas.addEventListener('mousedown',function(e){ var p=getPos(e); mouse.down=true; handleDown(p.x,p.y); });
+  canvas.addEventListener('mouseup',function(e){ var p=getPos(e); mouse.down=false; handleUp(p.x,p.y); });
+  canvas.addEventListener('mousemove',function(e){ var p=getPos(e); mouse.x=p.x; mouse.y=p.y; });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); var p=getPos(e); mouse.x=p.x; mouse.y=p.y; handleDown(p.x,p.y); },{passive:false});
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); var p=getPos(e); mouse.x=p.x; mouse.y=p.y; },{passive:false});
+  canvas.addEventListener('touchend',function(e){ e.preventDefault(); handleUp(mouse.x,mouse.y); },{passive:false});
+
+  document.getElementById('shovelBtn').addEventListener('click',function(){ if(!state.running||state.over)return; shovelMode=!shovelMode; selectedCard=null; this.classList.toggle('active',shovelMode); buildCards(); SFX.click(); });
+
+  function start(){ init(); state.running=true; state.betweenTimer=240; AOXSound.ensure(); AOXSound.startBGM('game'); SFX.select(); renderSlots(); toast('🌱 点植物卡片放进融合台，攒600阳光解锁无限！'); }
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  document.getElementById('startBtn').addEventListener('click',start);
+  init(); renderSlots(); loop();
+})();
+</script>
+</body>
+</html>
