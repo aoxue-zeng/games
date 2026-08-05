@@ -624,11 +624,12 @@
       }
     }
 
-    // 阳光
+    // 阳光（落地后自动收取）
     for(var s=suns.length-1;s>=0;s--){
       var su=suns[s];
       su.bob+=0.1;
       if(su.fromSky && su.y<su.ty){ su.y += 1.2; }
+      else if(!su.collected){ collectSun(su); suns.splice(s,1); continue; }
       su.life--;
       if(su.life<=0) suns.splice(s,1);
     }

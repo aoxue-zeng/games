@@ -333,7 +333,7 @@
       if(zm2.hp<=0){ spawnParticles(zm2.x,zm2.y,zm2.color,14); SFX.hit(); zombies.splice(z,1); }
     }
     // 阳光
-    for(var s=suns.length-1;s>=0;s--){ var su=suns[s]; su.bob+=0.1; if(su.fromSky&&su.y<su.ty)su.y+=1.2; su.life--; if(su.life<=0)suns.splice(s,1); }
+    for(var s=suns.length-1;s>=0;s--){ var su=suns[s]; su.bob+=0.1; if(su.fromSky&&su.y<su.ty)su.y+=1.2; else if(!su.collected && !su.cartDrop){ collectSun(su); suns.splice(s,1); continue; } su.life--; if(su.life<=0)suns.splice(s,1); }
     // 粒子
     for(var p=particles.length-1;p>=0;p--){ var pt=particles[p]; if(pt.type==='text'){pt.y-=1.2;pt.life--;} else {pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;} if(pt.life<=0)particles.splice(p,1); }
     updateCardUI();
