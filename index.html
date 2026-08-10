@@ -864,10 +864,21 @@
   document.getElementById('gameSearch').addEventListener('input', applyFilter);
 
   // 卡片直接显示（不延迟）
-  document.querySelectorAll('.game-card').forEach(function(card){
+  document.querySelectorAll('.game-card').forEach(function(card, i){
     // 悬停音效
     card.addEventListener('mouseenter', function(){ SFX.select(); });
     card.addEventListener('click', function(){ SFX.click(); });
+    // 错落入场动画延迟
+    card.style.animationDelay = (i % 24 * 0.03) + 's';
+    // 注入分类小标
+    var info = card.querySelector('.info');
+    var cat = card.dataset.cat || '';
+    if (info && cat && !info.querySelector('.cat-tag')) {
+      var tag = document.createElement('span');
+      tag.className = 'cat-tag';
+      tag.textContent = cat;
+      info.appendChild(tag);
+    }
   });
   // 首次点击页面任意处开启背景音乐（浏览器策略）
   var bgmStarted = false;

@@ -1144,3 +1144,80 @@ body.mc-touch-device .mc-touch-layer { display: block; }
   .hero-sun { width: 50px; height: 50px; top: 14%; right: 8%; }
 }
 
+/* ============================================================
+   游戏卡片美化（叠加增强，不替换旧样式）
+   ============================================================ */
+/* 卡片入场动画（错落出现） */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.game-card {
+  animation: cardIn 0.5s ease-out backwards;
+}
+/* 缩略图图标悬浮放大 */
+.game-card .thumb {
+  transition: filter 0.25s;
+  position: relative;
+}
+.game-card .thumb::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.35) 100%);
+  pointer-events: none;
+}
+.game-card:hover .thumb {
+  filter: saturate(1.25) brightness(1.08);
+}
+.game-card .thumb { font-size: 72px; transition: transform 0.3s; }
+.game-card:hover .thumb { transform: scale(1.1) rotate(-3deg); }
+
+/* 稀有度边框：按分类上色 */
+.game-card[data-cat="动作射击"] { border-color: #e55300; }
+.game-card[data-cat="动作射击"] .play-tag { background: #e55300; }
+.game-card[data-cat="益智逻辑"] { border-color: #6a1b9a; }
+.game-card[data-cat="益智逻辑"] .play-tag { background: #6a1b9a; }
+.game-card[data-cat="经典街机"] { border-color: #00838f; }
+.game-card[data-cat="经典街机"] .play-tag { background: #00838f; }
+.game-card[data-cat="马里奥"] { border-color: #c62828; }
+.game-card[data-cat="马里奥"] .play-tag { background: #c62828; }
+.game-card[data-cat="我的世界"] { border-color: #3d8b2a; }
+.game-card[data-cat="我的世界"] .play-tag { background: #3d8b2a; }
+.game-card[data-cat="博弈竞猜"] { border-color: #ffd700; }
+.game-card[data-cat="博弈竞猜"] .play-tag { background: #b8860b; }
+.game-card[data-cat="策略对战"] { border-color: #2e7d32; }
+.game-card[data-cat="策略对战"] .play-tag { background: #2e7d32; }
+.game-card[data-cat="创造休闲"] { border-color: #e91e63; }
+.game-card[data-cat="创造休闲"] .play-tag { background: #e91e63; }
+.game-card[data-cat="文字"] { border-color: #1565c0; }
+.game-card[data-cat="文字"] .play-tag { background: #1565c0; }
+.game-card[data-cat="体育运动"] { border-color: #43a047; }
+.game-card[data-cat="体育运动"] .play-tag { background: #43a047; }
+.game-card[data-cat="赛车竞速"] { border-color: #ff9800; }
+.game-card[data-cat="赛车竞速"] .play-tag { background: #ff9800; }
+
+/* 特殊标签样式（史诗/剧本/联机/3D/PVZ/MC 保持各自颜色，上面规则会被 inline 覆盖） */
+
+/* 悬浮高光描边 */
+.game-card:hover {
+  box-shadow:
+    inset 4px 4px 0 0 var(--mc-highlight),
+    inset -4px -4px 0 0 var(--mc-shadow),
+    12px 12px 0 0 rgba(0,0,0,0.4),
+    0 0 0 3px rgba(255,215,0,0.5);
+}
+
+/* 角标：在卡片右下角加分类小标 */
+.game-card .info {
+  position: relative;
+}
+.game-card .cat-tag {
+  position: absolute;
+  top: 10px; right: 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: rgba(255,215,0,0.5);
+  text-shadow: 1px 1px 0 #000;
+}
+
+
