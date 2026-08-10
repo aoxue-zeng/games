@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>点球大战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:linear-gradient(180deg,#1b5e20 0%,#2e7d32 100%); border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+  .aim-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+  .aim-btn { font-family:'Press Start 2P',monospace; font-size:11px; background:var(--mc-panel); color:var(--mc-black); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:10px 14px; cursor:pointer; }
+  .aim-btn:hover{ transform:translate(-1px,-1px); }
+  .aim-btn.active{ background:var(--mc-grass);color:#fff; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="runner.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">⚽ 点球大战</h1>
+  <p class="subtitle">选方向+力度射门！5轮点球，门将会扑救</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">比分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">轮次</span><span id="round">1/5</span></div>
+    <div class="hud-item"><span class="label">扑出</span><span id="saved">0</span></div>
+  </div>
+  <canvas id="game" width="480" height="600"></canvas>
+  <div style="text-align:center;margin-top:10px;font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-shadow:1px 1px 0 #000;">
+    <div>方向：<span id="dirTxt">中</span> · 力度：<span id="powTxt">--</span></div>
+  </div>
+  <div class="aim-row">
+    <button class="aim-btn" data-dir="L">↖ 左</button>
+    <button class="aim-btn active" data-dir="C">↑ 中</button>
+    <button class="aim-btn" data-dir="R">↗ 右</button>
+    <button class="aim-btn" data-dir="HL">⇠ 高左</button>
+    <button class="aim-btn" data-dir="HC">⇡ 高中</button>
+    <button class="aim-btn" data-dir="HR">⇢ 高右</button>
+  </div>
+  <div class="aim-row">
+    <button class="aim-btn" data-pow="1">弱</button>
+    <button class="aim-btn active" data-pow="2">中</button>
+    <button class="aim-btn" data-pow="3">强</button>
+  </div>
+  <div class="aim-row">
+    <button class="mc-btn green" id="kickBtn">⚽ 射门！</button>
+    <button class="mc-btn" id="nextBtn" style="display:none;">▶ 下一球</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  var dir='C',pow=2;
+  var score=0,round=1,saved=0,running=false,phase='aim';
+  var ball={x:W/2,y:H-60,r:16,vx:0,vy:0};
+  var keeper={x:W/2,y:180,tgt:W/2};
+  var goal={x:80,y:120,w:W-160,h:140};
+  var msg='';
+
+  document.querySelectorAll('[data-dir]').forEach(function(b){ b.addEventListener('click',function(){ if(phase!=='aim')return; document.querySelectorAll('[data-dir]').forEach(function(x){x.classList.remove('active')}); b.classList.add('active'); dir=b.dataset.dir; document.getElementById('dirTxt').textContent=b.textContent.trim(); SFX.click(); }); });
+  document.querySelectorAll('[data-pow]').forEach(function(b){ b.addEventListener('click',function(){ if(phase!=='aim')return; document.querySelectorAll('[data-pow]').forEach(function(x){x.classList.remove('active')}); b.classList.add('active'); pow=parseInt(b.dataset.pow); document.getElementById('powTxt').textContent=b.textContent.trim(); SFX.click(); }); });
+
+  function reset(){
+    score=0;round=1;saved=0;running=true;phase='aim';msg='';
+    ball.x=W/2;ball.y=H-60;ball.vx=0;ball.vy=0;
+    keeper.x=W/2;keeper.tgt=W/2;
+    update(); SFX.select();
+  }
+  function update(){
+    document.getElementById('score').textContent=score;
+    document.getElementById('round').textContent=round+'/5';
+    document.getElementById('saved').textContent=saved;
+  }
+  function kick(){
+    if(phase!=='aim'||!running)return;
+    phase='shoot';
+    // 球目标位置
+    var tx=W/2,ty=goal.y+goal.h/2;
+    var speeds={1:0.7,2:1,3:1.3};
+    var sp=speeds[pow];
+    if(dir==='L'){tx=goal.x+30;ty=goal.y+goal.h-20;}
+    else if(dir==='R'){tx=goal.x+goal.w-30;ty=goal.y+goal.h-20;}
+    else if(dir==='HL'){tx=goal.x+30;ty=goal.y+20;}
+    else if(dir==='HR'){tx=goal.x+goal.w-30;ty=goal.y+20;}
+    else if(dir==='HC'){tx=W/2;ty=goal.y+20;}
+    else {tx=W/2;ty=goal.y+goal.h-20;}
+    ball.vx=(tx-ball.x)/40*sp;ball.vy=(ty-ball.y)/40*sp;
+    // 门将AI扑救（随机选方向，有一定概率扑对）
+    var dirs=['L','C','R','HL','HC','HR'];
+    var guess=dirs[Math.floor(Math.random()*dirs.length)];
+    // 力度弱时门将更易扑
+    var saveChance=pow===1?0.45:pow===2?0.3:0.2;
+    var willSave=Math.random()<saveChance && guess===dir;
+    if(willSave){ keeper.tgt=dir==='L'||dir==='HL'?goal.x+40:dir==='R'||dir==='HR'?goal.x+goal.w-40:W/2; }
+    else { keeper.tgt=guess==='L'||guess==='HL'?goal.x+40:guess==='R'||guess==='HR'?goal.x+goal.w-40:Math.random()<0.5?goal.x+80:goal.x+goal.w-80; }
+    SFX.click();
+    document.getElementById('kickBtn').style.display='none';
+  }
+  function resolve(){
+    // 球到达球门区域：判断是否进
+    var inX=ball.x>goal.x+15 && ball.x<goal.x+goal.w-15;
+    var inY=ball.y>goal.y+10 && ball.y<goal.y+goal.h;
+    var keeperNear=Math.abs(ball.x-keeper.x)<45 && Math.abs(ball.y-keeper.y)<50;
+    var scored=inX&&inY&&!keeperNear;
+    if(scored){ score++;SFX.win();msg='⚽ 进球！'; }
+    else { saved++;SFX.error();msg='🧤 被扑出！'; }
+    phase='done';
+    document.getElementById('nextBtn').style.display='inline-block';
+    update();
+  }
+  function next(){
+    if(round>=5){ end(); return; }
+    round++;phase='aim';msg='';
+    ball.x=W/2;ball.y=H-60;ball.vx=0;ball.vy=0;
+    keeper.x=W/2;keeper.tgt=W/2;
+    document.getElementById('nextBtn').style.display='none';
+    document.getElementById('kickBtn').style.display='inline-block';
+    update();
+  }
+  function end(){
+    running=false;phase='over';
+    document.getElementById('nextBtn').style.display='none';
+    toast('终场！进 '+score+' 球');
+    SFX.levelUp();
+  }
+
+  document.getElementById('kickBtn').addEventListener('click',kick);
+  document.getElementById('nextBtn').addEventListener('click',next);
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 球门网
+    ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(goal.x,goal.y,goal.w,goal.h);
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    for(var x=goal.x;x<=goal.x+goal.w;x+=20){ctx.beginPath();ctx.moveTo(x,goal.y);ctx.lineTo(x,goal.y+goal.h);ctx.stroke();}
+    for(var y=goal.y;y<=goal.y+goal.h;y+=20){ctx.beginPath();ctx.moveTo(goal.x,y);ctx.lineTo(goal.x+goal.w,y);ctx.stroke();}
+    // 球门柱
+    ctx.fillStyle='#fff';ctx.fillRect(goal.x-6,goal.y-6,6,goal.h+6);ctx.fillRect(goal.x+goal.w,goal.y-6,6,goal.h+6);ctx.fillRect(goal.x-6,goal.y-6,goal.w+12,6);
+    // 门将
+    keeper.x+=(keeper.tgt-keeper.x)*0.2;
+    ctx.fillStyle='#1976d2';ctx.fillRect(keeper.x-18,keeper.y-30,36,50);
+    ctx.fillStyle='#ffd9a0';ctx.fillRect(keeper.x-10,keeper.y-44,20,18);
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(keeper.x-18,keeper.y-30,36,50);
+    // 球
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill();
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#000';ctx.font='10px monospace';ctx.fillText('⚽',ball.x-5,ball.y+4);
+    if(msg){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(W/2-120,H/2-25,240,50); ctx.fillStyle='#ffd700';ctx.font='22px monospace';ctx.textAlign='center';ctx.fillText(msg,W/2,H/2+8);ctx.textAlign='left'; }
+  }
+  function loop(){
+    if(running&&phase==='shoot'){
+      ball.x+=ball.vx;ball.y+=ball.vy;
+      if(ball.y<=goal.y+goal.h/2 && !phase.includes('done')){ resolve(); }
+    }
+    draw(); requestAnimationFrame(loop);
+  }
+  reset(); loop();
+})();
+</script>
+</body>
+</html>

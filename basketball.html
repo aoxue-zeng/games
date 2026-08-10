@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>投篮挑战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:linear-gradient(180deg,#1565c0 0%,#0d47a1 60%,#b8860b 60%,#8b5a2b 100%); border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="runner.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🏀 投篮挑战</h1>
+  <p class="subtitle">按住球往反方向拖，松开投出！进框得分，60秒挑战</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">命中</span><span id="made">0</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">60</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <canvas id="game" width="480" height="600"></canvas>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  var ball={x:W/2,y:H-80,r:18,vx:0,vy:0,flying:false};
+  var hoop={x:W/2-40,y:120,w:80,h:12,move:1};
+  var score=0,made=0,time=60,running=false,over=false,g=0.42;
+  var aiming=false,ax=0,ay=0,tx=0,ty=0,trail=[];
+  var best=parseInt(localStorage.getItem('bball_best')||'0',10);
+  document.getElementById('best').textContent=best||'—';
+
+  function reset(){
+    score=0;made=0;time=60;over=false;running=true;
+    hoop.x=W/2-40;hoop.move=2*(Math.random()<0.5?1:-1);
+    newBall();
+    update(); SFX.select();
+    if(timer)clearInterval(timer);
+    timer=setInterval(function(){ if(running){time--;if(time<=0){end();}} document.getElementById('time').textContent=time; update(); },1000);
+  }
+  function newBall(){
+    ball.x=W/2;ball.y=H-80;ball.vx=0;ball.vy=0;ball.flying=false;trail=[];
+  }
+  function end(){
+    running=false;over=true;SFX.lose();
+    if(score>best){best=score;localStorage.setItem('bball_best',best);document.getElementById('best').textContent=best;toast('🏆 新纪录 '+score+'！');}
+    else toast('⏰ 时间到！得分 '+score);
+    if(timer)clearInterval(timer);
+  }
+  function update(){
+    document.getElementById('score').textContent=score;
+    document.getElementById('made').textContent=made;
+  }
+  var timer=null;
+
+  // 拖拽瞄准
+  function pos(e){
+    var r=cv.getBoundingClientRect();
+    var sc=cv.width/r.width;
+    var t=e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*sc,y:(t.clientY-r.top)*sc};
+  }
+  function startAim(e){ if(!running||ball.flying)return; e.preventDefault(); aiming=true; var p=pos(e); ax=p.x;ay=p.y; }
+  function moveAim(e){ if(!aiming)return; e.preventDefault(); var p=pos(e); tx=p.x;ty=p.y; draw(); }
+  function endAim(e){
+    if(!aiming)return; e.preventDefault(); aiming=false;
+    if(!running||ball.flying)return;
+    // 投射方向：从手指当前位置指向球（反方向）
+    var dx=ax-tx,dy=ay-ty;
+    var dist=Math.hypot(dx,dy);
+    if(dist<10){ draw(); return; }
+    var power=Math.min(dist/8,22);
+    ball.vx=dx/dist*power; ball.vy=dy/dist*power;
+    ball.flying=true; SFX.click(); trail=[];
+  }
+  cv.addEventListener('mousedown',startAim);
+  cv.addEventListener('mousemove',moveAim);
+  cv.addEventListener('mouseup',endAim);
+  cv.addEventListener('mouseleave',endAim);
+  cv.addEventListener('touchstart',startAim,{passive:false});
+  cv.addEventListener('touchmove',moveAim,{passive:false});
+  cv.addEventListener('touchend',endAim,{passive:false});
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 篮筐支架
+    ctx.fillStyle='#5d4037';ctx.fillRect(hoop.x+hoop.w/2-4,0,8,hoop.y);
+    // 篮板
+    ctx.fillStyle='#e0e0e0';ctx.fillRect(hoop.x-10,hoop.y-30,hoop.w+20,4);
+    // 篮筐（橙环）
+    ctx.strokeStyle='#e53935';ctx.lineWidth=5;
+    ctx.beginPath();ctx.moveTo(hoop.x,hoop.y);ctx.lineTo(hoop.x+hoop.w,hoop.y);ctx.stroke();
+    // 网
+    ctx.strokeStyle='#fff';ctx.lineWidth=1;
+    for(var i=0;i<=6;i++){
+      var x1=hoop.x+i*hoop.w/6,y1=hoop.y;
+      var x2=hoop.x+10+i*(hoop.w-20)/6,y2=hoop.y+22;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    }
+    // 轨迹
+    trail.forEach(function(t,i){ ctx.globalAlpha=i/trail.length*0.5; ctx.fillStyle='#fb8c00'; ctx.beginPath();ctx.arc(t.x,t.y,5,0,7);ctx.fill(); });
+    ctx.globalAlpha=1;
+    // 瞄准线
+    if(aiming){
+      ctx.strokeStyle='rgba(255,215,0,0.7)';ctx.lineWidth=2;ctx.setLineDash([6,6]);
+      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(tx,ty);ctx.stroke();ctx.setLineDash([]);
+      // 力度
+      var d=Math.hypot(ax-tx,ay-ty);
+      ctx.fillStyle='#ffd700';ctx.font='14px monospace';
+      ctx.fillText('力度:'+Math.min(100,Math.round(d/2))+'%',10,20);
+    }
+    // 球
+    ctx.fillStyle='#fb8c00';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill();
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r-4,0,7);ctx.stroke();
+    if(over){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,H/2-50,W,100); ctx.fillStyle='#ffd700';ctx.font='28px monospace';ctx.textAlign='center';ctx.fillText('得分 '+score,W/2,H/2+10);ctx.textAlign='left'; }
+  }
+
+  function loop(){
+    if(running){
+      // 篮筐移动
+      hoop.x+=hoop.move;
+      if(hoop.x<20||hoop.x+hoop.w>W-20)hoop.move*=-1;
+      // 球物理
+      if(ball.flying){
+        trail.push({x:ball.x,y:ball.y});if(trail.length>12)trail.shift();
+        ball.x+=ball.vx;ball.y+=ball.vy;ball.vy+=g;
+        // 进框检测：球从上方穿过篮筐且下落
+        if(ball.vy>0 && ball.y>hoop.y && ball.y-ball.vy<=hoop.y && ball.x>hoop.x+8 && ball.x<hoop.x+hoop.w-8){
+          score+=2;made++;SFX.win();ball.vy=-ball.vy*0.4;toast('✓ 进了！');
+          setTimeout(function(){ if(running)newBall(); },600);
+        }
+        // 出界
+        if(ball.y>H+40||ball.x<-40||ball.x>W+40){
+          newBall();SFX.error();
+        }
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+  loop(); draw();
+})();
+</script>
+</body>
+</html>

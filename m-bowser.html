@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>库巴Boss战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#1a0a0a; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="mario.html">像素冒险</a>
+    <a href="dragon.html">末影龙</a>
+    <a href="m-bowser.html">库巴Boss</a>
+    <a href="epic.html">史诗</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐢 库巴Boss战</h1>
+  <p class="subtitle">三阶段决战库巴王！跳过火球，踩头攻击</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">库巴血量</span><span id="hp">❤❤❤❤❤❤❤❤❤❤</span></div>
+    <div class="hud-item"><span class="label">我的命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">阶段</span><span id="phase">1</span></div>
+    <div class="hud-item"><span class="label">最高击败</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←→</span> 移动 · <span class="key">空格/↑</span> 跳跃 · 从上方踩库巴的头，躲火球和冲撞
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开战</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var GROUND=H-50, GRAVITY=0.7, JUMP=-13, MOVE=4.5;
+  var state, player, bowser, fireballs, particles, keys, tick, fbT, chargeT;
+  function getBest(){return parseInt(localStorage.getItem('mbowser_best')||'0',10);}
+  function setBest(v){localStorage.setItem('mbowser_best',v);}
+  function init(){
+    state={running:false,over:false,won:false,lives:3,phase:1};
+    player={x:80,y:GROUND-32,w:24,h:32,vx:0,vy:0,onGround:true,dir:1,hurt:0};
+    bowser={x:W-130,y:GROUND-56,w:54,h:56,vx:-1.2,hp:30,maxhp:30,dir:-1,stompCd:0,attacking:0,fireCd:120};
+    fireballs=[]; particles=[]; keys={}; tick=0; fbT=0; chargeT=0;
+    updateHud();
+  }
+  function updateHud(){
+    var h=bowser?bowser.hp:0;
+    document.getElementById('hp').textContent='❤'.repeat(Math.max(0,Math.ceil(h/3)))||'×';
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('phase').textContent=state.phase;
+    document.getElementById('best').textContent=getBest();
+  }
+  function fx(x,y,c,n){n=n||8;for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*4;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:24,c:c,size:2+Math.random()*3});}}
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    // 玩家
+    if(keys['arrowleft']||keys['a']){player.vx=-MOVE;player.dir=-1;}
+    else if(keys['arrowright']||keys['d']){player.vx=MOVE;player.dir=1;}
+    else player.vx*=0.7;
+    player.x+=player.vx; player.x=Math.max(8,Math.min(W-8-player.w,player.x));
+    player.vy+=GRAVITY; player.y+=player.vy;
+    if(player.y+player.h>=GROUND){player.y=GROUND-player.h;player.vy=0;player.onGround=true;}else player.onGround=false;
+    if(player.hurt>0)player.hurt--;
+    // 库巴
+    bowser.x+=bowser.vx;
+    if(bowser.x<60){bowser.x=60;bowser.vx*=-1;bowser.dir=1;}
+    if(bowser.x>W-60-bowser.w){bowser.x=W-60-bowser.w;bowser.vx*=-1;bowser.dir=-1;}
+    if(bowser.stompCd>0)bowser.stompCd--;
+    if(bowser.fireCd>0)bowser.fireCd--; else {bowser.fireCd=Math.max(60,150-state.phase*30); spitFire();}
+    if(bowser.attacking>0)bowser.attacking--;
+    else if(tick%20===0){bowser.attacking=40; bowser.vx*=1.15;}
+    if(Math.abs(bowser.vx)>0.1)bowser.vx*=0.995;
+    // 库瓦冲撞到玩家（侧面）
+    if(player.hurt<=0){
+      var bodyHit = player.x+player.w>bowser.x+8 && player.x<bowser.x+bowser.w-8 && player.y+player.h>bowser.y && player.y<bowser.y+bowser.h;
+      if(bodyHit){
+        var fromTop=(player.vy>0)&&(player.y+player.h-player.vy<=bowser.y+12);
+        if(fromTop && bowser.stompCd<=0){
+          bowser.hp-=3; bowser.stompCd=30; player.vy=JUMP*0.7; player.onGround=false;
+          fx(bowser.x+bowser.w/2,bowser.y,'#ff5722',12); SFX.hit(); SFX.combo(2);
+          checkPhase(); updateHud();
+        } else if(!fromTop){
+          hitPlayer();
+        }
+      }
+    }
+    // 火球
+    fireballs.forEach(function(f){f.x+=f.vx;f.y+=f.vy;f.vy+=0.18;f.t++;
+      if(player.hurt<=0 && f.x+8>player.x && f.x<player.x+player.w && f.y+8>player.y && f.y<player.y+player.h){hitPlayer();f.dead=true;fx(f.x,f.y,'#ff5722',10);}
+      if(f.x<-20||f.x>W+20||f.y>GROUND){f.dead=true; if(f.t>5)fx(f.x,GROUND,'#ff7043',5);}
+    });
+    fireballs=fireballs.filter(function(f){return !f.dead;});
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.25;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function spitFire(){
+    var dir = bowser.x>player.x?-1:1;
+    fireballs.push({x:bowser.x+bowser.w/2, y:bowser.y+18, vx:dir*(3+state.phase), vy:-4+Math.random()*-1, t:0});
+    SFX.shoot();
+  }
+  function hitPlayer(){
+    state.lives--; player.hurt=60; SFX.hurt();
+    player.vy=-7; player.vx=player.x<bowser.x?-6:6;
+    updateHud();
+    if(state.lives<=0){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();}
+  }
+  function checkPhase(){
+    if(state.phase===1 && bowser.hp<=20){state.phase=2;bowser.vx=bowser.vx<0?-2.2:2.2;SFX.levelUp();toast('🔥 库巴愤怒了！阶段2');}
+    else if(state.phase===2 && bowser.hp<=10){state.phase=3;bowser.vx=bowser.vx<0?-3.2:3.2;SFX.roar();toast('💀 库巴狂暴！阶段3');}
+    if(bowser.hp<=0){state.won=true;state.over=true;state.running=false;AOXSound.stopBGM();SFX.win();
+      if(getBest()<3){setBest(3);toast('🏆 击败库巴！');}else toast('🏆 再次击败库巴！');}
+  }
+  function draw(){
+    // 城堡背景
+    ctx.fillStyle='#1a0a0a'; ctx.fillRect(0,0,W,H);
+    // 远景火光
+    ctx.fillStyle='rgba(255,87,34,'+(0.05+0.03*Math.sin(tick*0.05))+')'; ctx.fillRect(0,0,W,H);
+    // 柱子
+    ctx.fillStyle='#3a2a2a';
+    for(var i=0;i<5;i++){var px=40+i*110; ctx.fillRect(px,GROUND-120,28,120);
+      ctx.fillStyle='#e55300'; ctx.fillRect(px,GROUND-128,28,8); ctx.fillStyle='#3a2a2a';}
+    // 地面（熔岩边）
+    ctx.fillStyle='#3a1a0a'; ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.fillStyle='#e55300'; ctx.fillRect(0,GROUND,W,4);
+    // 火球
+    fireballs.forEach(function(f){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(f.x,f.y,6,0,7);ctx.fill();
+      ctx.fillStyle='#ff5722';ctx.beginPath();ctx.arc(f.x,f.y,4,0,7);ctx.fill();});
+    // 库巴
+    ctx.save(); ctx.translate(bowser.x,bowser.y);
+    if(bowser.dir>0)ctx.scale(-1,1);
+    // 尾巴
+    ctx.fillStyle='#0a7a2a'; ctx.fillRect(-12,30,16,8);
+    // 壳
+    ctx.fillStyle='#0a5a1a'; ctx.fillRect(8,12,40,40);
+    ctx.fillStyle='#0a7a2a'; ctx.fillRect(10,14,36,8);
+    // 尖刺
+    ctx.fillStyle='#fff'; for(var s=0;s<4;s++)ctx.beginPath();ctx.fillStyle='#fff';
+    for(var s=0;s<4;s++){ctx.beginPath();ctx.moveTo(12+s*10,12);ctx.lineTo(16+s*10,4);ctx.lineTo(20+s*10,12);ctx.fill();}
+    // 头
+    ctx.fillStyle='#5d9b3a'; ctx.fillRect(0,4,20,22);
+    // 角
+    ctx.fillStyle='#fff'; ctx.fillRect(2,0,4,6); ctx.fillRect(14,0,4,6);
+    // 眼睛（红）
+    ctx.fillStyle='#e53935'; ctx.fillRect(4,10,4,4); ctx.fillStyle='#000'; ctx.fillRect(5,11,2,2);
+    // 嘴（火）
+    ctx.fillStyle='#000'; ctx.fillRect(2,18,18,5);
+    if(bowser.fireCd<20){ctx.fillStyle='#ff5722'; ctx.fillRect(4,19,14,3);}
+    // 脚
+    ctx.fillStyle='#fdd835'; ctx.fillRect(10,48,14,8); ctx.fillRect(28,48,14,8);
+    ctx.restore();
+    // 玩家
+    if(player.hurt>0 && tick%4<2){ctx.globalAlpha=0.4;}
+    ctx.save(); ctx.translate(player.x+player.w/2,player.y);
+    if(player.dir<0)ctx.scale(-1,1);
+    ctx.fillStyle='#e53935'; ctx.fillRect(2,0,20,6); ctx.fillRect(0,4,12,4);
+    ctx.fillStyle='#ffcc80'; ctx.fillRect(4,8,18,8);
+    ctx.fillStyle='#000'; ctx.fillRect(15,10,2,3);
+    ctx.fillStyle='#5d3a1a'; ctx.fillRect(4,14,18,2);
+    ctx.fillStyle='#1565c0'; ctx.fillRect(2,16,20,10);
+    ctx.fillStyle='#e53935'; ctx.fillRect(2,22,20,4);
+    ctx.fillStyle='#5d3a1a'; ctx.fillRect(3,28,8,4); ctx.fillRect(13,28,8,4);
+    ctx.restore(); ctx.globalAlpha=1;
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/24;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 血条
+    var bw=W-40;
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(20,12,bw,12);
+    ctx.fillStyle='#e53935'; ctx.fillRect(22,14,(bw-4)*bowser.hp/bowser.maxhp,8);
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){
+        if(state.won){ctx.fillStyle='#ffd700';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('🏆 击败库巴！',W/2,H/2-15);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('阶段'+state.phase+'完成',W/2,H/2+20);}
+        else {ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('被打败了',W/2,H/2-15);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('库瓦还剩 '+bowser.hp+' 血',W/2,H/2+20);}
+      } else {ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('挑战库巴',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开战按钮',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function jump(){if(player.onGround){player.vy=JUMP;player.onGround=false;SFX.jump();}}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowleft','arrowright','arrowup',' '].indexOf(k)>=0)e.preventDefault();if(k===' '||k==='arrowup'||k==='w')jump();});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();jump();},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.roar();toast('踩库瓦的头攻击！躲火球！');});
+  if(window.AOXMobile&&AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'A',key:' ',color:'#e53935',big:true}]});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

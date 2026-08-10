@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黑白棋 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#2e7d32; touch-action:none; cursor:pointer; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="gomoku.html">五子棋</a>
+    <a href="reversi.html">黑白棋</a>
+    <a href="checkers.html">跳棋</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">⚫⚪ 黑白棋</h1>
+  <p class="subtitle">夹住对方棋子翻转！Reversi/Othello 经典策略</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">⚫你</span><span id="bc">2</span></div>
+    <div class="hud-item"><span class="label">⚪AI</span><span id="wc">2</span></div>
+    <div class="hud-item"><span class="label">回合</span><span id="turn">你的回合</span></div>
+    <div class="hud-item"><span class="label">战绩</span><span id="rec">0-0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="480" height="480"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    <span class="key">点击</span> 落子（绿点为合法位）· 夹住对方一串翻转成你的颜色
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 新对局</button>
+    <button class="mc-btn gold" id="hintBtn">💡 提示</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var SIZE=8,CELL=W/SIZE;
+  var DIRS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  var board,turn,state,thinking,showHints,flipping;
+  function init(){
+    board=[];for(var r=0;r<SIZE;r++)board.push(new Array(SIZE).fill(0));
+    board[3][3]=2;board[3][4]=1;board[4][3]=1;board[4][4]=2;
+    turn=1;thinking=false;showHints=true;flipping=[];
+    state={over:false,pwin:parseInt(localStorage.getItem('rev_p')||'0'),awin:parseInt(localStorage.getItem('rev_a')||'0')};
+    updateHud();draw();
+  }
+  function count(){var b=0,w=0;for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){if(board[r][c]===1)b++;else if(board[r][c]===2)w++;}return{b:b,w:w};}
+  function updateHud(){var cnt=count();document.getElementById('bc').textContent=cnt.b;document.getElementById('wc').textContent=cnt.w;document.getElementById('rec').textContent=state.pwin+'-'+state.awin;
+    document.getElementById('turn').textContent=state.over?(cnt.b>cnt.w?'🎉 你赢！':cnt.b<cnt.w?'AI 赢':'平局'):(turn===1?'你的回合':'AI 思考中...');}
+  function inBoard(r,c){return r>=0&&r<SIZE&&c>=0&&c<SIZE;}
+  function flipsFor(r,c,who){
+    if(board[r][c])return [];
+    var opp=who===1?2:1;var all=[];
+    DIRS.forEach(function(d){
+      var line=[];var nr=r+d[0],nc=c+d[1];
+      while(inBoard(nr,nc)&&board[nr][nc]===opp){line.push([nr,nc]);nr+=d[0];nc+=d[1];}
+      if(inBoard(nr,nc)&&board[nr][nc]===who&&line.length>0){all=all.concat(line);}
+    });
+    return all;
+  }
+  function legalMoves(who){
+    var moves=[];
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){if(!board[r][c]&&flipsFor(r,c,who).length>0)moves.push([r,c]);}
+    return moves;
+  }
+  function draw(){
+    ctx.fillStyle='#2e7d32';ctx.fillRect(0,0,W,H);
+    // 格线
+    ctx.strokeStyle='#1b5e20';ctx.lineWidth=2;
+    for(var i=0;i<=SIZE;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(W,i*CELL);ctx.stroke();}
+    // 星位
+    ctx.fillStyle='#1b5e20';[[2,2],[2,6],[6,2],[6,6]].forEach(function(p){ctx.beginPath();ctx.arc(p[0]*CELL,p[1]*CELL,4,0,7);ctx.fill();});
+    // 提示
+    if(showHints&&!state.over&&turn===1&&!thinking){
+      legalMoves(1).forEach(function(m){ctx.fillStyle='rgba(255,255,255,0.35)';ctx.beginPath();ctx.arc(m[1]*CELL+CELL/2,m[0]*CELL+CELL/2,CELL/2-8,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;ctx.stroke();});
+    }
+    // 棋子
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      if(board[r][c]){drawPiece(r,c,board[r][c]);}
+    }
+  }
+  function drawPiece(r,c,who){
+    var x=c*CELL+CELL/2,y=r*CELL+CELL/2,rad=CELL/2-4;
+    ctx.save();
+    // 阴影
+    ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.arc(x+2,y+3,rad,0,7);ctx.fill();
+    // 渐变
+    var g=ctx.createRadialGradient(x-rad/3,y-rad/3,2,x,y,rad);
+    if(who===1){g.addColorStop(0,'#444');g.addColorStop(1,'#000');}
+    else {g.addColorStop(0,'#fff');g.addColorStop(1,'#bbb');}
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();
+    ctx.strokeStyle=who===1?'#000':'#888';ctx.lineWidth=1;ctx.stroke();
+    ctx.restore();
+  }
+  function place(r,c,who){
+    var flips=flipsFor(r,c,who);
+    if(flips.length===0)return false;
+    board[r][c]=who;SFX.place();
+    flips.forEach(function(f){board[f[0]][f[1]]=who;});
+    SFX.clear();
+    draw();updateHud();
+    return true;
+  }
+  function passIfNeeded(){
+    var moves=legalMoves(turn);
+    if(moves.length===0){
+      toast(turn===1?'你没有合法步，跳过':'AI 无合法步，跳过');
+      turn=turn===1?2:1;
+      var m2=legalMoves(turn);
+      if(m2.length===0){endGame();return;}
+      updateHud();
+      return true;
+    }
+    return false;
+  }
+  function endGame(){
+    state.over=true;var cnt=count();
+    if(cnt.b>cnt.w){state.pwin++;localStorage.setItem('rev_p',state.pwin);SFX.win();toast('🎉 你赢 '+cnt.b+':'+cnt.w);}
+    else if(cnt.w>cnt.b){state.awin++;localStorage.setItem('rev_a',state.awin);SFX.lose();toast('AI 赢 '+cnt.w+':'+cnt.b);}
+    else {SFX.back();toast('平局 '+cnt.b+':'+cnt.w);}
+    updateHud();draw();
+  }
+  function aiMove(){
+    var moves=legalMoves(2);
+    if(moves.length===0){turn=1;updateHud();if(passIfNeeded())return;return;}
+    // 评估：角落最高分，边缘其次，用位置权重 + 翻转数
+    var WEIGHTS=[
+      [120,-20,20,5,5,20,-20,120],
+      [-20,-40,-5,-5,-5,-5,-40,-20],
+      [20,-5,15,3,3,15,-5,20],
+      [5,-5,3,3,3,3,-5,5],
+      [5,-5,3,3,3,3,-5,5],
+      [20,-5,15,3,3,15,-5,20],
+      [-20,-40,-5,-5,-5,-5,-40,-20],
+      [120,-20,20,5,5,20,-20,120]
+    ];
+    var best=-Infinity,bestM=moves[0];
+    moves.forEach(function(m){
+      var score=WEIGHTS[m[0]][m[1]]+flipsFor(m[0],m[1],2).length;
+      if(score>best){best=score;bestM=m;}
+    });
+    place(bestM[0],bestM[1],2);
+    if(!state.over){turn=1;updateHud(); if(legalMoves(1).length===0){turn=2;updateHud(); if(!state.over)setTimeout(aiMove,500);}}
+  }
+  function handleClick(e){
+    if(state.over||turn!==1||thinking)return;
+    var rect=canvas.getBoundingClientRect();
+    var x=((e.clientX!==undefined?e.clientX:e.touches[0].clientX)-rect.left)*(W/rect.width);
+    var y=((e.clientY!==undefined?e.clientY:e.touches[0].clientY)-rect.top)*(H/rect.height);
+    var c=Math.floor(x/CELL),r=Math.floor(y/CELL);
+    if(!inBoard(r,c))return;
+    AOXSound.ensure();
+    if(place(r,c,1)){
+      if(!state.over){turn=2;thinking=true;updateHud();
+        if(passIfNeeded()){thinking=false;return;}
+        setTimeout(function(){thinking=false;aiMove();},500);
+      }
+    } else {toast('这里不能下');SFX.error();}
+  }
+  canvas.addEventListener('click',handleClick);
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();handleClick(e);},{passive:false});
+  document.getElementById('newBtn').addEventListener('click',function(){init();SFX.click();});
+  document.getElementById('hintBtn').addEventListener('click',function(){showHints=!showHints;draw();SFX.click();toast(showHints?'提示开':'提示关');});
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幸运转盘 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wheel-stage { background:var(--mc-panel-dark);border:4px solid var(--mc-black);box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4);padding:24px;max-width:480px;margin:18px auto;text-align:center }
+  #wheelCanvas { background:transparent; }
+  .bet-row { display:flex;gap:10px;align-items:center;justify-content:center;margin:14px 0;flex-wrap:wrap }
+  .bet-in{font-family:'Press Start 2P',monospace;font-size:14px;width:70px;text-align:center;background:#0d1b2a;color:#ffd700;border:2px solid var(--mc-gold);padding:6px }
+  .mult-btn { font-family:'Press Start 2P',monospace;font-size:10px;background:var(--mc-night);color:#4dd0e1;border:2px solid #000;padding:6px 10px;cursor:pointer;box-shadow: inset 2px 2px 0 0 #2a3f5f; }
+  .mult-btn.active { background:#ffd700; color:#000; }
+  .paytable{font-size:13px;color:#ccc;line-height:1.7;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="dice.html">骰子</a>
+    <a href="slots.html">老虎机</a>
+    <a href="rps.html">猜拳</a>
+    <a href="wheel.html">转盘</a>
+    <a href="horserace.html">赛马</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎡 幸运转盘</h1>
+  <p class="subtitle">转出倍率赢金币！押注后转动，越稀有倍率越高</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">金币</span><span id="coins">1000</span></div>
+    <div class="hud-item"><span class="label">转动次数</span><span id="spins">0</span></div>
+    <div class="hud-item"><span class="label">最高金币</span><span id="best">1000</span></div>
+  </div>
+  <div class="wheel-stage">
+    <canvas id="wheelCanvas" width="340" height="340" style="display:block;margin:0 auto"></canvas>
+    <div class="bet-row">
+      <span style="font-family:'Press Start 2P',monospace;font-size:11px;color:#4dd0e1">押注</span>
+      <input type="number" class="bet-in" id="bet" value="50" min="10" step="10">
+    </div>
+    <button class="mc-btn green" id="spinBtn" style="font-size:16px;padding:14px 32px">🎡 转动</button>
+    <div id="result" style="font-family:'Press Start 2P',monospace;font-size:13px;color:#ffd700;text-shadow:1px 1px 0 #000;margin-top:10px;min-height:18px">押注后转动！</div>
+    <div class="paytable">💎x10 · 7️⃣x5 · ⭐x3 · 🔔x2 · ➖没中</div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="resetBtn">🔄 重置金币</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('wheelCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height, CX=W/2,CY=H/2, R=W/2-10;
+  // 扇区：标签，倍率，颜色，权重
+  var SEGS=[
+    {l:'➖',m:0,c:'#37474f',w:30},
+    {l:'🔔',m:2,c:'#ff9800',w:22},
+    {l:'⭐',m:3,c:'#ffd700',w:16},
+    {l:'➖',m:0,c:'#263238',w:30},
+    {l:'7️⃣',m:5,c:'#e53935',w:8},
+    {l:'🔔',m:2,c:'#ff7043',w:22},
+    {l:'⭐',m:3,c:'#ffca28',w:16},
+    {l:'💎',m:10,c:'#4dd0e1',w:4},
+    {l:'🔔',m:2,c:'#ffa726',w:22},
+    {l:'➖',m:0,c:'#1c1c1c',w:30}
+  ];
+  var total=SEGS.reduce(function(a,b){return a+b.w;},0);
+  var state={coins:1000,best:1000,spins:0,spinning:false,angle:0};
+  function load(){try{var s=JSON.parse(localStorage.getItem('wheel_state'));if(s){state.coins=s.coins;state.best=s.best;state.spins=s.spins;}}catch(e){}}
+  function save(){localStorage.setItem('wheel_state',JSON.stringify(state));}
+  function updateHud(){
+    document.getElementById('coins').textContent=state.coins;
+    document.getElementById('spins').textContent=state.spins;
+    document.getElementById('best').textContent=state.best;
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    var n=SEGS.length, ang=state.angle, each=Math.PI*2/n;
+    for(var i=0;i<n;i++){
+      var a0=ang+i*each, a1=a0+each;
+      ctx.beginPath();ctx.moveTo(CX,CY);ctx.arc(CX,CY,R,a0,a1);ctx.closePath();
+      ctx.fillStyle=SEGS[i].c;ctx.fill();
+      ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+      // 文字
+      ctx.save();ctx.translate(CX,CY);ctx.rotate(a0+each/2);
+      ctx.textAlign='right';ctx.font='24px serif';
+      ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=2;
+      ctx.fillText(SEGS[i].l,R-14,8);
+      ctx.restore();
+    }
+    // 中心
+    ctx.beginPath();ctx.arc(CX,CY,28,0,7);ctx.fillStyle='#ffd700';ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='#000';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('SPIN',CX,CY+4);
+    // 指针（顶部向下）
+    ctx.fillStyle='#e53935';ctx.strokeStyle='#000';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(CX,CY-R-4);ctx.lineTo(CX-14,CY-R-26);ctx.lineTo(CX+14,CY-R-26);ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  function pickSeg(){
+    var r=Math.random()*total, acc=0;
+    for(var i=0;i<SEGS.length;i++){acc+=SEGS[i].w;if(r<acc)return i;}
+    return 0;
+  }
+  function spin(){
+    if(state.spinning)return;
+    var bet=parseInt(document.getElementById('bet').value,10)||0;
+    if(bet<10){toast('最少押10');return;}
+    if(bet>state.coins){toast('金币不够！');return;}
+    AOXSound.ensure();state.spinning=true;state.coins-=bet;state.spins++;updateHud();save();
+    document.getElementById('result').textContent='转动中...';
+    document.getElementById('spinBtn').disabled=true;
+    var seg=pickSeg();
+    var n=SEGS.length, each=Math.PI*2/n;
+    // 让指针停在 seg 中心：指针在顶部(角度 -PI/2)，seg中心角度 = angle + seg*each + each/2
+    // 需要 angle + seg*each + each/2 ≡ -PI/2 (mod 2PI)
+    var target=(-Math.PI/2) - seg*each - each/2;
+    // 转若干整圈 + 偏移
+    var turns=5+Math.random()*2;
+    var startA=state.angle;
+    // 归一化到正方向
+    var endA=startA+Math.PI*2*turns + ((target-startA)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+    var dur=3200, t0=performance.now();
+    SFX.tick();
+    function frame(now){
+      var p=Math.min(1,(now-t0)/dur);
+      var ease=1-Math.pow(1-p,3); // ease-out
+      state.angle=startA+(endA-startA)*ease;
+      draw();
+      if(tickSound(p))SFX.tick();
+      if(p<1)requestAnimationFrame(frame);
+      else {state.angle=endA;draw();finish(seg,bet);}
+    }
+    var lastTick=0;
+    function tickSound(p){if(p-lastTick>0.04){lastTick=p;return true;}return false;}
+    requestAnimationFrame(frame);
+  }
+  function finish(seg,bet){
+    state.spinning=false;document.getElementById('spinBtn').disabled=false;
+    var s=SEGS[seg];
+    var gain=s.m*bet;
+    state.coins+=gain;
+    if(state.coins>state.best)state.best=state.coins;
+    if(gain>0){document.getElementById('result').innerHTML='🎉 '+s.l+' x'+s.m+'！+'+gain;SFX.win();}
+    else {document.getElementById('result').textContent='➖ 没中 -'+bet;SFX.error();}
+    updateHud();save();
+    if(state.coins<=0)toast('破产了！点重置');
+  }
+  document.getElementById('spinBtn').addEventListener('click',spin);
+  document.getElementById('resetBtn').addEventListener('click',function(){state.coins=1000;state.spins=0;updateHud();save();SFX.click();toast('重置 1000 金币');});
+  load();updateHud();draw();
+})();
+</script>
+</body>
+</html>

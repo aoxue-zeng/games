@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>太空陨石 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#000; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="shooter.html">飞机大战</a>
+    <a href="invaders.html">侵略者</a>
+    <a href="asteroids.html">太空陨石</a>
+    <a href="copter.html">直升机</a>
+    <a href="dodge.html">弹幕</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">☄️ 太空陨石</h1>
+  <p class="subtitle">驾驶飞船射击陨石！大陨石会裂成小块</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">波次</span><span id="wave">1</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←→</span> 转向 · <span class="key">↑</span> 推进 · <span class="key">空格</span> 射击
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var state, ship, rocks, bullets, particles, keys, tick, thrustT, stars;
+  function getBest(){return parseInt(localStorage.getItem('ast_best')||'0',10);}
+  function setBest(v){localStorage.setItem('ast_best',v);}
+  function init(){
+    state={running:false,over:false,score:0,lives:3,wave:1};
+    ship={x:W/2,y:H/2,ang:-Math.PI/2,vx:0,vy:0,r:10,inv:60,thrust:false};
+    bullets=[]; rocks=[]; particles=[]; keys={}; tick=0; thrustT=0;
+    stars=[]; for(var i=0;i<60;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5});
+    spawnWave();
+    updateHud();
+  }
+  function spawnWave(){
+    var n=3+state.wave;
+    for(var i=0;i<n;i++)spawnRock(3,Math.random()*W,Math.random()*H);
+  }
+  function spawnRock(size,x,y){
+    var sp=0.5+Math.random()*1+state.wave*0.1;
+    var a=Math.random()*Math.PI*2;
+    var pts=[]; var sides=6+Math.floor(Math.random()*3);
+    for(var s=0;s<sides;s++){pts.push(0.7+Math.random()*0.5);}
+    rocks.push({x:x,y:Y_SAFE(x,y),r:size*14,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,size:size,ang:Math.random()*7,vr:(Math.random()-0.5)*0.05,pts:pts});
+  }
+  function Y_SAFE(x,y){ // 避免在飞船处生成
+    if(ship && Math.hypot(x-ship.x,y-ship.y)<100)return Math.random()*H;
+    return y;
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('wave').textContent=state.wave;
+    document.getElementById('best').textContent=getBest();
+  }
+  function fx(x,y,c,n){n=n||8;for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:24,c:c,size:2+Math.random()*3});}}
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    // 飞船
+    if(keys['arrowleft'])ship.ang-=0.07;
+    if(keys['arrowright'])ship.ang+=0.07;
+    ship.thrust=!!keys['arrowup'];
+    if(ship.thrust){ship.vx+=Math.cos(ship.ang)*0.15;ship.vy+=Math.sin(ship.ang)*0.15; thrustT++;
+      if(thrustT%2===0){particles.push({x:ship.x-Math.cos(ship.ang)*10,y:ship.y-Math.sin(ship.ang)*10,vx:-Math.cos(ship.ang)*2+(Math.random()-0.5),vy:-Math.sin(ship.ang)*2+(Math.random()-0.5),life:14,c:'#ff9800',size:3});}
+    }
+    ship.vx*=0.99; ship.vy*=0.99;
+    var sp=Math.hypot(ship.vx,ship.vy); if(sp>6){ship.vx*=6/sp;ship.vy*=6/sp;}
+    ship.x+=ship.vx; ship.y+=ship.vy;
+    // 环绕
+    if(ship.x<0)ship.x+=W; if(ship.x>W)ship.x-=W; if(ship.y<0)ship.y+=H; if(ship.y>H)ship.y-=H;
+    if(ship.inv>0)ship.inv--;
+    // 射击
+    if(keys[' ']&&tick%8===0){bullets.push({x:ship.x+Math.cos(ship.ang)*12,y:ship.y+Math.sin(ship.ang)*12,vx:Math.cos(ship.ang)*7+ship.vx,vy:Math.sin(ship.ang)*7+ship.vy,life:60});SFX.shoot();}
+    // 子弹
+    bullets.forEach(function(b){b.x+=b.vx;b.y+=b.vy;b.life--;if(b.x<0)b.x+=W;if(b.x>W)b.x-=W;if(b.y<0)b.y+=H;if(b.y>H)b.y-=H;});
+    bullets=bullets.filter(function(b){return b.life>0;});
+    // 陨石
+    rocks.forEach(function(r){r.x+=r.vx;r.y+=r.vy;r.ang+=r.vr;if(r.x<-r.r)r.x+=W+r.r*2;if(r.x>W+r.r)r.x-=W+r.r*2;if(r.y<-r.r)r.y+=H+r.r*2;if(r.y>H+r.r)r.y-=H+r.r*2;});
+    // 子弹打陨石
+    for(var i=rocks.length-1;i>=0;i--){var r=rocks[i];
+      for(var j=bullets.length-1;j>=0;j--){var b=bullets[j];
+        if(Math.hypot(b.x-r.x,b.y-r.y)<r.r){
+          bullets.splice(j,1);
+          state.score+=r.size*10; fx(r.x,r.y,'#ff9800',10); SFX.hit();
+          if(r.size>1){spawnRock(r.size-1,r.x,r.y);spawnRock(r.size-1,r.x,r.y);}
+          rocks.splice(i,1); updateHud();
+          break;
+        }
+      }
+    }
+    // 飞船撞陨石
+    if(ship.inv<=0){
+      for(var k=rocks.length-1;k>=0;k--){var rk=rocks[k];
+        if(Math.hypot(ship.x-rk.x,ship.y-rk.y)<rk.r+ship.r){
+          state.lives--; ship.inv=90; fx(ship.x,ship.y,'#e53935',15); SFX.explode();
+          ship.vx=0;ship.vy=0;ship.x=W/2;ship.y=H/2;
+          updateHud();
+          if(state.lives<=0){gameOver();}
+          break;
+        }
+      }
+    }
+    // 清波
+    if(rocks.length===0){state.wave++; state.score+=50; SFX.levelUp(); toast('波次 '+state.wave+'！+50'); spawnWave(); updateHud();}
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();if(state.score>getBest()){setBest(state.score);toast('🏆 新纪录'+state.score+'！');}}
+  function draw(){
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+    // 星空
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    stars.forEach(function(s){ctx.fillRect(s.x,s.y,s.s,s.s);});
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/24;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 陨石
+    rocks.forEach(function(r){
+      ctx.save(); ctx.translate(r.x,r.y); ctx.rotate(r.ang);
+      ctx.fillStyle='#8d6e63'; ctx.strokeStyle='#5d4037'; ctx.lineWidth=2;
+      ctx.beginPath();
+      var sides=r.pts.length;
+      for(var s=0;s<sides;s++){var a=s/sides*Math.PI*2;var rr=r.r*r.pts[s];var px=Math.cos(a)*rr,py=Math.sin(a)*rr; if(s===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(-r.r*0.3,-r.r*0.3,r.r*0.4,r.r*0.4);
+      ctx.restore();
+    });
+    // 子弹
+    bullets.forEach(function(b){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(b.x,b.y,2.5,0,7);ctx.fill();});
+    // 飞船
+    if(ship.inv<=0||tick%4<2){
+      ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.ang);
+      ctx.fillStyle='#4dd0e1'; ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-8,-8); ctx.lineTo(-4,0); ctx.lineTo(-8,8); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#ff5252'; ctx.fillRect(-2,-2,4,4);
+      ctx.restore();
+    }
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('飞船坠毁',W/2,H/2-15);ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score+' 波次:'+state.wave,W/2,H/2+20);}
+      else {ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('太空陨石',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始按钮',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowleft','arrowright','arrowup',' '].indexOf(k)>=0)e.preventDefault();if(k==='arrowup')AOXSound.ensure();});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('转向+推进+射击！');});
+  if(window.AOXMobile&&AOXMobile.isTouch)AOXMobile.virtualKeys({keys:[{label:'◀',key:'ArrowLeft'},{label:'▶',key:'ArrowRight'},{label:'推进',key:'ArrowUp',color:'#4caf50',big:true},{label:'🔥',key:' ',color:'#e53935'}]});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

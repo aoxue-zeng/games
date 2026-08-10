@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猜单词 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .hang-stage { background:var(--mc-panel-dark); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); padding:18px; max-width:680px; margin:16px auto; }
+  .hang-row { display:flex; gap:24px; align-items:flex-start; justify-content:center; flex-wrap:wrap; }
+  .gallows { width:180px; height:220px; position:relative; flex:0 0 180px; }
+  /* 绞架杆 */
+  .gallows .pole { position:absolute; background:#8d6e63; border:3px solid #000; box-shadow: inset 2px 2px 0 0 #a1887f; }
+  .pole.base { bottom:0; left:10px; width:160px; height:14px; }
+  .pole.v { bottom:0; left:40px; width:16px; height:200px; }
+  .pole.h { top:0; left:40px; width:100px; height:14px; }
+  .pole.rope { top:14px; left:130px; width:4px; height:24px; background:#5d4037; }
+  /* 小人各部位（默认隐藏） */
+  .part { position:absolute; background:#ffd9a0; border:3px solid #000; opacity:0; transition:opacity 0.3s; }
+  .part.show { opacity:1; }
+  .part.head { top:38px; left:108px; width:40px; height:40px; border-radius:50%; background:#ffd9a0; }
+  .part.body { top:78px; left:120px; width:16px; height:50px; background:#1976d2; }
+  .part.arm-l { top:84px; left:96px; width:30px; height:8px; background:#ffd9a0; transform:rotate(25deg); border-radius:4px; }
+  .part.arm-r { top:84px; left:128px; width:30px; height:8px; background:#ffd9a0; transform:rotate(-25deg); border-radius:4px; }
+  .part.leg-l { top:128px; left:108px; width:8px; height:34px; transform:rotate(15deg); background:#37474f; }
+  .part.leg-r { top:128px; left:136px; width:8px; height:34px; transform:rotate(-15deg); background:#37474f; }
+  .word-area { flex:1 1 280px; min-width:260px; }
+  .word-display { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px 0; }
+  .letter-slot { width:34px; height:46px; border-bottom:5px solid var(--mc-gold); display:flex; align-items:center; justify-content:center; font-family:'Press Start 2P',monospace; font-size:24px; color:var(--mc-gold); text-shadow:2px 2px 0 #000; }
+  .letter-slot.revealed { animation:pop 0.3s; }
+  @keyframes pop { 0%{transform:scale(0.3)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+  .hint { text-align:center; font-family:'VT323',monospace; font-size:22px; color:#fff; text-shadow:1px 1px 0 #000; margin:6px 0; }
+  .hint b { color:var(--mc-diamond); }
+  .keyboard { display:grid; grid-template-columns:repeat(9,1fr); gap:5px; max-width:560px; margin:14px auto 0; }
+  .kb-key { font-family:'Press Start 2P',monospace; font-size:12px; background:var(--mc-panel); color:var(--mc-black); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:10px 0; cursor:pointer; transition:transform 0.05s; }
+  .kb-key:hover:not(:disabled){ transform:translate(-1px,-1px); }
+  .kb-key:active{ transform:translate(1px,1px); }
+  .kb-key:disabled{ opacity:0.4; cursor:default; }
+  .kb-key.correct{ background:#43a047; color:#fff; }
+  .kb-key.wrong{ background:#c62828; color:#fff; }
+  .wrong-letters { text-align:center; font-family:'VT323',monospace; font-size:18px; color:#e53935; text-shadow:1px 1px 0 #000; margin-top:10px; min-height:22px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="guess.html">猜数字</a>
+    <a href="typing.html">打字</a>
+    <a href="hangman.html">猜单词</a>
+    <a href="anagram.html">字母重组</a>
+    <a href="wordsearch.html">找单词</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🔤 猜单词</h1>
+  <p class="subtitle">看提示猜英文单词，6次猜错就game over！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">6/6</span></div>
+    <div class="hud-item"><span class="label">连胜</span><span id="streak">0</span></div>
+  </div>
+  <div class="hang-stage">
+    <div class="hang-row">
+      <div class="gallows">
+        <div class="pole base"></div><div class="pole v"></div><div class="pole h"></div><div class="pole rope"></div>
+        <div class="part head" id="p0"></div><div class="part body" id="p1"></div>
+        <div class="part arm-l" id="p2"></div><div class="part arm-r" id="p3"></div>
+        <div class="part leg-l" id="p4"></div><div class="part leg-r" id="p5"></div>
+      </div>
+      <div class="word-area">
+        <div class="hint" id="hint">点开始游戏</div>
+        <div class="word-display" id="word"></div>
+        <div class="wrong-letters" id="wrong"></div>
+      </div>
+    </div>
+    <div class="keyboard" id="kb"></div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // 单词库：英文单词 + 中文提示，按难度分组
+  var BANK=[
+    {w:'APPLE',h:'水果，红色或绿色'},{w:'WATER',h:'无色无味的液体'},{w:'HOUSE',h:'人居住的建筑'},
+    {w:'PIANO',h:'88键的乐器'},{w:'TIGER',h:'森林之王的大型猫科'},{w:'CLOUD',h:'天上飘的白色'},
+    {w:'BREAD',h:'面粉烤制的食物'},{w:'MUSIC',h:'有节奏的声音艺术'},{w:'OCEAN',h:'巨大的咸水水域'},
+    {w:'ROBOT',h:'机器做的人形装置'},{w:'PIZZA',h:'意大利圆饼食物'},{w:'GHOST',h:'透明的吓人物'},
+    {w:'CANDY',h:'甜甜的零食'},{w:'PLANT',h:'绿色会光合作用的'},{w:'STONE',h:'硬硬的矿物块'},
+    {w:'TRAIN',h:'在铁轨上跑的交通工具'},{w:'CHAIR',h:'用来坐的家具'},{w:'SMILE',h:'开心的表情'},
+    {w:'NIGHT',h:'太阳落山后的时段'},{w:'DREAM',h:'睡觉时大脑的电影'},{w:'SHIRT',h:'穿在上身的衣服'},
+    {w:'EARTH',h:'我们居住的星球'},{w:'LIGHT',h:'让黑暗消失的东西'},{w:'MAGIC',h:'不可思议的力量'},
+    {w:'SWORD',h:'剑客的武器'},{w:'CROWN',h:'国王头上的金属'},{w:'HORSE',h:'可骑的草食动物'},
+    {w:'SUGAR',h:'甜甜的白色调料'},{w:'PEACE',h:'没有战争的状态'},{w:'BRAVE',h:'勇敢的品质'},
+    {w:'PIXEL',h:'图像最小单位'},{w:'BLOCK',h:'方形块状物'},{w:'QUEST',h:'冒险的任务'},
+    {w:'BERRY',h:'小小的浆果'},{w:'STORM',h:'猛烈的天气'},{w:'BEACH',h:'有沙的海边'},
+    {w:'CHESS',h:'黑白格棋盘游戏'},{w:'GLOBE',h:'地球仪'},{w:'MONEY',h:'交易用的纸币'},
+    {w:'HEART',h:'跳动的心形器官'},{w:'GUARD',h:'守卫保护的人'},{w:'POWER',h:'力量能量'},
+    {w:'FROST',h:'白色的冰霜'},{w:'GIANT',h:'巨大的巨人'},{w:'SCOPE',h:'望远镜的范围'}
+  ];
+  var state, cur, guessed, wrongList, parts;
+  var wordEl=document.getElementById('word');
+  var hintEl=document.getElementById('hint');
+  var wrongEl=document.getElementById('wrong');
+  var kbEl=document.getElementById('kb');
+
+  function init(){
+    state={running:false,over:false,score:0,level:1,lives:6,streak:0,used:[]};
+    pickWord(); renderAll(); buildKB();
+  }
+  function pickWord(){
+    cur=BANK[Math.floor(Math.random()*BANK.length)];
+    guessed=[]; wrongList=[]; parts=0;
+  }
+  function renderAll(){
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('lives').textContent=(6-parts)+'/6';
+    document.getElementById('streak').textContent=state.streak;
+    hintEl.innerHTML='提示：<b>'+cur.h+'</b>';
+    // 单词槽
+    wordEl.innerHTML='';
+    for(var i=0;i<cur.w.length;i++){
+      var s=document.createElement('div'); s.className='letter-slot';
+      var ch=cur.w[i];
+      if(guessed.indexOf(ch)>=0){ s.textContent=ch; s.classList.add('revealed'); }
+      wordEl.appendChild(s);
+    }
+    wrongEl.textContent=wrongList.length?('已错：'+wrongList.join(' ')):'';
+    // 显示绞架小人
+    for(var p=0;p<6;p++){
+      document.getElementById('p'+p).classList.toggle('show', p<parts);
+    }
+  }
+  function buildKB(){
+    kbEl.innerHTML='';
+    for(var c=65;c<=90;c++){
+      var ch=String.fromCharCode(c);
+      var b=document.createElement('button');
+      b.className='kb-key'; b.textContent=ch; b.dataset.l=ch;
+      b.addEventListener('click',function(){ guess(this.dataset.l); });
+      b.addEventListener('touchstart',function(e){ e.preventDefault(); guess(this.dataset.l); },{passive:false});
+      kbEl.appendChild(b);
+    }
+  }
+  function refreshKB(){
+    var keys=kbEl.querySelectorAll('.kb-key');
+    keys.forEach(function(b){
+      var ch=b.dataset.l;
+      b.disabled=false; b.classList.remove('correct','wrong');
+      if(state.used.indexOf(ch)>=0){
+        b.disabled=true;
+        if(cur.w.indexOf(ch)>=0) b.classList.add('correct'); else b.classList.add('wrong');
+      }
+    });
+  }
+  function guess(ch){
+    if(!state.running||state.over) return;
+    if(state.used.indexOf(ch)>=0) return;
+    AOXSound.ensure();
+    state.used.push(ch);
+    if(cur.w.indexOf(ch)>=0){
+      // 猜对
+      guessed.push(ch); SFX.coin();
+      // 检查是否全部猜出
+      var all=true;
+      for(var i=0;i<cur.w.length;i++){ if(guessed.indexOf(cur.w[i])<0){ all=false; break; } }
+      if(all){
+        state.score+=10+cur.w.length*2+state.streak*2;
+        state.streak++; state.level++;
+        state.over=true; state.running=false;
+        SFX.win(); toast('🎉 猜对：'+cur.w+'！+点数');
+        refreshKB(); renderAll();
+        setTimeout(function(){ state.over=false; start(true); },1500);
+        return;
+      }
+    } else {
+      // 猜错
+      wrongList.push(ch); parts++; SFX.error();
+      if(parts>=6){
+        state.over=true; state.running=false; state.streak=0;
+        SFX.lose(); toast('💀 挂了！答案是 '+cur.w);
+        refreshKB(); renderAll();
+        // 揭示完整答案
+        guessed=cur.w.split('');
+        setTimeout(function(){ renderAll(); },600);
+        return;
+      }
+    }
+    refreshKB(); renderAll();
+  }
+  // 键盘输入
+  document.addEventListener('keydown',function(e){
+    if(!state.running) return;
+    var k=e.key.toUpperCase();
+    if(k.length===1 && k>='A' && k<='Z'){ guess(k); }
+  });
+  function start(keep){
+    if(!keep){ init(); }
+    state.running=true;
+    if(!keep) SFX.select();
+    refreshKB(); renderAll();
+  }
+  document.getElementById('startBtn').addEventListener('click',function(){ start(false); });
+  init();
+})();
+</script>
+</body>
+</html>

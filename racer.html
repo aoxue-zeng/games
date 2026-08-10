@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>赛车躲避 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:#37474f; border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="runner.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🏎️ 赛车躲避</h1>
+  <p class="subtitle">左右移动躲开来车！收集金币，越开越快，3条命挑战</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">速度</span><span id="speed">1.0x</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">❤️❤️❤️</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <canvas id="game" width="360" height="600"></canvas>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:8px;">电脑← →键 · 手机触屏左右移动</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  var LANES=[W*0.25,W*0.5,W*0.75];
+  var player={lane:1,y:H-100,w:40,h:70};
+  var cars=[],coins=[],road=0;
+  var score=0,speed=4,lives=3,running=false,over=false,inv=0;
+  var spawnT=0,coinT=0;
+  var best=parseInt(localStorage.getItem('racer_best')||'0',10);
+  document.getElementById('best').textContent=best||'—';
+  // 移动端虚拟键
+  AOXMobile.virtualKeys({dpad:true});
+
+  function reset(){
+    score=0;speed=4;lives=3;running=true;over=false;inv=0;
+    player.lane=1;cars=[];coins=[];spawnT=0;coinT=0;
+    SFX.select();update();
+  }
+  function update(){
+    document.getElementById('score').textContent=score;
+    document.getElementById('speed').textContent=(speed/4).toFixed(1)+'x';
+    document.getElementById('lives').textContent='❤️'.repeat(lives)||'💀';
+  }
+  function end(){
+    running=false;over=true;SFX.lose();
+    if(score>best){best=score;localStorage.setItem('racer_best',best);document.getElementById('best').textContent=best;toast('🏆 新纪录 '+score+'！');}
+    else toast('💥 撞毁了！得分 '+score);
+  }
+  function move(dir){
+    if(!running)return;
+    player.lane=Math.max(0,Math.min(2,player.lane+dir));
+    SFX.move();
+  }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft')move(-1);
+    if(e.key==='ArrowRight')move(1);
+  });
+  // 触屏左右滑动
+  var tsx=0;
+  cv.addEventListener('touchstart',function(e){ tsx=e.touches[0].clientX; },{passive:true});
+  cv.addEventListener('touchend',function(e){
+    var dx=e.changedTouches[0].clientX-tsx;
+    if(Math.abs(dx)>20)move(dx>0?1:-1);
+  },{passive:true});
+
+  function spawn(){
+    var lane=Math.floor(Math.random()*3);
+    // 避免和上一个同lane堵死
+    if(cars.length>0 && cars[cars.length-1].y<80 && cars[cars.length-1].lane===lane)lane=(lane+1)%3;
+    var colors=['#e53935','#1976d2','#43a047','#ff9800','#9c27b0'];
+    cars.push({lane:lane,y:-80,color:colors[Math.floor(Math.random()*colors.length)]});
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 路面
+    ctx.fillStyle='#263238';ctx.fillRect(0,0,W,H);
+    // 车道线
+    road=(road+speed)%60;
+    ctx.fillStyle='#ffd700';
+    for(var i=-1;i<H/60+1;i++){ ctx.fillRect(W*0.33-3,i*60+road,6,30);ctx.fillRect(W*0.66-3,i*60+road,6,30); }
+    // 路边
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(0,0,12,H);ctx.fillRect(W-12,0,12,H);
+    // 金币
+    coins.forEach(function(c){ ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(c.x,c.y,10,0,7);ctx.fill();ctx.strokeStyle='#b8860b';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#b8860b';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('$',c.x,c.y+4);ctx.textAlign='left'; });
+    // 敌车
+    cars.forEach(function(c){
+      var x=LANES[c.lane]-20;
+      ctx.fillStyle=c.color;ctx.fillRect(x,c.y,40,70);
+      ctx.fillStyle='#1a1a1a';ctx.fillRect(x+4,c.y+8,32,20);ctx.fillRect(x+4,c.y+44,32,20);
+      ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(x,c.y,40,70);
+    });
+    // 玩家车
+    var px=LANES[player.lane]-20;
+    if(inv>0&&Math.floor(inv/4)%2===0)ctx.globalAlpha=0.4;
+    ctx.fillStyle='#ffd700';ctx.fillRect(px,player.y,40,70);
+    ctx.fillStyle='#1a1a1a';ctx.fillRect(px+4,player.y+8,32,20);ctx.fillRect(px+4,player.y+44,32,20);
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(px,player.y,40,70);
+    ctx.globalAlpha=1;
+    if(over){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,H/2-50,W,100); ctx.fillStyle='#ffd700';ctx.font='22px monospace';ctx.textAlign='center';ctx.fillText('得分 '+score,W/2,H/2+8);ctx.textAlign='left'; }
+  }
+  function loop(){
+    if(running){
+      score+=1;update();
+      speed=4+Math.min(8,score/200);
+      if(inv>0)inv--;
+      // 生成
+      spawnT--;if(spawnT<=0){spawn();spawnT=Math.max(25,60-score/30);}
+      coinT--;if(coinT<=0){coins.push({x:LANES[Math.floor(Math.random()*3)],y:-20});coinT=80;}
+      // 移动敌车
+      cars.forEach(function(c){c.y+=speed;});
+      cars=cars.filter(function(c){return c.y<H+80;});
+      coins.forEach(function(c){c.y+=speed;});
+      coins=coins.filter(function(c){return c.y<H+20;});
+      // 碰撞
+      var px=LANES[player.lane];
+      cars.forEach(function(c){
+        var cx=LANES[c.lane];
+        if(c.lane===player.lane && c.y+70>player.y && c.y<player.y+70 && inv<=0){
+          lives--;inv=60;SFX.error();update();
+          if(lives<=0){end();}
+        }
+      });
+      coins=coins.filter(function(c){
+        if(Math.abs(c.x-px)<25 && c.y>player.y && c.y<player.y+70){ score+=20;SFX.coin();return false; }
+        return true;
+      });
+      update();
+    }
+    draw();requestAnimationFrame(loop);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+  loop();draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>踩乌龟 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#5c94fc; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="mario.html">像素冒险</a>
+    <a href="m-mega.html">超级蘑菇</a>
+    <a href="m-brawl.html">大乱斗</a>
+    <a href="m-stomp.html">踩乌龟</a>
+    <a href="snake.html">贪吃蛇</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐢 踩乌龟大冒险</h1>
+  <p class="subtitle">跳起来踩扁乌龟！连续踩不间断算连击</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←→</span> 移动 · <span class="key">空格/↑</span> 跳跃 · 踩龟背得分，撞龟侧面扣命
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var GROUND=H-50, GRAVITY=0.7, JUMP=-13, MOVE=4;
+  var state, player, turtles, particles, keys, tick, spawnT, comboTimer;
+  function getBest(){return parseInt(localStorage.getItem('mstomp_best')||'0',10);}
+  function setBest(v){localStorage.setItem('mstomp_best',v);}
+  function init(){
+    state={running:false,over:false,score:0,lives:3,combo:0,maxCombo:0};
+    player={x:80,y:GROUND-32,w:24,h:32,vx:0,vy:0,onGround:true,dir:1};
+    turtles=[]; particles=[]; keys={}; tick=0; spawnT=0; comboTimer=0;
+    updateHud();
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('combo').textContent=state.combo+(state.combo>=2?' x':'');
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('best').textContent=getBest();
+  }
+  function spawnTurtle(){
+    var fromLeft=Math.random()<0.5;
+    var sp=1.4+Math.random()*1.6+state.score*0.005;
+    turtles.push({x:fromLeft?-30:W+30, y:GROUND-24, w:26, h:24, vx:fromLeft?sp:-sp, alive:true, shell:0, wig:0});
+  }
+  function stompFx(x,y){for(var i=0;i<10;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:22,c:'#8d6e63',size:2+Math.random()*3});}}
+  function jumpFx(x,y){for(var i=0;i<6;i++){particles.push({x:x+(Math.random()-0.5)*16,y:y,vx:(Math.random()-0.5)*2,vy:Math.random()*2,life:14,c:'#fff',size:2});}}
+  function update(){
+    if(!state.running||state.over)return;
+    tick++; spawnT++;
+    // 玩家移动
+    if(keys['arrowleft']||keys['a']){player.vx=-MOVE;player.dir=-1;}
+    else if(keys['arrowright']||keys['d']){player.vx=MOVE;player.dir=1;}
+    else player.vx*=0.7;
+    player.x+=player.vx;
+    player.x=Math.max(8,Math.min(W-8-player.w,player.x));
+    // 重力
+    player.vy+=GRAVITY; player.y+=player.vy;
+    if(player.y+player.h>=GROUND){player.y=GROUND-player.h;player.vy=0;player.onGround=true;}
+    else player.onGround=false;
+    // 乌龟
+    if(spawnT>Math.max(45,90-state.score*0.1)){spawnT=0; if(turtles.length<5)spawnTurtle();}
+    turtles.forEach(function(t){
+      if(!t.alive)return;
+      if(t.shell>0){t.shell--; if(t.shell<=0)t.alive=false; return;}
+      t.x+=t.vx; t.wig+=0.2;
+      if(t.x<-40||t.x>W+40)t.alive=false;
+      // 碰撞
+      var hit = player.x+player.w>t.x && player.x<t.x+t.w && player.y+player.h>t.y && player.y<t.y+t.h;
+      if(hit){
+        var fromTop = (player.vy>0) && (player.y+player.h - player.vy <= t.y+8);
+        if(fromTop){
+          // 踩中
+          t.shell=20; player.vy=JUMP*0.65; player.onGround=false;
+          comboTimer=70; state.combo++; if(state.combo>state.maxCombo)state.maxCombo=state.combo;
+          var gain=10*state.combo; state.score+=gain; stompFx(t.x+t.w/2,t.y); SFX.hit(); SFX.combo(state.combo);
+        } else {
+          // 撞侧面
+          state.lives--; state.combo=0; comboTimer=0; SFX.hurt();
+          player.x+=player.vx>0?-20:20; player.vy=-6;
+          updateHud(); if(state.lives<=0){gameOver();return;}
+        }
+        updateHud();
+      }
+    });
+    turtles=turtles.filter(function(t){return t.alive;});
+    if(comboTimer>0){comboTimer--; if(comboTimer===0 && state.combo>0){state.combo=0;updateHud();}}
+    // 粒子
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.25;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();
+    if(state.score>getBest()){setBest(state.score);toast('🏆 新纪录！'+state.score+'分');}}
+  function draw(){
+    // 天空
+    ctx.fillStyle='#5c94fc'; ctx.fillRect(0,0,W,H);
+    // 云
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    for(var c=0;c<3;c++){var cx=(c*220-tick*0.3)%W; if(cx<0)cx+=W; cloud(cx,60);}
+    // 山
+    ctx.fillStyle='#3d8b2a';
+    ctx.beginPath(); ctx.moveTo(0,GROUND); ctx.lineTo(120,GROUND-90); ctx.lineTo(240,GROUND); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(320,GROUND); ctx.lineTo(420,GROUND-70); ctx.lineTo(520,GROUND); ctx.fill();
+    // 地面
+    ctx.fillStyle='#c8703a'; ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.fillStyle='#8b5a2b'; ctx.fillRect(0,GROUND,W,6);
+    ctx.fillStyle='#3d8b2a'; for(var i=0;i<W;i+=16)ctx.fillRect(i,GROUND-2,10,3);
+    // 乌龟
+    turtles.forEach(function(t){
+      if(!t.alive||t.shell>0){
+        // 龟壳
+        ctx.fillStyle='#0a7a2a'; ctx.beginPath(); ctx.arc(t.x+t.w/2,t.y+t.h-6,t.w/2-2,Math.PI,0); ctx.fill();
+        ctx.fillStyle='#0a5a1a'; ctx.fillRect(t.x+4,t.y+t.h-8,t.w-8,4);
+        ctx.strokeStyle='#5d3a1a'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(t.x+t.w/2,t.y+t.h-6,t.w/2-4,Math.PI,0); ctx.stroke();
+        return;
+      }
+      var bob=Math.sin(t.wig)*1.5;
+      // 龟壳身体
+      ctx.fillStyle='#0a7a2a'; ctx.fillRect(t.x+2,t.y+8+bob,t.w-4,t.h-10);
+      ctx.fillStyle='#0a5a1a'; ctx.fillRect(t.x+2,t.y+t.h-6+bob,t.w-4,4);
+      // 肚子
+      ctx.fillStyle='#fdd835'; ctx.fillRect(t.x+5,t.y+t.h-8+bob,t.w-10,3);
+      // 头
+      ctx.fillStyle='#5d9b3a'; var hx=t.vx>0?t.x+t.w-6:t.x;
+      ctx.fillRect(hx,t.y+6+bob,8,8);
+      ctx.fillStyle='#000'; ctx.fillRect(t.vx>0?hx+5:hx+1,t.y+8+bob,2,2);
+      // 脚
+      ctx.fillStyle='#fdd835'; ctx.fillRect(t.x+3,t.y+t.h-2+bob,5,2); ctx.fillRect(t.x+t.w-8,t.y+t.h-2+bob,5,2);
+    });
+    // 玩家（马里奥风）
+    ctx.save(); ctx.translate(player.x+player.w/2,player.y);
+    if(player.dir<0)ctx.scale(-1,1);
+    // 帽子
+    ctx.fillStyle='#e53935'; ctx.fillRect(2,0,20,6); ctx.fillRect(0,4,12,4);
+    // 脸
+    ctx.fillStyle='#ffcc80'; ctx.fillRect(4,8,18,8);
+    ctx.fillStyle='#000'; ctx.fillRect(15,10,2,3); // 眼
+    ctx.fillStyle='#5d3a1a'; ctx.fillRect(4,14,18,2); // 胡子
+    // 衣服
+    ctx.fillStyle='#1565c0'; ctx.fillRect(2,16,20,10);
+    ctx.fillStyle='#e53935'; ctx.fillRect(2,22,20,4); // 裤腿红
+    ctx.fillStyle='#ffcc80'; ctx.fillRect(0,24,6,6); ctx.fillRect(18,24,6,6); // 手
+    // 脚
+    ctx.fillStyle='#5d3a1a'; ctx.fillRect(3,28,8,4); ctx.fillRect(13,28,8,4);
+    ctx.restore();
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/22;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 连击提示
+    if(state.combo>=2){
+      ctx.fillStyle='#ffd700'; ctx.font='16px "Press Start 2P",monospace'; ctx.textAlign='center';
+      ctx.fillText(state.combo+' COMBO!',W/2,40);
+    }
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='26px "Press Start 2P",monospace';ctx.fillText('游戏结束',W/2,H/2-20);ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score+' 最高连击:'+state.maxCombo,W/2,H/2+15);}
+      else {ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('准备就绪',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始按钮',W/2,H/2+25);}
+    }
+  }
+  function cloud(x,y){ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.arc(x+16,y,16,0,7);ctx.arc(x+34,y,12,0,7);ctx.fill();ctx.fillRect(x-12,y,58,10);}
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function jump(){if(player.onGround){player.vy=JUMP;player.onGround=false;jumpFx(player.x+player.w/2,player.y+player.h);SFX.jump();}}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowleft','arrowright','arrowup',' '].indexOf(k)>=0)e.preventDefault();if(k===' '||k==='arrowup'||k==='w')jump();});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();jump();},{passive:false});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();toast('踩龟背得分，别撞侧面！');});
+  if(window.AOXMobile&&AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'A',key:' ',color:'#e53935',big:true}]});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

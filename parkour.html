@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>像素跑酷 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:linear-gradient(180deg,#4dd0e1 0%,#1565c0 70%); border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="parkour.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🏃 像素跑酷</h1>
+  <p class="subtitle">跳跃躲障碍滑行钻空！自动跑酷，越跑越快</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">距离</span><span id="dist">0m</span></div>
+    <div class="hud-item"><span class="label">金币</span><span id="coins">0</span></div>
+    <div class="hud-item"><span class="label">速度</span><span id="speed">1.0x</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <canvas id="game" width="480" height="500"></canvas>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:8px;">电脑：↑跳/空格 ↓滑 · 手机：上半屏点跳跃，下半屏点滑行</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;var GY=H-80;
+  var player={x:80,y:GY,w:32,h:48,vy:0,slide:false};
+  var obstacles=[],coins=[],ground=[],g=0.8;
+  var dist=0,speed=5,coinN=0,running=false,over=false,spawnT=0,coinT=0;
+  var best=parseInt(localStorage.getItem('parkour_best')||'0',10);
+  document.getElementById('best').textContent=best||'—';
+  AOXMobile.virtualKeys({keys:[{label:'↑',key:'ArrowUp',color:'#43a047',big:true},{label:'↓',key:'ArrowDown',color:'#1976d2'}]});
+
+  function reset(){
+    dist=0;speed=5;coinN=0;running=true;over=false;player.y=GY;player.vy=0;player.slide=false;
+    obstacles=[];coins=[];ground=[];spawnT=30;coinT=60;
+    SFX.select();update();
+  }
+  function update(){
+    document.getElementById('dist').textContent=Math.floor(dist)+'m';
+    document.getElementById('coins').textContent=coinN;
+    document.getElementById('speed').textContent=(speed/5).toFixed(1)+'x';
+  }
+  function end(){
+    running=false;over=true;SFX.lose();
+    if(dist>best){best=Math.floor(dist);localStorage.setItem('parkour_best',best);document.getElementById('best').textContent=best;toast('🏆 新纪录 '+best+'m！');}
+    else toast('💀 撞了！跑了 '+Math.floor(dist)+'m');
+  }
+  function jump(){ if(!running)return; if(player.y>=GY-1){ player.vy=-15;SFX.move(); } }
+  function slide(){ if(!running)return; if(player.y>=GY-1){ player.slide=true;setTimeout(function(){player.slide=false;},500);SFX.click(); } }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowUp'||e.key===' ')jump();
+    if(e.key==='ArrowDown')slide();
+  });
+  cv.addEventListener('touchstart',function(e){
+    e.preventDefault();
+    var r=cv.getBoundingClientRect();var y=(e.touches[0].clientY-r.top)/r.height;
+    if(y<0.5)jump();else slide();
+  },{passive:false});
+  cv.addEventListener('mousedown',function(e){
+    var r=cv.getBoundingClientRect();var y=(e.clientY-r.top)/r.height;
+    if(y<0.5)jump();else slide();
+  });
+
+  function spawn(){
+    var t=Math.random();
+    if(t<0.6){ obstacles.push({x:W,y:GY-30,w:24,h:30,type:'low'}); }
+    else { obstacles.push({x:W,y:GY-80,w:30,h:25,type:'high'}); }
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0d47a1';ctx.fillRect(0,0,W,GY+50);
+    ctx.fillStyle='#5fb53f';ctx.fillRect(0,GY+48,W,H-GY-48);
+    ctx.fillStyle='#3d8b2a';ctx.fillRect(0,GY+48,W,6);
+    ground.forEach(function(gg){ ctx.fillStyle='#3d8b2a';ctx.fillRect(gg.x,GY+58,gg.w,4); });
+    coins.forEach(function(c){ ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(c.x,c.y,9,0,7);ctx.fill();ctx.strokeStyle='#b8860b';ctx.lineWidth=2;ctx.stroke(); });
+    obstacles.forEach(function(o){
+      if(o.type==='low'){ctx.fillStyle='#8b4513';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(o.x,o.y,o.w,o.h);}
+      else{ctx.fillStyle='#37474f';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.fillStyle='#fff';ctx.font='14px monospace';ctx.textAlign='center';ctx.fillText('▼',o.x+15,o.y-4);ctx.textAlign='left';}
+    });
+    var py=player.slide?player.y+20:player.y;
+    var ph=player.slide?28:player.h;
+    ctx.fillStyle='#e53935';ctx.fillRect(player.x,py,player.w,ph);
+    ctx.fillStyle='#ffd9a0';ctx.fillRect(player.x+8,py+4,16,12);
+    ctx.fillStyle='#000';ctx.fillRect(player.x+11,py+8,3,3);ctx.fillRect(player.x+19,py+8,3,3);
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(player.x,py,player.w,ph);
+    if(over){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,H/2-40,W,80); ctx.fillStyle='#ffd700';ctx.font='20px monospace';ctx.textAlign='center';ctx.fillText(Math.floor(dist)+'m',W/2,H/2+8);ctx.textAlign='left'; }
+  }
+  function loop(){
+    if(running){
+      dist+=speed/10;speed=5+Math.min(7,dist/200);
+      ground.forEach(function(gg){gg.x-=speed;});
+      if(ground.length<20||ground[ground.length-1].x<W-50){ground.push({x:(ground.length?ground[ground.length-1].x:0)+60+Math.random()*40,w:20});}
+      ground=ground.filter(function(gg){return gg.x>-30;});
+      spawnT--;if(spawnT<=0){spawn();spawnT=Math.max(35,80-dist/15);}
+      coinT--;if(coinT<=0){coins.push({x:W,y:GY-30-Math.random()*30});coinT=50;}
+      obstacles.forEach(function(o){o.x-=speed;});
+      obstacles=obstacles.filter(function(o){return o.x>-40;});
+      coins.forEach(function(c){c.x-=speed;});
+      coins=coins.filter(function(c){return c.x>-20;});
+      player.vy+=g;player.y+=player.vy;
+      if(player.y>=GY){player.y=GY;player.vy=0;}
+      var py=player.slide?player.y+20:player.y;
+      var ph=player.slide?28:player.h;
+      obstacles.forEach(function(o){
+        if(player.x<o.x+o.w && player.x+player.w>o.x && py<o.y+o.h && py+ph>o.y){
+          end();
+        }
+      });
+      coins=coins.filter(function(c){
+        if(Math.abs(c.x-(player.x+16))<20 && Math.abs(c.y-(py+24))<24){ coinN++;SFX.coin();return false; }
+        return true;
+      });
+      update();
+    }
+    draw();requestAnimationFrame(loop);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+  loop();draw();
+})();
+</script>
+</body>
+</html>

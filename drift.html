@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>漂移过弯 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:#1a1a2e; border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="parkour.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🏎️ 漂移过弯</h1>
+  <p class="subtitle">俯视赛车！按住转向键漂移过弯道，别撞墙，跑完3圈</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">圈数</span><span id="lap">0/3</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="time">0.0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <canvas id="game" width="500" height="500"></canvas>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:8px;">电脑：← →转向 ↑加速 · 手机：左右按钮+油门</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  // 椭圆赛道（用内外边界）
+  var CX=W/2,CY=H/2,RX=180,RY=130,TW=50; // 中心/半径/赛道宽
+  var car={x:CX+RX+TW/2,y:CY,ang:Math.PI/2,v:0};
+  var lap=0,started=false,running=false,over=false,t0=0,ftime=0,crossedHalf=false;
+  var best=parseFloat(localStorage.getItem('drift_best')||'0');
+  document.getElementById('best').textContent=best?best.toFixed(1)+'s':'—';
+  var keys={left:false,right:false,up:false};
+  // 移动端控件
+  AOXMobile.virtualKeys({dpad:true,keys:[{label:'↑',key:'ArrowUp',color:'#43a047',big:true}]});
+
+  function reset(){
+    car.x=CX+RX+TW/2;car.y=CY;car.ang=Math.PI/2;car.v=0;
+    lap=0;started=false;running=true;over=false;crossedHalf=false;t0=0;ftime=0;
+    SFX.select();update();
+  }
+  function update(){
+    document.getElementById('lap').textContent=lap+'/3';
+    document.getElementById('time').textContent=ftime.toFixed(1);
+  }
+  function end(){
+    running=false;over=true;SFX.win();
+    if(!best||ftime<best){best=ftime;localStorage.setItem('drift_best',best);document.getElementById('best').textContent=best.toFixed(1)+'s';toast('🏆 新纪录 '+best.toFixed(1)+'s！');}
+    else toast('🏁 完赛！用时 '+ftime.toFixed(1)+'s');
+  }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft')keys.left=true;
+    if(e.key==='ArrowRight')keys.right=true;
+    if(e.key==='ArrowUp')keys.up=true;
+  });
+  document.addEventListener('keyup',function(e){
+    if(e.key==='ArrowLeft')keys.left=false;
+    if(e.key==='ArrowRight')keys.right=false;
+    if(e.key==='ArrowUp')keys.up=false;
+  });
+
+  // 判断点在赛道上（椭圆环）
+  function onTrack(x,y){
+    var dx=x-CX,dy=y-CY;
+    // 归一化到椭圆坐标
+    var nx=dx/RX,ny=dy/RY;
+    var d=nx*nx+ny*ny;
+    var inner=(RX-TW/2)/(RX),outer=(RX+TW/2)/(RX);
+    var inner2=inner*inner,outer2=outer*outer;
+    return d>inner2*0.95 && d<outer2*1.05;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 草地
+    ctx.fillStyle='#1b5e20';ctx.fillRect(0,0,W,H);
+    // 赛道
+    ctx.fillStyle='#37474f';
+    ctx.beginPath();ctx.ellipse(CX,CY,RX+TW/2,RY+TW/2,0,0,7);ctx.fill();
+    ctx.fillStyle='#1b5e20';
+    ctx.beginPath();ctx.ellipse(CX,CY,RX-TW/2,RY-TW/2,0,0,7);ctx.fill();
+    // 起跑线
+    ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.setLineDash([8,8]);
+    ctx.beginPath();ctx.moveTo(CX+RX-TW/2,CY-30);ctx.lineTo(CX+RX+TW/2,CY+30);ctx.stroke();ctx.setLineDash([]);
+    // 车
+    ctx.save();ctx.translate(car.x,car.y);ctx.rotate(car.ang);
+    ctx.fillStyle='#e53935';ctx.fillRect(-12,-7,24,14);
+    ctx.fillStyle='#1a1a1a';ctx.fillRect(-12,-7,5,14);ctx.fillRect(7,-7,5,14);
+    ctx.fillStyle='#4dd0e1';ctx.fillRect(2,-5,5,10);
+    ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(-12,-7,24,14);
+    ctx.restore();
+    if(over){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,H/2-40,W,80); ctx.fillStyle='#ffd700';ctx.font='20px monospace';ctx.textAlign='center';ctx.fillText(ftime.toFixed(1)+'s',W/2,H/2+8);ctx.textAlign='left'; }
+  }
+  function loop(){
+    if(running){
+      // 输入
+      var accel=keys.up?0.15:0;
+      car.v+=accel;
+      car.v*=0.97; // 摩擦
+      if(car.v<0.02)car.v=0;
+      if(car.v>5)car.v=5;
+      // 转向（速度越快转向越灵）
+      if(car.v>0.1){
+        if(keys.left)car.ang-=0.04+car.v*0.008;
+        if(keys.right)car.ang+=0.04+car.v*0.008;
+      }
+      // 移动
+      var nx=car.x+Math.cos(car.ang)*car.v;
+      var ny=car.y+Math.sin(car.ang)*car.v;
+      if(onTrack(nx,ny)){
+        car.x=nx;car.y=ny;
+        // 检测过起跑线（在右侧且ang朝下/上）
+        // 简化：检测是否经过右半段顶部（crossedHalf标志）
+        if(car.x>CX+RX-10 && Math.abs(car.y-CY)<40){
+          if(crossedHalf){ lap++;crossedHalf=false;SFX.coin();update(); if(lap>=3){ftime=(Date.now()-t0)/1000;end();} }
+        }
+        // 经过左半段重置half标志
+        if(car.x<CX-RX+10)crossedHalf=true;
+      } else {
+        // 撞墙减速
+        car.v*=0.3;SFX.error();
+      }
+      if(started)ftime=(Date.now()-t0)/1000;
+      if(!started&&car.v>0.5){started=true;t0=Date.now();}
+      update();
+    }
+    draw();requestAnimationFrame(loop);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+  loop();draw();
+})();
+</script>
+</body>
+</html>

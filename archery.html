@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>射箭 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game { background:linear-gradient(180deg,#1565c0 0%,#0d47a1 40%,#5fb53f 40%,#3d8b2a 100%); border:4px solid #000; display:block; margin:16px auto; touch-action:none; box-shadow:6px 6px 0 rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="basketball.html">投篮</a><a href="soccer.html">点球</a><a href="archery.html">射箭</a><a href="racer.html">赛车</a><a href="runner.html">跑酷</a><a href="drift.html">漂移</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🏹 射箭</h1>
+  <p class="subtitle">瞄准移动靶子射箭！按住屏幕拉弓，松开发射。靶心100分</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">箭数</span><span id="arrows">10</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <canvas id="game" width="480" height="600"></canvas>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  var target={x:380,y:300,vy:1.6,r:60};
+  var bow={x:80,y:300};
+  var arrow=null;
+  var aiming=false,ay=0,atime=0;
+  var score=0,arrows=10,combo=0,running=false,over=false;
+  var hits=[]; // 留在靶上的箭
+  var best=parseInt(localStorage.getItem('archery_best')||'0',10);
+  document.getElementById('best').textContent=best||'—';
+
+  function reset(){
+    score=0;arrows=10;combo=0;running=true;over=false;arrow=null;hits=[];target.y=300;target.vy=1.6;
+    SFX.select();update();
+  }
+  function update(){
+    document.getElementById('score').textContent=score;
+    document.getElementById('arrows').textContent=arrows;
+    document.getElementById('combo').textContent=combo;
+  }
+  function end(){
+    running=false;over=true;SFX.lose();
+    if(score>best){best=score;localStorage.setItem('archery_best',best);document.getElementById('best').textContent=best;toast('🏆 新纪录 '+score+'！');}
+    else toast('箭用完了！得分 '+score);
+  }
+
+  function pos(e){ var r=cv.getBoundingClientRect();var sc=cv.width/r.width;var t=e.touches?e.touches[0]:e;return {x:(t.clientX-r.left)*sc,y:(t.clientY-r.top)*sc}; }
+  function startAim(e){ if(!running||arrow||arrows<=0)return; e.preventDefault(); aiming=true; var p=pos(e); ay=p.y; bow.y=p.y; atime=0; }
+  function moveAim(e){ if(!aiming)return; e.preventDefault(); var p=pos(e); bow.y=Math.max(60,Math.min(H-40,p.y)); }
+  function fire(e){
+    if(!aiming)return; e.preventDefault(); aiming=false;
+    if(!running||arrow||arrows<=0)return;
+    arrow={x:bow.x+10,y:bow.y,vx:14,vy:0}; arrows--; SFX.click(); atime=0; update();
+  }
+  cv.addEventListener('mousedown',startAim);cv.addEventListener('mousemove',moveAim);cv.addEventListener('mouseup',fire);cv.addEventListener('mouseleave',fire);
+  cv.addEventListener('touchstart',startAim,{passive:false});cv.addEventListener('touchmove',moveAim,{passive:false});cv.addEventListener('touchend',fire,{passive:false});
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 弓
+    ctx.strokeStyle='#8d6e63';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(bow.x,bow.y,26,-1.2,1.2);ctx.stroke();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(bow.x-5,bow.y-24);if(aiming){ctx.lineTo(bow.x+20,bow.y);}else{ctx.lineTo(bow.x+8,bow.y);}ctx.lineTo(bow.x-5,bow.y+24);ctx.stroke();
+    // 靶子
+    target.y+=target.vy;if(target.y<100||target.y>H-100)target.vy*=-1;
+    var colors=['#fff','#1976d2','#c62828','#ffd700'];
+    for(var i=0;i<4;i++){
+      ctx.fillStyle=colors[i];ctx.beginPath();ctx.arc(target.x,target.y,target.r-i*15,0,7);ctx.fill();
+      ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+    }
+    // 靶心
+    ctx.fillStyle='#e53935';ctx.beginPath();ctx.arc(target.x,target.y,8,0,7);ctx.fill();
+    // 留在靶上的箭
+    hits.forEach(function(h){ drawArrow(h.x,h.y,0); });
+    // 飞行中的箭
+    if(arrow){ drawArrow(arrow.x,arrow.y,0); }
+    // 瞄准线
+    if(aiming){ ctx.strokeStyle='rgba(255,215,0,0.5)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(bow.x+10,bow.y);ctx.lineTo(W,bow.y);ctx.stroke();ctx.setLineDash([]); }
+    if(over){ ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,H/2-50,W,100); ctx.fillStyle='#ffd700';ctx.font='24px monospace';ctx.textAlign='center';ctx.fillText('得分 '+score,W/2,H/2+10);ctx.textAlign='left'; }
+  }
+  function drawArrow(x,y,rot){
+    ctx.save();ctx.translate(x,y);ctx.rotate(rot);
+    ctx.fillStyle='#5d4037';ctx.fillRect(-20,-1,30,2);
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(4,-4);ctx.lineTo(4,4);ctx.fill();
+    ctx.fillStyle='#c62828';ctx.beginPath();ctx.moveTo(-20,0);ctx.lineTo(-14,-4);ctx.lineTo(-14,4);ctx.fill();
+    ctx.restore();
+  }
+  function loop(){
+    if(running&&arrow){
+      arrow.x+=arrow.vx;
+      // 击中靶子？
+      var dx=arrow.x-target.x,dy=arrow.y-target.y;
+      var d=Math.hypot(dx,dy);
+      if(d<target.r+5){
+        var pts=0;
+        if(d<10)pts=100;else if(d<25)pts=50;else if(d<40)pts=25;else if(d<55)pts=10;else pts=5;
+        score+=pts+combo*2;combo++;SFX.win();toast('+'+(pts+combo*2)+' 分！');
+        hits.push({x:arrow.x-target.x,y:arrow.y-target.y});
+        arrow=null;update();
+        if(hits.length>8)hits.shift();
+        if(arrows<=0){ setTimeout(end,500); }
+      } else if(arrow.x>W+30){
+        arrow=null;combo=0;SFX.error();update();
+        if(arrows<=0){ setTimeout(end,500); }
+      }
+    }
+    draw();requestAnimationFrame(loop);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+  loop();draw();
+})();
+</script>
+</body>
+</html>

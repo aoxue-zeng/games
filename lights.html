@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点灯关灯 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #board { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; width:380px; max-width:90vw; margin:18px auto; }
+  .cell { aspect-ratio:1; border:3px solid #000; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.2), inset -3px -3px 0 0 rgba(0,0,0,0.3); transition: all 0.12s; user-select:none; }
+  .cell.on { background:#ffd700; box-shadow:0 0 18px #ffd700, inset 3px 3px 0 0 rgba(255,255,255,0.4); }
+  .cell.off { background:#263238; }
+  .cell:hover { transform:translate(-2px,-2px); }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="2048.html">2048</a>
+    <a href="sokoban.html">推箱子</a>
+    <a href="hanoi.html">汉诺塔</a>
+    <a href="lights.html">点灯</a>
+    <a href="maze.html">迷宫</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">💡 点灯关灯</h1>
+  <p class="subtitle">点亮所有灯泡！点击一格会切换它和上下左右四格</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">剩余灯</span><span id="left">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">最佳步</span><span id="best">—</span></div>
+  </div>
+  <div id="board"></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    点击格切换该格+上下左右共5格的灯 · 全部点亮过关
+  </p>
+  <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="newBtn">▶ 新关卡</button>
+    <button class="mc-btn gold" data-d="3">3×3</button>
+    <button class="mc-btn" data-d="5">5×5</button>
+    <button class="mc-btn" data-d="7">7×7</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var D=5, grid, moves, won, level, board=document.getElementById('board');
+  function bestKey(){return 'lights_best_'+D;}
+  function getBest(){var v=parseInt(localStorage.getItem(bestKey())||'0',10);return v||0;}
+  function setBest(v){localStorage.setItem(bestKey(),v);}
+  // 用反向操作生成可解局面：从全暗开始随机点若干次
+  function gen(){
+    grid=[];
+    for(var r=0;r<D;r++){grid.push([]); for(var c=0;c<D;c++)grid[r].push(0);}
+    var steps=4+D+Math.floor(Math.random()*4);
+    var seen={};
+    for(var i=0;i<steps;i++){
+      var r=Math.floor(Math.random()*D), c=Math.floor(Math.random()*D);
+      toggle(r,c);
+    }
+    // 确保不是全暗
+    if(countOn()===0){toggle(0,0);}
+  }
+  function toggle(r,c){
+    if(r<0||r>=D||c<0||c>=D)return;
+    grid[r][c]^=1;
+  }
+  function click(r,c){
+    toggle(r,c); toggle(r-1,c); toggle(r+1,c); toggle(r,c-1); toggle(r,c+1);
+  }
+  function countOn(){var n=0;for(var r=0;r<D;r++)for(var c=0;c<D;c++)if(grid[r][c])n++;return n;}
+  function init(){
+    gen(); moves=0; won=false; level++;
+    document.getElementById('level').textContent=level;
+    document.getElementById('best').textContent=getBest()?'≤'+getBest():'—';
+    board.style.gridTemplateColumns='repeat('+D+',1fr)';
+    render();
+  }
+  function render(){
+    board.innerHTML='';
+    for(var r=0;r<D;r++)for(var c=0;c<D;c++){
+      var cell=document.createElement('div');
+      cell.className='cell '+(grid[r][c]?'on':'off');
+      cell.textContent=grid[r][c]?'💡':'⚫';
+      cell.dataset.r=r; cell.dataset.c=c;
+      (function(rr,cc){cell.addEventListener('click',function(){tap(rr,cc);});})(r,c);
+      board.appendChild(cell);
+    }
+    document.getElementById('moves').textContent=moves;
+    document.getElementById('left').textContent=countOn();
+  }
+  function tap(r,c){
+    if(won)return;
+    AOXSound.ensure();
+    click(r,c); moves++; SFX.place();
+    render();
+    if(countOn()===D*D){
+      won=true; SFX.win();
+      var b=getBest();
+      if(!b||moves<b){setBest(moves);}
+      document.getElementById('best').textContent='≤'+getBest();
+      toast('🎉 全部点亮！'+moves+'步');
+    }
+  }
+  document.querySelectorAll('[data-d]').forEach(function(b){
+    b.addEventListener('click',function(){D=parseInt(b.dataset.d,10);level=0;init();SFX.click();});
+  });
+  document.getElementById('newBtn').addEventListener('click',function(){init();SFX.click();});
+  level=0; init();
+})();
+</script>
+</body>
+</html>

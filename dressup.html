@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素换装 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .dress-stage { background:var(--mc-panel-dark); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); padding:18px; max-width:880px; margin:16px auto; display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; justify-content:center; }
+  .char-box { width:240px; flex:0 0 240px; background:linear-gradient(180deg,#3a4a6a,#1a1a2e); border:4px solid #000; display:flex; flex-direction:column; align-items:center; padding:14px 0 0; position:relative; }
+  .char-box .ground-line { width:100%; height:8px; background:repeating-linear-gradient(90deg,#5fb53f 0 12px,#3d8b2a 12px 24px); margin-top:6px; }
+  .avatar-wrap { width:160px; height:220px; position:relative; }
+  /* 像素人由绝对定位的色块拼成 */
+  .avatar-wrap .layer { position:absolute; left:50%; transform:translateX(-50%); }
+  /* 头 */
+  .head { top:8px; width:64px; height:64px; background:#ffd9a0; border:3px solid #000; box-shadow: inset 3px 3px 0 0 #ffeec0, inset -3px -3px 0 0 #e0b070; z-index:3; }
+  /* 眼睛 */
+  .eyes { top:32px; width:64px; height:10px; display:flex; justify-content:center; gap:14px; z-index:4; }
+  .eyes i { width:8px; height:10px; background:#1a1a1a; display:block; }
+  /* 嘴 */
+  .mouth { top:50px; width:64px; height:6px; display:flex; justify-content:center; z-index:4; }
+  .mouth i { width:14px; height:6px; background:#c62828; display:block; }
+  /* 头发/帽子 */
+  .hair { top:-6px; width:74px; height:38px; z-index:5; border:3px solid #000; background:#5d4037; clip-path:polygon(0% 100%, 8% 40%, 20% 10%, 50% 0%, 80% 10%, 92% 40%, 100% 100%); }
+  /* 身体（上衣） */
+  .body { top:74px; width:84px; height:60px; border:3px solid #000; z-index:2; box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.25), inset -3px -3px 0 0 rgba(0,0,0,0.3); }
+  /* 手臂 */
+  .arm-l, .arm-r { top:74px; width:18px; height:60px; border:3px solid #000; z-index:1; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2); }
+  .arm-l { left:calc(50% - 60px); transform:none; }
+  .arm-r { left:calc(50% + 42px); transform:none; }
+  /* 腿（下装） */
+  .leg-l, .leg-r { top:134px; width:34px; height:56px; border:3px solid #000; z-index:1; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.15); }
+  .leg-l { left:calc(50% - 34px); transform:none; }
+  .leg-r { left:calc(50% + 0px); transform:none; }
+  /* 鞋 */
+  .shoe-l, .shoe-r { top:188px; width:36px; height:14px; border:3px solid #000; z-index:2; background:#3e2723; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.2); }
+  .shoe-l { left:calc(50% - 36px); transform:none; }
+  .shoe-r { left:calc(50% + 0px); transform:none; }
+  /* 配饰（眼镜/翅膀等） */
+  .acc { top:30px; width:74px; height:20px; z-index:6; pointer-events:none; }
+  .acc.acc-back { z-index:0; top:60px; width:120px; height:120px; }
+  /* 选择面板 */
+  .panel { flex:1 1 460px; min-width:280px; }
+  .cat-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .cat-btn { font-family:'Press Start 2P',monospace; font-size:10px; background:var(--mc-night); color:#4dd0e1; border:2px solid #000; padding:8px 10px; cursor:pointer; box-shadow: inset 2px 2px 0 0 #2a3f5f; }
+  .cat-btn:hover{ color:#ffd700; }
+  .cat-btn.active{ background:#ffd700; color:#000; box-shadow: inset 2px 2px 0 0 #fff7c0; }
+  .swatches { display:grid; grid-template-columns:repeat(auto-fill,46px); gap:8px; margin-bottom:14px; }
+  .sw { width:46px; height:46px; border:3px solid #000; cursor:pointer; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.3), inset -2px -2px 0 0 rgba(0,0,0,0.3), 3px 3px 0 0 rgba(0,0,0,0.4); transition:transform 0.08s; position:relative; }
+  .sw:hover{ transform:translate(-2px,-2px); }
+  .sw.active{ outline:3px solid #ffd700; outline-offset:2px; }
+  .sw.none{ background:repeating-linear-gradient(45deg,#444 0 6px,#222 6px 12px); }
+  .sw .lbl { position:absolute; bottom:-2px; left:0; right:0; text-align:center; font-family:'Press Start 2P',monospace; font-size:6px; color:#fff; text-shadow:1px 1px 0 #000; }
+  .panel-label { color:#ffd700; font-family:'Press Start 2P',monospace; font-size:11px; text-shadow:1px 1px 0 #000; margin:6px 0; }
+  .tool-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .tool-btn { font-family:'Press Start 2P',monospace; font-size:10px; background:var(--mc-grass); color:#fff; border:2px solid #000; padding:10px 12px; cursor:pointer; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.3), 3px 3px 0 0 rgba(0,0,0,0.4); text-shadow:1px 1px 0 #000; }
+  .tool-btn:hover{ transform:translate(-1px,-1px); }
+  .tool-btn.blue{ background:var(--mc-sky-deep); }
+  .tool-btn.gold{ background:var(--mc-gold); color:#000; text-shadow:none; }
+  .saved-list { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .saved-slot { width:50px; height:64px; border:3px solid #000; background:#1a1a2e; cursor:pointer; position:relative; box-shadow:2px 2px 0 0 rgba(0,0,0,0.4); }
+  .saved-slot .mini { position:absolute; left:50%; transform:translateX(-50%); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="music.html">音乐站</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="piano.html">钢琴</a>
+    <a href="dressup.html">换装</a>
+    <a href="pixel.html">画板</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">👘 像素换装</h1>
+  <p class="subtitle">装扮你的像素小人！6大类、几十种搭配，随机/保存造型</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">搭配数</span><span id="count">0</span></div>
+    <div class="hud-item"><span class="label">已保存</span><span id="saved">0/6</span></div>
+  </div>
+  <div class="dress-stage">
+    <div class="char-box">
+      <div class="avatar-wrap" id="avatar">
+        <div class="layer acc acc-back" id="L_accBack"></div>
+        <div class="layer arm-l" id="L_armL"></div>
+        <div class="layer arm-r" id="L_armR"></div>
+        <div class="layer leg-l" id="L_legL"></div>
+        <div class="layer leg-r" id="L_legR"></div>
+        <div class="layer body" id="L_body"></div>
+        <div class="layer shoe-l" id="L_shoeL"></div>
+        <div class="layer shoe-r" id="L_shoeR"></div>
+        <div class="layer head" id="L_head"></div>
+        <div class="layer hair" id="L_hair"></div>
+        <div class="layer eyes"><i></i><i></i></div>
+        <div class="layer mouth"><i></i></div>
+        <div class="layer acc" id="L_acc"></div>
+      </div>
+      <div class="ground-line"></div>
+    </div>
+    <div class="panel">
+      <div class="cat-row" id="cats"></div>
+      <div class="panel-label" id="catLabel">发型</div>
+      <div class="swatches" id="swatches"></div>
+      <div class="tool-row">
+        <button class="tool-btn blue" id="randBtn">🎲 随机</button>
+        <button class="tool-btn gold" id="saveBtn">💾 存槽位</button>
+        <button class="tool-btn" id="resetBtn">↺ 重置</button>
+        <a href="index.html" class="tool-btn" style="text-decoration:none;">← 返回</a>
+      </div>
+      <div class="panel-label" style="margin-top:14px;">造型槽位（点击加载）</div>
+      <div class="saved-list" id="savedList"></div>
+    </div>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // 颜色调色板（每类若干项，0号=无）
+  var HAIRS=[
+    {n:'无',c:'transparent',b:'transparent',shape:'none'},
+    {n:'棕',c:'#5d4037',b:'#000',shape:'normal'},
+    {n:'金',c:'#ffd700',b:'#000',shape:'normal'},
+    {n:'黑',c:'#1a1a1a',b:'#000',shape:'normal'},
+    {n:'红',c:'#e53935',b:'#000',shape:'normal'},
+    {n:'蓝',c:'#1976d2',b:'#000',shape:'normal'},
+    {n:'绿',c:'#43a047',b:'#000',shape:'normal'},
+    {n:'粉',c:'#f48fb1',b:'#000',shape:'normal'},
+    {n:'白',c:'#eeeeee',b:'#000',shape:'normal'},
+    {n:'紫',c:'#8e24aa',b:'#000',shape:'normal'},
+    {n:'帽',c:'#e53935',b:'#000',shape:'cap'},
+    {n:'冠',c:'#ffd700',b:'#000',shape:'crown'},
+    {n:'兔耳',c:'#f48fb1',b:'#000',shape:'ears'}
+  ];
+  var TOPS=[
+    {n:'红',c:'#e53935'},{n:'蓝',c:'#1976d2'},{n:'绿',c:'#43a047'},
+    {n:'黄',c:'#fdd835'},{n:'紫',c:'#8e24aa'},{n:'橙',c:'#fb8c00'},
+    {n:'粉',c:'#ec407a'},{n:'青',c:'#00acc1'},{n:'白',c:'#fafafa'},
+    {n:'黑',c:'#37474f'},{n:'迷彩',c:'repeating-linear-gradient(45deg,#558b2f 0 6px,#33691e 6px 12px)'},
+    {n:'钻石',c:'#4dd0e1'}
+  ];
+  var BOTTOMS=[
+    {n:'蓝仔',c:'#1976d2'},{n:'黑',c:'#263238'},{n:'棕',c:'#6d4c41'},
+    {n:'灰',c:'#757575'},{n:'红',c:'#c62828'},{n:'绿',c:'#388e3c'},
+    {n:'白',c:'#eeeeee'},{n:'紫',c:'#6a1b9a'},{n:'黄裙',c:'#fdd835'},
+    {n:'粉裙',c:'#f48fb1'},{n:'牛仔',c:'repeating-linear-gradient(0deg,#1565c0 0 4px,#0d47a1 4px 8px)'},
+    {n:'钻石',c:'#4dd0e1'}
+  ];
+  var SHOES=[
+    {n:'棕',c:'#3e2723'},{n:'黑',c:'#1a1a1a'},{n:'红',c:'#c62828'},
+    {n:'蓝',c:'#1565c0'},{n:'白',c:'#eeeeee'},{n:'绿',c:'#2e7d32'},
+    {n:'金',c:'#ffd700'},{n:'紫',c:'#6a1b9a'},{n:'粉',c:'#ec407a'},
+    {n:'橙',c:'#ef6c00'},{n:'钻石',c:'#4dd0e1'},{n:'红宝',c:'#e53935'}
+  ];
+  var SKIN=[
+    {n:'肤色1',c:'#ffd9a0'},{n:'肤色2',c:'#ffe0b2'},{n:'肤色3',c:'#d7a86e'},
+    {n:'深肤',c:'#8d5524'},{n:'麦',c:'#c68642'},{n:'白',c:'#fff3e0'},
+    {n:'绿',c:'#a5d6a7'},{n:'蓝',c:'#90caf9'},{n:'紫',c:'#ce93d8'}
+  ];
+  var ACCS=[
+    {n:'无',c:'transparent',type:'none'},
+    {n:'墨镜',c:'#1a1a1a',type:'shades'},
+    {n:'圆框',c:'#ffd700',type:'round'},
+    {n:'眼罩',c:'#1a1a1a',type:'mask'},
+    {n:'胡子',c:'#5d4037',type:'mustache'},
+    {n:'蝴蝶',c:'#ec407a',type:'bow'},
+    {n:'翅膀',c:'#4dd0e1',type:'wings'},
+    {n:'披风',c:'#c62828',type:'cape'},
+    {n:'光环',c:'#ffd700',type:'halo'}
+  ];
+
+  var CATS=[
+    {key:'hair',label:'发型',items:HAIRS},
+    {key:'top',label:'上衣',items:TOPS},
+    {key:'bottom',label:'下装',items:BOTTOMS},
+    {key:'shoe',label:'鞋子',items:SHOES},
+    {key:'skin',label:'肤色',items:SKIN},
+    {key:'acc',label:'配饰',items:ACCS}
+  ];
+
+  // 当前造型：每类选中的索引
+  var look={hair:1,top:0,bottom:0,shoe:0,skin:0,acc:0};
+  var curCat='hair';
+  var saved=[null,null,null,null,null,null];
+  var savedCount=0;
+  var totalChanges=0;
+
+  function el(id){return document.getElementById(id);}
+
+  function applyHair(it){
+    var h=el('L_hair');
+    h.style.background=it.c; h.style.borderColor=it.b;
+    if(it.shape==='none'){ h.style.display='none'; }
+    else { h.style.display='block'; }
+    if(it.shape==='cap'){
+      h.style.clipPath='polygon(0% 100%, 10% 30%, 30% 0%, 70% 0%, 90% 30%, 100% 100%)';
+      h.style.height='30px'; h.style.width='80px'; h.style.top='-2px';
+    } else if(it.shape==='crown'){
+      h.style.clipPath='polygon(0% 100%, 15% 40%, 25% 0%, 35% 50%, 50% 0%, 65% 50%, 75% 0%, 85% 40%, 100% 100%)';
+      h.style.height='28px'; h.style.width='70px'; h.style.top='0px';
+    } else if(it.shape==='ears'){
+      h.style.clipPath='polygon(0% 100%, 20% 0%, 30% 60%, 70% 60%, 80% 0%, 100% 100%)';
+      h.style.height='44px'; h.style.width='60px'; h.style.top='-14px';
+    } else {
+      h.style.clipPath='polygon(0% 100%, 8% 40%, 20% 10%, 50% 0%, 80% 10%, 92% 40%, 100% 100%)';
+      h.style.height='38px'; h.style.width='74px'; h.style.top='-6px';
+    }
+  }
+  function applyAcc(it){
+    var a=el('L_acc'); var ab=el('L_accBack');
+    a.style.display='none'; ab.style.display='none';
+    if(it.type==='none')return;
+    if(it.type==='shades'){
+      a.style.display='flex'; a.style.top='34px'; a.style.width='64px'; a.style.height='8px';
+      a.style.background='transparent';
+      a.innerHTML='<div style="display:flex;gap:6px;justify-content:center;width:100%"><i style="width:20px;height:8px;background:#1a1a1a;display:block"></i><i style="width:20px;height:8px;background:#1a1a1a;display:block"></i></div>';
+    } else if(it.type==='round'){
+      a.style.display='flex'; a.style.top='34px'; a.style.width='64px'; a.style.height='10px';
+      a.style.background='transparent';
+      a.innerHTML='<div style="display:flex;gap:8px;justify-content:center;width:100%"><i style="width:14px;height:14px;border:2px solid #ffd700;border-radius:50%;display:block"></i><i style="width:14px;height:14px;border:2px solid #ffd700;border-radius:50%;display:block"></i></div>';
+    } else if(it.type==='mask'){
+      a.style.display='block'; a.style.top='30px'; a.style.width='60px'; a.style.height='18px';
+      a.style.background='repeating-linear-gradient(45deg,#1a1a1a 0 4px,#333 4px 8px)';
+      a.style.border='2px solid #000'; a.style.clipPath='none';
+      a.innerHTML='';
+    } else if(it.type==='mustache'){
+      a.style.display='block'; a.style.top='52px'; a.style.width='40px'; a.style.height='10px';
+      a.style.background=it.c; a.style.border='2px solid #000';
+      a.style.clipPath='polygon(0% 100%, 15% 0%, 50% 60%, 85% 0%, 100% 100%)';
+      a.innerHTML='';
+    } else if(it.type==='bow'){
+      a.style.display='block'; a.style.top='-8px'; a.style.width='30px'; a.style.height='18px';
+      a.style.background=it.c; a.style.border='2px solid #000';
+      a.style.clipPath='polygon(0% 50%, 30% 0%, 30% 100%, 70% 0%, 70% 100%, 100% 50%)';
+      a.innerHTML='';
+    } else if(it.type==='wings'){
+      ab.style.display='block'; ab.style.top='70px'; ab.style.width='140px'; ab.style.height='80px';
+      ab.style.background='transparent'; ab.style.clipPath='none';
+      ab.innerHTML='<div style="position:absolute;left:0;top:10px;width:60px;height:60px;background:'+it.c+';border:2px solid #000;clip-path:polygon(100% 50%,40% 0%,0% 30%,10% 70%,40% 100%)"></div><div style="position:absolute;right:0;top:10px;width:60px;height:60px;background:'+it.c+';border:2px solid #000;clip-path:polygon(0% 50%,60% 0%,100% 30%,90% 70%,60% 100%)"></div>';
+    } else if(it.type==='cape'){
+      ab.style.display='block'; ab.style.top='74px'; ab.style.width='90px'; ab.style.height='110px';
+      ab.style.background=it.c; ab.style.border='2px solid #000'; ab.style.clipPath='polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)';
+      ab.innerHTML='';
+    } else if(it.type==='halo'){
+      ab.style.display='block'; ab.style.top='-10px'; ab.style.width='70px'; ab.style.height='14px';
+      ab.style.background=it.c; ab.style.border='2px solid #b8860b'; ab.style.borderRadius='50%';
+      ab.innerHTML='';
+    }
+  }
+
+  function render(){
+    applyHair(HAIRS[look.hair]);
+    var t=TOPS[look.top];
+    el('L_body').style.background=t.c;
+    el('L_armL').style.background=t.c; el('L_armR').style.background=t.c;
+    var b=BOTTOMS[look.bottom];
+    el('L_legL').style.background=b.c; el('L_legR').style.background=b.c;
+    var s=SHOES[look.shoe];
+    el('L_shoeL').style.background=s.c; el('L_shoeR').style.background=s.c;
+    var k=SKIN[look.skin];
+    el('L_head').style.background=k.c;
+    applyAcc(ACCS[look.acc]);
+  }
+
+  function buildCats(){
+    var wrap=el('cats'); wrap.innerHTML='';
+    CATS.forEach(function(c){
+      var btn=document.createElement('button');
+      btn.className='cat-btn'+(c.key===curCat?' active':'');
+      btn.textContent=c.label; btn.dataset.cat=c.key;
+      btn.addEventListener('click',function(){ curCat=c.key; el('catLabel').textContent=c.label; buildCats(); buildSwatches(); SFX.click(); });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function curItems(){ return CATS.filter(function(c){return c.key===curCat;})[0].items; }
+
+  function buildSwatches(){
+    var wrap=el('swatches'); wrap.innerHTML='';
+    var items=curItems();
+    items.forEach(function(it,i){
+      var d=document.createElement('div');
+      d.className='sw'+(i===look[curCat]?' active':'')+(it.n==='无'?' none':'');
+      d.style.background=it.c;
+      d.innerHTML='<span class="lbl">'+it.n+'</span>';
+      d.addEventListener('click',function(){
+        look[curCat]=i; render(); buildSwatches(); SFX.coin();
+        totalChanges++; el('count').textContent=totalChanges;
+      });
+      d.addEventListener('touchstart',function(e){ e.preventDefault(); d.click(); },{passive:false});
+      wrap.appendChild(d);
+    });
+  }
+
+  function randomize(){
+    look.hair=1+Math.floor(Math.random()*(HAIRS.length-1));
+    look.top=Math.floor(Math.random()*TOPS.length);
+    look.bottom=Math.floor(Math.random()*BOTTOMS.length);
+    look.shoe=Math.floor(Math.random()*SHOES.length);
+    look.skin=Math.floor(Math.random()*SKIN.length);
+    look.acc=Math.floor(Math.random()*ACCS.length);
+    render(); buildSwatches();
+    totalChanges++; el('count').textContent=totalChanges;
+    SFX.levelUp(); toast('🎲 随机造型！');
+  }
+
+  function saveSlot(){
+    var idx=saved.indexOf(null);
+    if(idx<0){ toast('槽位已满！点击槽位可删除'); SFX.error(); return; }
+    saved[idx]=JSON.parse(JSON.stringify(look));
+    savedCount++; el('saved').textContent=savedCount+'/6';
+    buildSaved(); SFX.select(); toast('💾 已保存到槽位 '+(idx+1));
+  }
+
+  function buildSaved(){
+    var wrap=el('savedList'); wrap.innerHTML='';
+    saved.forEach(function(s,i){
+      var d=document.createElement('div'); d.className='saved-slot';
+      if(s){
+        // 迷你预览：色块组合
+        d.innerHTML='<div class="mini" style="top:6px;width:18px;height:18px;background:'+SKIN[s.skin].c+';border:1px solid #000"></div>'
+          +'<div class="mini" style="top:4px;width:22px;height:8px;background:'+HAIRS[s.hair].c+';border:1px solid #000"></div>'
+          +'<div class="mini" style="top:22px;width:26px;height:18px;background:'+TOPS[s.top].c+';border:1px solid #000"></div>'
+          +'<div class="mini" style="top:40px;width:12px;height:14px;background:'+BOTTOMS[s.bottom].c+';border:1px solid #000"></div>';
+        d.title='点击加载槽位 '+(i+1)+'，长按删除';
+        var pressT=0;
+        d.addEventListener('click',function(){
+          if(Date.now()-pressT>500){ // 长按删除
+            saved[i]=null; savedCount--; el('saved').textContent=savedCount+'/6'; buildSaved(); SFX.error(); toast('🗑 已删除槽位 '+(i+1));
+          } else {
+            look=JSON.parse(JSON.stringify(s)); render(); buildSwatches(); SFX.coin(); toast('📂 已加载槽位 '+(i+1));
+          }
+        });
+        d.addEventListener('mousedown',function(){ pressT=Date.now(); });
+        d.addEventListener('touchstart',function(e){ e.preventDefault(); pressT=Date.now(); },{passive:false});
+      } else {
+        d.style.opacity='0.4';
+        d.innerHTML='<div class="mini" style="top:24px;font-size:20px;color:#888">+</div>';
+      }
+      wrap.appendChild(d);
+    });
+  }
+
+  function reset(){
+    look={hair:1,top:0,bottom:0,shoe:0,skin:0,acc:0};
+    render(); buildSwatches(); SFX.click(); toast('↺ 已重置');
+  }
+
+  el('randBtn').addEventListener('click',randomize);
+  el('saveBtn').addEventListener('click',saveSlot);
+  el('resetBtn').addEventListener('click',reset);
+
+  buildCats(); buildSwatches(); render(); buildSaved();
+  // 初始一个随机造型展示
+  setTimeout(function(){ if(totalChanges===0){ randomize(); el('count').textContent='0'; totalChanges=0; } },300);
+})();
+</script>
+</body>
+</html>

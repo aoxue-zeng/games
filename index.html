@@ -79,9 +79,9 @@
     <p style="font-size:20px; line-height:1.6;">
       嗨！我是 <strong style="color:var(--mc-grass-dark);">AoXuan</strong>。这是一个用像素方块搭建的个人网站，
       灵感来自 <strong style="color:var(--mc-diamond);">Minecraft</strong>。
-      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">124 个小游戏</strong> ——
-      涵盖马里奥、我的世界、动作射击、益智逻辑、经典街机、博弈竞猜、策略对战等 9 大分类，
-      电脑手机都能玩。拿上你的键盘，开始挖掘吧！⛏️
+      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">130 个小游戏</strong> ——
+      涵盖马里奥、我的世界、动作射击、益智逻辑、经典街机、博弈竞猜、策略对战、体育运动、赛车竞速等 11 大分类，
+      电脑手机平板都能玩。拿上你的键盘，开始挖掘吧！⛏️
     </p>
     <div style="margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;">
       <span class="hud-item" style="padding:8px 14px;">🏆 游戏创造者</span>
@@ -102,7 +102,7 @@
     <div class="filter-bar">
       <input type="text" id="gameSearch" class="search-box" placeholder="🔍 搜索游戏名..." autocomplete="off">
       <div class="cat-bar" id="catBar">
-        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">124</span></button>
+        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">130</span></button>
         <button class="cat-btn" data-cat="马里奥">🍄 马里奥 <span class="cat-cnt" id="cnt-马里奥">15</span></button>
         <button class="cat-btn" data-cat="我的世界">⛏ 我的世界 <span class="cat-cnt" id="cnt-我的世界">16</span></button>
         <button class="cat-btn" data-cat="动作射击">🎮 动作射击 <span class="cat-cnt" id="cnt-动作射击">46</span></button>
@@ -111,7 +111,9 @@
         <button class="cat-btn" data-cat="博弈竞猜">🎲 博弈竞猜 <span class="cat-cnt" id="cnt-博弈竞猜">4</span></button>
         <button class="cat-btn" data-cat="策略对战">♟️ 策略对战 <span class="cat-cnt" id="cnt-策略对战">3</span></button>
         <button class="cat-btn" data-cat="创造休闲">🎨 创造休闲 <span class="cat-cnt" id="cnt-创造休闲">5</span></button>
-        <button class="cat-btn" data-cat="文字">⌨️ 文字 <span class="cat-cnt" id="cnt-文字">3</span></button>
+        <button class="cat-btn" data-cat="文字">⌨️ 文字 <span class="cat-cnt" id="cnt-文字">5</span></button>
+        <button class="cat-btn" data-cat="体育运动">⚽ 体育运动 <span class="cat-cnt" id="cnt-体育运动">3</span></button>
+        <button class="cat-btn" data-cat="赛车竞速">🏁 赛车竞速 <span class="cat-cnt" id="cnt-赛车竞速">3</span></button>
       </div>
     </div>
     <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 76 个游戏</p>
@@ -669,6 +671,14 @@
       <a href="meteor.html" class="game-card" data-cat="经典街机"><span class="play-tag" style="background:var(--mc-diamond);">NEW</span><div class="thumb" style="background:linear-gradient(135deg,#0a0a3a,#ffd700)">☄️</div><div class="info"><h3>流星雨</h3><p>移动篮子接流星！⭐金星+10 ☄银星+5 💎钻石+25，躲开💣炸弹。连击翻倍，难度递增，3命挑战最高分。</p></div></a>
 
       <a href="pvz-fusion.html" class="game-card" data-cat="动作射击"><span class="play-tag" style="background:#ab47bc;">融合</span><div class="thumb" style="background:linear-gradient(135deg,#4caf50,#ab47bc,#ffd700)">🧬</div><div class="info"><h3>植物大战僵尸·融合版</h3><p>把植物融合成超强形态！点卡片入融合台(2-3个)或草地拖拽叠合，12+专属配方(向日葵射手/坚果炮台/神器三合)，攒600阳光解锁无限阳光随便融。🛒推车也可融合！</p></div></a>
+
+      <a href="basketball.html" class="game-card" data-cat="体育运动"><span class="play-tag" style="background:#43a047;">体育</span><div class="thumb" style="background:linear-gradient(135deg,#1565c0,#fb8c00)">🏀</div><div class="info"><h3>投篮挑战</h3><p>拖动篮球瞄准，松开投篮！移动篮筐，60秒挑战，进框得分，挑战最佳。</p></div></a>
+      <a href="soccer.html" class="game-card" data-cat="体育运动"><span class="play-tag" style="background:#43a047;">体育</span><div class="thumb" style="background:linear-gradient(135deg,#2e7d32,#fff)">⚽</div><div class="info"><h3>点球大战</h3><p>选方向(左中右高低)+力度射门！门将AI扑救，5轮点球决战，进球越多越好。</p></div></a>
+      <a href="archery.html" class="game-card" data-cat="体育运动"><span class="play-tag" style="background:#43a047;">体育</span><div class="thumb" style="background:linear-gradient(135deg,#1565c0,#5fb53f)">🏹</div><div class="info"><h3>射箭</h3><p>拉弓射移动靶！按住瞄准松开发射，靶心100分，连击加分，10支箭挑战最佳。</p></div></a>
+
+      <a href="racer.html" class="game-card" data-cat="赛车竞速"><span class="play-tag" style="background:#ff9800;">竞速</span><div class="thumb" style="background:linear-gradient(135deg,#263238,#ffd700)">🏎️</div><div class="info"><h3>赛车躲避</h3><p>三车道躲避来车，收集金币！速度递增，3条命挑战最高分，手机滑动换道。</p></div></a>
+      <a href="parkour.html" class="game-card" data-cat="赛车竞速"><span class="play-tag" style="background:#ff9800;">竞速</span><div class="thumb" style="background:linear-gradient(135deg,#4dd0e1,#e53935)">🏃</div><div class="info"><h3>像素跑酷</h3><p>自动跑酷！跳跃过矮障碍，滑行钻高障碍，收集金币，越跑越快，挑战最远距离。</p></div></a>
+      <a href="drift.html" class="game-card" data-cat="赛车竞速"><span class="play-tag" style="background:#ff9800;">竞速</span><div class="thumb" style="background:linear-gradient(135deg,#1b5e20,#e53935)">🏁</div><div class="info"><h3>漂移过弯</h3><p>俯视椭圆赛道赛车！油门加速+转向漂移过弯，别撞墙，跑完3圈挑战最佳圈速。</p></div></a>
     </div>
   </section>
 
@@ -676,7 +686,7 @@
   <section class="mc-panel-dark" style="margin-top:50px;">
     <h2 style="color:var(--mc-diamond); font-size:16px; margin-bottom:18px;">📊 世界数据</h2>
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:16px;">
-      <div class="hud-item"><span class="label">游戏数量</span>124</div>
+      <div class="hud-item"><span class="label">游戏数量</span>130</div>
       <div class="hud-item"><span class="label">像素方块</span>∞</div>
       <div class="hud-item"><span class="label">乐趣指数</span>100%</div>
       <div class="hud-item"><span class="label">钻石</span>💎💎💎</div>
@@ -712,7 +722,9 @@
     '博弈竞猜':  { blocks: [['#ffd700','#b8860b'],['#4caf50','#2e7d32'],['#e53935','#b71c1c'],['#1a1a2e','#000'],['#ff9800','#e65100']], emoji: '🎲' },
     '策略对战':  { blocks: [['#2e7d32','#1b5e20'],['#8b5a2b','#6b4220'],['#7f7f7f','#555'],['#e53935','#b71c1c'],['#ffd700','#b8860b']], emoji: '♟' },
     '创造休闲':  { blocks: [['#e91e63','#880e4f'],['#ff9800','#e65100'],['#ffd700','#b8860b'],['#4caf50','#2e7d32'],['#2196f3','#1565c0']], emoji: '🎨' },
-    '文字':      { blocks: [['#1565c0','#0d47a1'],['#4dd0e1','#00838f'],['#fff','#ccc'],['#ffd700','#b8860b'],['#9c27b0','#4a148c']], emoji: '⌨' }
+    '文字':      { blocks: [['#1565c0','#0d47a1'],['#4dd0e1','#00838f'],['#fff','#ccc'],['#ffd700','#b8860b'],['#9c27b0','#4a148c']], emoji: '⌨' },
+    '体育运动':  { blocks: [['#43a047','#2e7d32'],['#1565c0','#0d47a1'],['#ff9800','#e65100'],['#e53935','#b71c1c'],['#fff','#ccc']], emoji: '⚽' },
+    '赛车竞速':  { blocks: [['#263238','#000'],['#ff9800','#e65100'],['#ffd700','#b8860b'],['#e53935','#b71c1c'],['#4dd0e1','#00838f']], emoji: '🏁' }
   };
 
   function applyFilter() {

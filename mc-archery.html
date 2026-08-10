@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>射箭场 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#87ceeb; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="castle.html">城堡防御</a>
+    <a href="dragon.html">末影龙</a>
+    <a href="mc-archery.html">射箭场</a>
+    <a href="mc-sheep.html">牧羊</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🏹 射箭场</h1>
+  <p class="subtitle">瞄准移动靶子射箭！蓄力越久射越远，命中靶心翻倍</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">箭</span><span id="arrows">10</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    鼠标瞄准 · 按住蓄力，松开射箭 · <span class="key">↑↓</span> 也可调整角度
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height, GROUND=H-50, G=0.35;
+  var state, arrow, targets, particles, aiming, charging, power, ang, keys, tick;
+  function getBest(){return parseInt(localStorage.getItem('mcarch_best')||'0',10);}
+  function setBest(v){localStorage.setItem('mcarch_best',v);}
+  function init(){
+    state={running:false,over:false,score:0,arrows:10,level:1};
+    arrow=null; aiming=true; charging=false; power=0; ang=-Math.PI/4; keys={}; tick=0;
+    particles=[]; spawnTargets();
+    updateHud();
+  }
+  function spawnTargets(){
+    targets=[];
+    var n=1+Math.min(state.level,3);
+    for(var i=0;i<n;i++){
+      var tx=350+Math.random()*180, ty=120+Math.random()*180, dir=Math.random()<0.5?-1:1;
+      var sp=1+state.level*0.4;
+      targets.push({x:tx,y:ty,r:22+Math.random()*8,dir:dir,sp:sp,hit:false,bob:Math.random()*6,phase:Math.floor(Math.random()*3),val:0});
+    }
+  }
+  function updateHud(){
+    document.getElementById('score').textContent=state.score;
+    document.getElementById('arrows').textContent=state.arrows;
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('best').textContent=getBest();
+  }
+  function fx(x,y,c,n){n=n||8;for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:22,c:c,size:2+Math.random()*3});}}
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    // 角度调整
+    if(keys['arrowup'])ang-=0.03;
+    if(keys['arrowdown'])ang+=0.03;
+    ang=Math.max(-Math.PI/2+0.1,Math.min(-0.05,ang));
+    if(charging){power=Math.min(18,power+0.4);}
+    // 箭飞行
+    if(arrow){
+      arrow.vx*=0.998; arrow.vy+=G;
+      arrow.x+=arrow.vx; arrow.y+=arrow.vy; arrow.ang=Math.atan2(arrow.vy,arrow.vx);
+      // 命中
+      for(var i=0;i<targets.length;i++){
+        var t=targets[i]; if(t.hit)continue;
+        if(Math.hypot(arrow.x-t.x,arrow.y-t.y)<t.r){
+          t.hit=true; var pts=Math.round((t.r<25?50:t.r<30?30:20));
+          state.score+=pts; fx(t.x,t.y,'#ffd700',10); SFX.hit(); SFX.coin();
+          updateHud();
+          arrow.dead=true;
+          if(targets.every(function(tg){return tg.hit;})){
+            state.level++; state.arrows+=3; SFX.levelUp(); toast('关'+state.level+'！+3箭');
+            spawnTargets();
+          }
+          break;
+        }
+      }
+      // 出界或落地
+      if(arrow.x>W+20||arrow.x<-20||arrow.y>GROUND){arrow.dead=true; if(arrow.y>GROUND)fx(arrow.x,GROUND,'#8b5a2b',6);}
+      if(arrow.dead){
+        arrow=null;
+        if(state.arrows<=0 && targets.some(function(t){return !t.hit;})){gameOver();}
+        else aiming=true;
+      }
+    }
+    // 靶移动
+    targets.forEach(function(t){if(t.hit)return; t.x+=t.sp*t.dir; t.bob+=0.1;
+      if(t.x<320){t.x=320;t.dir*=-1;} if(t.x>W-30){t.x=W-30;t.dir*=-1;}});
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();if(state.score>getBest()){setBest(state.score);toast('🏆 新纪录'+state.score+'！');}}
+  function shoot(){
+    if(!charging||power<4)return;
+    charging=false;
+    arrow={x:50,y:GROUND-30,vx:Math.cos(ang)*power,vy:Math.sin(ang)*power,ang:ang,dead:false};
+    state.arrows--; aiming=false; power=0; SFX.arrow(); updateHud();
+  }
+  function draw(){
+    // 天空
+    ctx.fillStyle='#87ceeb'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,0.7)'; for(var c=0;c<3;c++)cloud((c*200+tick*0.2)%W,50);
+    // 地面
+    ctx.fillStyle='#5fb53f'; ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.fillStyle='#3d8b2a'; ctx.fillRect(0,GROUND-2,W,3);
+    // 弓箭手
+    ctx.fillStyle='#1565c0'; ctx.fillRect(30,GROUND-30,16,20); // 身
+    ctx.fillStyle='#ffcc80'; ctx.fillRect(33,GROUND-40,12,10); // 头
+    ctx.fillStyle='#5d3a1a'; ctx.fillRect(31,GROUND-42,14,3); // 帽
+    ctx.fillStyle='#ffcc80'; ctx.fillRect(46,GROUND-26,16,4); // 持弓手臂
+    // 弓
+    ctx.strokeStyle='#5d3a1a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(58,GROUND-26,12,ang-Math.PI/2-0.4,ang-Math.PI/2+0.4); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(58+Math.cos(ang-Math.PI/2-0.4)*12,GROUND-26+Math.sin(ang-Math.PI/2-0.4)*12);
+    ctx.lineTo(58+Math.cos(ang-Math.PI/2+0.4)*12,GROUND-26+Math.sin(ang-Math.PI/2+0.4)*12); ctx.stroke();
+    // 瞄准辅助线/蓄力箭
+    if(aiming){
+      var len=20+power*4;
+      ctx.strokeStyle='rgba(255,215,0,'+(0.3+power/40)+')'; ctx.lineWidth=2;
+      ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(58,GROUND-26); ctx.lineTo(58+Math.cos(ang)*Math.min(len,200),GROUND-26+Math.sin(ang)*Math.min(len,200)); ctx.stroke(); ctx.setLineDash([]);
+      // 蓄力条
+      if(charging){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(20,GROUND-60,80,8);ctx.fillStyle='#4caf50';ctx.fillRect(22,GROUND-58,76*power/18,4);}
+    }
+    // 靶
+    targets.forEach(function(t){
+      if(t.hit){ctx.globalAlpha=0.3;}
+      var bob=Math.sin(t.bob)*3;
+      // 杆
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(t.x-2,t.y+t.r,4,GROUND-t.y-t.r);
+      // 靶圈
+      var rings=['#e53935','#fff','#e53935','#fff','#ffd700'];
+      for(var i=0;i<5;i++){ctx.fillStyle=rings[i]; ctx.beginPath(); ctx.arc(t.x,t.y+bob,t.r-i*(t.r/5),0,7); ctx.fill();}
+      ctx.globalAlpha=1;
+      if(t.hit){ctx.fillStyle='#ffd700';ctx.font='16px serif';ctx.textAlign='center';ctx.fillText('✓',t.x,t.y-20);}
+    });
+    // 飞行箭
+    if(arrow){
+      ctx.save(); ctx.translate(arrow.x,arrow.y); ctx.rotate(arrow.ang);
+      ctx.strokeStyle='#5d3a1a'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(8,0); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(2,-3); ctx.lineTo(2,3); ctx.fill();
+      ctx.strokeStyle='#1565c0'; ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-7,-2); ctx.moveTo(-10,0); ctx.lineTo(-7,2); ctx.stroke();
+      ctx.restore();
+    }
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/22;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){ctx.fillStyle='#e53935';ctx.font='24px "Press Start 2P",monospace';ctx.fillText('箭用完了',W/2,H/2-15);ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score+' 关卡:'+state.level,W/2,H/2+20);}
+      else {ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('射箭场',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('按住蓄力松开发射',W/2,H/2+25);}
+    }
+  }
+  function cloud(x,y){ctx.beginPath();ctx.arc(x,y,10,0,7);ctx.arc(x+14,y,14,0,7);ctx.arc(x+30,y,10,0,7);ctx.fill();}
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function getCanvasPos(e){var r=canvas.getBoundingClientRect();var cx=(e.clientX-r.left)*(W/r.width), cy=(e.clientY-r.top)*(H/r.height);return{x:cx,y:cy};}
+  canvas.addEventListener('mousemove',function(e){var p=getCanvasPos(e);ang=Math.atan2(p.y-(GROUND-26),p.x-58);ang=Math.max(-Math.PI/2+0.1,Math.min(-0.05,ang));});
+  canvas.addEventListener('mousedown',function(e){if(aiming){charging=true;power=0;AOXSound.ensure();}});
+  canvas.addEventListener('mouseup',function(e){if(charging)shoot();});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];var r=canvas.getBoundingClientRect();var cy=(t.clientY-r.top)*(H/r.height);var cx=(t.clientX-r.left)*(W/r.width);ang=Math.atan2(cy-(GROUND-26),cx-58);ang=Math.max(-Math.PI/2+0.1,Math.min(-0.05,ang));if(aiming){charging=true;power=0;AOXSound.ensure();}},{passive:false});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();var t=e.touches[0];var r=canvas.getBoundingClientRect();var cy=(t.clientY-r.top)*(H/r.height);var cx=(t.clientX-r.left)*(W/r.width);ang=Math.atan2(cy-(GROUND-26),cx-58);ang=Math.max(-Math.PI/2+0.1,Math.min(-0.05,ang));},{passive:false});
+  canvas.addEventListener('touchend',function(e){e.preventDefault();if(charging)shoot();},{passive:false});
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown'].indexOf(k)>=0)e.preventDefault();});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

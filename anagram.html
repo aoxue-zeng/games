@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字母重组 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .ana-stage { background:var(--mc-panel-dark); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); padding:22px; max-width:640px; margin:16px auto; }
+  .hint-box { text-align:center; font-family:'VT323',monospace; font-size:24px; color:#fff; text-shadow:1px 1px 0 #000; margin-bottom:6px; }
+  .hint-box b { color:var(--mc-diamond); }
+  .scramble { text-align:center; font-family:'Press Start 2P',monospace; font-size:22px; color:#888; letter-spacing:8px; margin:8px 0 4px; text-decoration:line-through; }
+  .answer-slots { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:14px 0; min-height:54px; }
+  .slot { width:46px; height:54px; background:var(--mc-night); border:3px solid var(--mc-gold); box-shadow: inset 2px 2px 0 0 #2a3f5f; display:flex; align-items:center; justify-content:center; font-family:'Press Start 2P',monospace; font-size:24px; color:var(--mc-gold); text-shadow:2px 2px 0 #000; }
+  .tile-pool { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:18px 0; }
+  .tile { width:54px; height:60px; background:linear-gradient(180deg,#ffe082,#ffb300); border:3px solid #000; box-shadow: inset 3px 3px 0 0 #fff8c0, inset -3px -3px 0 0 #b8860b, 3px 3px 0 0 rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; font-family:'Press Start 2P',monospace; font-size:24px; color:#3e2723; cursor:pointer; transition:transform 0.08s; user-select:none; }
+  .tile:hover{ transform:translate(-2px,-2px); }
+  .tile.used { opacity:0.25; pointer-events:none; }
+  .tile:active{ transform:translate(1px,1px); }
+  .timer-bar { width:100%; max-width:380px; height:14px; background:#1a1a2e; border:2px solid #000; margin:10px auto; }
+  .timer-fill { height:100%; background:linear-gradient(90deg,#4caf50,#ffd700,#e53935); transition:width 0.1s linear; }
+  .ctrl-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+  .mini-btn { font-family:'Press Start 2P',monospace; font-size:10px; background:var(--mc-panel); color:var(--mc-black); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:8px 10px; cursor:pointer; }
+  .mini-btn:hover{ transform:translate(-1px,-1px); }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="guess.html">猜数字</a>
+    <a href="typing.html">打字</a>
+    <a href="hangman.html">猜单词</a>
+    <a href="anagram.html">字母重组</a>
+    <a href="wordsearch.html">找单词</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🔤 字母重组</h1>
+  <p class="subtitle">把打乱的字母拼回正确的单词！限时挑战，越快分越高</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">连胜</span><span id="streak">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+  <div class="ana-stage">
+    <div class="hint-box" id="hint">点开始游戏</div>
+    <div class="scramble" id="scramble"></div>
+    <div class="answer-slots" id="slots"></div>
+    <div class="tile-pool" id="pool"></div>
+    <div class="ctrl-row">
+      <button class="mini-btn" id="clearBtn">↺ 清除</button>
+      <button class="mini-btn" id="shuffleBtn">🔀 重排</button>
+      <button class="mini-btn" id="hintBtn" style="background:var(--mc-diamond);color:#000;">💡 提示</button>
+      <button class="mini-btn" id="skipBtn" style="background:#ef9a9a;">⏭ 跳过</button>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点字母放入槽位 · 也可直接键盘输入 · 填满自动判定</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var BANK=[
+    {w:'PIXEL',h:'图像最小单位'},{w:'BLOCK',h:'方形块'},{w:'SCORE',h:'游戏分数'},{w:'LEVEL',h:'游戏关卡'},
+    {w:'CHEST',h:'宝箱'},{w:'SWORD',h:'剑'},{w:'MAGIC',h:'魔法'},{w:'QUEST',h:'任务'},
+    {w:'BRAVE',h:'勇敢的'},{w:'CLOUD',h:'云'},{w:'STONE',h:'石头'},{w:'WATER',h:'水'},
+    {w:'MUSIC',h:'音乐'},{w:'TIGER',h:'老虎'},{w:'ROBOT',h:'机器人'},{w:'PIZZA',h:'披萨'},
+    {w:'GHOST',h:'鬼魂'},{w:'PLANT',h:'植物'},{w:'DREAM',h:'梦'},{w:'EARTH',h:'地球'},
+    {w:'FROST',h:'霜冻'},{w:'GIANT',h:'巨人'},{w:'SCOPE',h:'范围'},{w:'BERRY',h:'浆果'},
+    {w:'PIANO',h:'钢琴'},{w:'OCEAN',h:'海洋'},{w:'BREAD',h:'面包'},{w:'HOUSE',h:'房子'},
+    {w:'TRAIN',h:'火车'},{w:'SMILE',h:'微笑'},{w:'CANDY',h:'糖果'},{w:'HORSE',h:'马'},
+    {w:'POWER',h:'力量'},{w:'GUARD',h:'守卫'},{w:'HEART',h:'心'},{w:'STORM',h:'风暴'},
+    {w:'CHESS',h:'国际象棋'},{w:'GLOBE',h:'地球仪'},{w:'BRAVE',h:'勇敢'},{w:'GLORY',h:'荣耀'},
+    // 6字母
+    {w:'CASTLE',h:'城堡'},{w:'DRAGON',h:'龙'},{w:'WIZARD',h:'巫师'},{w:'JUNGLE',h:'丛林'},
+    {w:'GARDEN',h:'花园'},{w:'ROCKET',h:'火箭'},{w:'PLANET',h:'行星'},{w:'BATTLE',h:'战斗'},
+    {w:'SILVER',h:'银色'},{w:'GOLDEN',h:'金色的'},{w:'FOREST',h:'森林'},{w:'MARKET',h:'市场'}
+  ];
+  var state, cur, scrambled, slots, pool, timer, raf;
+  var slotsEl=document.getElementById('slots');
+  var poolEl=document.getElementById('pool');
+  var hintEl=document.getElementById('hint');
+  var scrambleEl=document.getElementById('scramble');
+  function el(id){return document.getElementById(id);}
+  function getBest(){return parseInt(localStorage.getItem('ana_best')||'0',10);}
+  function setBest(v){localStorage.setItem('ana_best',v);}
+  function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+  function init(){
+    state={running:false,over:false,score:0,level:1,streak:0,maxTime:30,time:30,hintsUsed:0};
+    el('score').textContent=0; el('level').textContent=1; el('streak').textContent=0;
+    el('best').textContent=getBest()||'—';
+    el('timerFill').style.width='100%';
+    hintEl.innerHTML='点 <b style="color:#43a047">开始游戏</b>';
+    scrambleEl.textContent=''; slotsEl.innerHTML=''; poolEl.innerHTML='';
+  }
+
+  function pickWord(){
+    // 关卡越高单词越长
+    var target=state.level<=4?5:6;
+    var cand=BANK.filter(function(b){return b.w.length===target;});
+    if(cand.length===0) cand=BANK;
+    cur=cand[Math.floor(Math.random()*cand.length)];
+    scrambled=shuffle(cur.w.split(''));
+    // 防止打乱后仍等于原词
+    var tries=0;
+    while(scrambled.join('')===cur.w && tries<10){ scrambled=shuffle(scrambled); tries++; }
+    slots=[]; pool=scrambled.map(function(c,i){return {c:c,used:false,id:i};});
+  }
+
+  function render(){
+    hintEl.innerHTML='提示：<b>'+cur.h+'</b> ('+cur.w.length+'字母)';
+    scrambleEl.textContent='混乱：'+scrambled.join(' ');
+    // 槽位
+    slotsEl.innerHTML='';
+    for(var i=0;i<cur.w.length;i++){
+      var s=document.createElement('div'); s.className='slot';
+      if(slots[i]) s.textContent=slots[i].c;
+      slotsEl.appendChild(s);
+    }
+    // 字母池
+    poolEl.innerHTML='';
+    pool.forEach(function(t){
+      var d=document.createElement('div');
+      d.className='tile'+(t.used?' used':''); d.textContent=t.c; d.dataset.id=t.id;
+      d.addEventListener('click',function(){ placeTile(t.id); });
+      d.addEventListener('touchstart',function(e){ e.preventDefault(); placeTile(t.id); },{passive:false});
+      poolEl.appendChild(d);
+    });
+  }
+
+  function placeTile(id){
+    if(!state.running||state.over) return;
+    var t=pool.filter(function(x){return x.id===id;})[0];
+    if(!t||t.used) return;
+    // 找第一个空槽
+    var idx=slots.indexOf(null);
+    if(idx<0) return; // 满了
+    AOXSound.ensure();
+    slots[idx]=t; t.used=true;
+    SFX.click();
+    render();
+    // 检查是否填满
+    if(slots.indexOf(null)<0){ checkAnswer(); }
+  }
+  function unplaceSlot(idx){
+    if(!state.running||state.over) return;
+    var t=slots[idx]; if(!t) return;
+    t.used=false; slots[idx]=null; SFX.move(); render();
+  }
+  function clearAll(){
+    if(!state.running) return;
+    slots.forEach(function(s,i){ if(s){ s.used=false; slots[i]=null; } });
+    SFX.move(); render();
+  }
+  function reshuffle(){
+    if(!state.running) return;
+    // 把未使用的字母重新打乱
+    var active=pool.filter(function(t){return !t.used;});
+    var letters=shuffle(active.map(function(t){return t.c;}));
+    active.forEach(function(t,i){ t.c=letters[i]; });
+    // 重排显示顺序
+    pool=shuffle(pool);
+    SFX.select(); render();
+  }
+  function useHint(){
+    if(!state.running) return;
+    // 揭示下一个正确字母
+    for(var i=0;i<cur.w.length;i++){
+      if(!slots[i] || slots[i].c!==cur.w[i]){
+        // 先清除该位置
+        if(slots[i]){ slots[i].used=false; slots[i]=null; }
+        // 找一个未使用且字母正确的tile
+        var need=cur.w[i];
+        var t=null;
+        for(var j=0;j<pool.length;j++){
+          if(!pool[j].used && pool[j].c===need){ t=pool[j]; break; }
+        }
+        if(t){ slots[i]=t; t.used=true; state.hintsUsed++; state.score=Math.max(0,state.score-3); el('score').textContent=state.score; SFX.coin(); render(); }
+        return;
+      }
+    }
+  }
+  function checkAnswer(){
+    var ans=slots.map(function(s){return s.c;}).join('');
+    if(ans===cur.w){
+      // 答对
+      var gain=Math.floor(state.time)*2 + cur.w.length*5 + state.streak*3 - state.hintsUsed*2;
+      gain=Math.max(5,gain);
+      state.score+=gain; state.streak++; state.level++;
+      if(!getBest()||state.score>getBest()){ setBest(state.score); el('best').textContent=state.score; }
+      el('score').textContent=state.score; el('level').textContent=state.level; el('streak').textContent=state.streak;
+      SFX.win(); toast('✓ 对了！+'+gain+'分');
+      // 高亮正确
+      var ss=slotsEl.querySelectorAll('.slot');
+      ss.forEach(function(s){ s.style.background='#43a047'; s.style.color='#fff'; });
+      setTimeout(function(){ nextRound(); },900);
+    } else {
+      // 答错，清空并扣时
+      SFX.error(); toast('✗ 不对：'+ans);
+      var ss2=slotsEl.querySelectorAll('.slot');
+      ss2.forEach(function(s){ s.style.background='#c62828'; s.style.color='#fff'; });
+      state.streak=0; el('streak').textContent=0;
+      state.time=Math.max(0,state.time-3);
+      setTimeout(function(){ clearAll(); },500);
+    }
+  }
+  function nextRound(){
+    state.maxTime=Math.max(12,30-state.level); state.time=state.maxTime;
+    state.hintsUsed=0; pickWord(); render();
+  }
+  function tick(){
+    if(!state.running||state.over) return;
+    state.time-=0.05;
+    el('timerFill').style.width=Math.max(0,state.time/state.maxTime*100)+'%';
+    if(state.time<=0){
+      state.over=true; state.running=false; state.streak=0;
+      SFX.lose(); toast('⏰ 时间到！答案是 '+cur.w);
+      // 揭示答案
+      slots=cur.w.split('').map(function(c){return {c:c,used:true};});
+      render();
+      hintEl.innerHTML='游戏结束 · 最终 <b>'+state.score+'</b> 分';
+      el('startBtn').textContent='▶ 再来一局';
+    }
+  }
+  function start(){
+    AOXSound.ensure(); init();
+    state.running=true; el('startBtn').textContent='⏸ 重新开始';
+    pickWord(); SFX.select(); render();
+    el('timerFill').style.width='100%';
+  }
+  function loop(){ tick(); requestAnimationFrame(loop); }
+  // 键盘输入
+  document.addEventListener('keydown',function(e){
+    if(!state.running) return;
+    var k=e.key.toUpperCase();
+    if(k==='BACKSPACE'){
+      // 删除最后一个填入的
+      for(var i=slots.length-1;i>=0;i--){ if(slots[i]){ unplaceSlot(i); return; } }
+      return;
+    }
+    if(k.length===1 && k>='A' && k<='Z'){
+      // 找一个未使用且字母匹配的tile
+      for(var i=0;i<pool.length;i++){
+        if(!pool[i].used && pool[i].c===k){ placeTile(pool[i].id); return; }
+      }
+      SFX.error(); // 没这个字母
+    }
+  });
+  el('startBtn').addEventListener('click',start);
+  el('clearBtn').addEventListener('click',clearAll);
+  el('shuffleBtn').addEventListener('click',reshuffle);
+  el('hintBtn').addEventListener('click',useHint);
+  el('skipBtn').addEventListener('click',function(){
+    if(!state.running) return;
+    state.streak=0; el('streak').textContent=0;
+    toast('跳过：'+cur.w); SFX.move();
+    setTimeout(function(){ nextRound(); },300);
+  });
+  // 点击已填槽位回收
+  slotsEl.addEventListener('click',function(e){
+    var s=e.target.closest('.slot'); if(!s) return;
+    var idx=Array.prototype.indexOf.call(slotsEl.children,s);
+    if(slots[idx]) unplaceSlot(idx);
+  });
+  init(); loop();
+})();
+</script>
+</body>
+</html>

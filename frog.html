@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>青蛙过马路 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#000; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="frog.html">青蛙过马路</a>
+    <a href="paddle.html">颠球</a>
+    <a href="pinball.html">弹球台</a>
+    <a href="stack.html">堆叠</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐸 青蛙过马路</h1>
+  <p class="subtitle">穿越马路和河流，到达对岸！经典 Frogger</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">到家</span><span id="home">0/5</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">♥♥♥</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">30</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="best">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    <span class="key">←↑→↓</span> 或 WASD 跳跃 · 躲车、跳木头过河、到达顶部5个家
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height, CELL=40, COLS=W/CELL, ROWS=H/CELL;
+  var state, frog, lanes, logs, homes, particles, keys, tick, moveCd;
+  function getBest(){return parseInt(localStorage.getItem('frog_best')||'0',10);}
+  function setBest(v){localStorage.setItem('frog_best',v);}
+  function init(){
+    state={running:false,over:false,score:0,lives:3,homes:0,time:30,tick:0};
+    frog={x:7*CELL+CELL/2,y:(ROWS-1)*CELL+CELL/2,r:14,jumping:0,onLog:null};
+    buildLanes();
+    homes=[false,false,false,false,false];
+    particles=[]; keys={}; tick=0; moveCd=0;
+    updateHud();
+  }
+  function buildLanes(){
+    lanes=[];
+    // 行 0 顶部家，行 ROWS-1 起始草地，中间为车流（行2-5）和河流（行6-9）
+    // 车道
+    lanes[2]={dir:-1,sp:2.5,type:'car',color:'#e53935',gap:200,items:[]};
+    lanes[3]={dir:1,sp:1.8,type:'car',color:'#1565c0',gap:220,items:[]};
+    lanes[4]={dir:-1,sp:3,type:'truck',color:'#ff9800',gap:260,items:[]};
+    lanes[5]={dir:1,sp:2,type:'car',color:'#9c27b0',gap:180,items:[]};
+    // 河流木头/龟
+    lanes[6]={dir:1,sp:1.5,type:'log',color:'#5d3a1a',gap:200,items:[]};
+    lanes[7]={dir:-1,sp:2.2,type:'log',color:'#5d3a1a',gap:240,items:[]};
+    lanes[8]={dir:1,sp:1.8,type:'turtle',color:'#5d9b3a',gap:200,items:[]};
+    lanes[9]={dir:-1,sp:2.5,type:'log',color:'#5d3a1a',gap:220,items:[]};
+    // 初始化各道物体
+    for(var r=2;r<ROWS-1;r++){
+      if(!lanes[r])continue;
+      var x=0;
+      while(x<W+100){
+        var len = lanes[r].type==='truck'?80:(lanes[r].type==='log'||lanes[r].type==='turtle'?120:44);
+        lanes[r].items.push({x:x, len:len});
+        x += len + lanes[r].gap*0.5 + Math.random()*60;
+      }
+    }
+  }
+  function updateHud(){
+    document.getElementById('home').textContent=state.homes+'/5';
+    document.getElementById('lives').textContent='♥'.repeat(Math.max(0,state.lives))||'—';
+    document.getElementById('time').textContent=Math.ceil(state.time);
+    document.getElementById('best').textContent=getBest();
+  }
+  function fx(x,y,c,n){n=n||8;for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*3});}}
+  function update(){
+    if(!state.running||state.over)return;
+    tick++;
+    // 计时
+    state.time-=1/60;
+    if(state.time<=0){die('时间到');}
+    // 移动冷却
+    if(moveCd>0)moveCd--;
+    // 玩家持续输入移动（一格一格）
+    if(moveCd===0){
+      var dx=0,dy=0;
+      if(keys['arrowleft']||keys['a'])dx=-1;
+      else if(keys['arrowright']||keys['d'])dx=1;
+      else if(keys['arrowup']||keys['w'])dy=-1;
+      else if(keys['arrowdown']||keys['s'])dy=1;
+      if(dx||dy){
+        var nx=frog.x+dx*CELL, ny=frog.y+dy*CELL;
+        nx=Math.max(CELL/2,Math.min(W-CELL/2,nx));
+        if(ny>=CELL*0.5 && ny<=H-CELL/2){frog.x=nx;frog.y=ny;moveCd=8;frog.jumping=6;SFX.jump();}
+      }
+    }
+    if(frog.jumping>0)frog.jumping--;
+    // 车道更新
+    for(var r=2;r<ROWS-1;r++){
+      if(!lanes[r])continue;
+      var L=lanes[r];
+      L.items.forEach(function(it){it.x+=L.dir*L.sp; if(L.dir>0&&it.x>W+20)it.x=-it.len-Math.random()*60; if(L.dir<0&&it.x+it.len<-20)it.x=W+Math.random()*60;});
+    }
+    // 玩家所在行
+    var row=Math.floor(frog.y/CELL);
+    if(row>=2 && row<ROWS-1 && lanes[row]){
+      var L=lanes[row];
+      if(L.type==='car'||L.type==='truck'){
+        // 车道：撞车死
+        L.items.forEach(function(it){if(frog.x+frog.r>it.x&&frog.x-frog.r<it.x+it.len){die('撞车');}});
+      } else {
+        // 河流：必须站在木头/龟上
+        var on=null;
+        L.items.forEach(function(it){if(frog.x>it.x&&frog.x<it.x+it.len)on=it;});
+        if(on){
+          frog.onLog=on;
+          // 龟潜水
+          if(L.type==='turtle' && Math.floor(tick/120)%2===1 && Math.floor(tick/40)%4===3){die('落水');}
+          // 跟随漂
+          frog.x+=L.dir*L.sp;
+        } else {die('落水');}
+        if(frog.x<0||frog.x>W)die('落水');
+      }
+    } else if(row>=6 && row<=9){
+      // 在河但无车道（不该发生）
+    }
+    // 到家
+    if(row===0){
+      var homeX=Math.floor((frog.x/(W/5)));
+      homeX=Math.max(0,Math.min(4,homeX));
+      var homeCenter=(homeX+0.5)*(W/5);
+      if(!homes[homeX] && Math.abs(frog.x-homeCenter)<30){
+        homes[homeX]=true; state.homes++; state.score+=100+Math.ceil(state.time)*5; SFX.coin(); fx(homeCenter,CELL/2,'#ffd700',12);
+        state.time=30;
+        if(state.homes>=5){win();}
+        else {resetFrog();}
+        updateHud();
+      } else {
+        die('没到家');
+      }
+    }
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function resetFrog(){frog.x=7*CELL+CELL/2;frog.y=(ROWS-1)*CELL+CELL/2;frog.onLog=null;}
+  function die(reason){
+    if(state.over)return;
+    state.lives--; SFX.lose(); fx(frog.x,frog.y,'#e53935',12); toast(reason+'！剩'+state.lives+'命');
+    state.time=30; resetFrog(); updateHud();
+    if(state.lives<=0){gameOver();}
+  }
+  function win(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.win();state.score+=500;toast('🎉 全部到家！');checkBest();}
+  function gameOver(){state.over=true;state.running=false;AOXSound.stopBGM();SFX.lose();checkBest();}
+  function checkBest(){if(state.score>getBest()){setBest(state.score);}}
+  function draw(){
+    // 行0 家区
+    ctx.fillStyle='#1b5e20'; ctx.fillRect(0,0,W,CELL);
+    // 家坑
+    for(var i=0;i<5;i++){var hx=i*(W/5);
+      if(homes[i]){ctx.fillStyle='#4caf50';ctx.fillRect(hx+10,4,(W/5)-20,CELL-8);ctx.fillStyle='#ffd700';ctx.font='22px serif';ctx.textAlign='center';ctx.fillText('🐸',hx+(W/5)/2,CELL-8);}
+      else {ctx.fillStyle='#0d3d10';ctx.fillRect(hx+10,4,(W/5)-20,CELL-8);}
+    }
+    // 草地起始（行1 + 行ROWS-1）
+    ctx.fillStyle='#3d8b2a';
+    for(var r=1;r<ROWS;r++){if(r===1||r===ROWS-1){ctx.fillRect(0,r*CELL,W,CELL); ctx.fillStyle='#2e7d32';ctx.fillRect(0,r*CELL,W,3);ctx.fillStyle='#3d8b2a';}}
+    // 行ROWS-1 起始
+    // 车道（行2-5）柏油
+    ctx.fillStyle='#212121';
+    for(var r=2;r<=5;r++){ctx.fillRect(0,r*CELL,W,CELL);}
+    // 车道线
+    ctx.strokeStyle='#ffd700'; ctx.setLineDash([16,16]); ctx.lineWidth=2;
+    for(var r=3;r<=5;r++){ctx.beginPath();ctx.moveTo(0,r*CELL);ctx.lineTo(W,r*CELL);ctx.stroke();}
+    ctx.setLineDash([]);
+    // 河流（行6-9）
+    ctx.fillStyle='#1565c0';
+    for(var r=6;r<=9;r++){ctx.fillRect(0,r*CELL,W,CELL);}
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    for(var r=6;r<=9;r++)ctx.fillRect(0,r*CELL,W,3);
+    // 画车道物体
+    for(var r=2;r<ROWS-1;r++){
+      if(!lanes[r])continue;var L=lanes[r];
+      L.items.forEach(function(it){
+        if(L.type==='car'){ctx.fillStyle=L.color;ctx.fillRect(it.x,r*CELL+6,it.len,CELL-12);ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fillRect(it.x+4,r*CELL+8,it.len-8,6);ctx.fillStyle='#000';ctx.fillRect(it.x+6,r*CELL+CELL-12,8,6);ctx.fillRect(it.x+it.len-14,r*CELL+CELL-12,8,6);}
+        else if(L.type==='truck'){ctx.fillStyle=L.color;ctx.fillRect(it.x,r*CELL+4,it.len,CELL-8);ctx.fillStyle='#5d3a1a';ctx.fillRect(it.x,r*CELL+4,it.len*0.3,CELL-8);ctx.fillStyle='#000';ctx.fillRect(it.x+6,r*CELL+CELL-10,8,6);ctx.fillRect(it.x+it.len-14,r*CELL+CELL-10,8,6);}
+        else if(L.type==='log'){ctx.fillStyle=L.color;ctx.fillRect(it.x,r*CELL+8,it.len,CELL-16);ctx.fillStyle='#8b5a2b';ctx.fillRect(it.x+4,r*CELL+10,it.len-8,4);ctx.fillRect(it.x+4,r*CELL+CELL-14,it.len-8,3);}
+        else if(L.type==='turtle'){var diving=Math.floor(tick/120)%2===1&&Math.floor(tick/40)%4===3; for(var t=0;t<3;t++){ctx.fillStyle=diving?'rgba(93,155,58,0.4)':'#5d9b3a';ctx.beginPath();ctx.arc(it.x+t*40+20,r*CELL+CELL/2,14,0,7);ctx.fill();}}
+      });
+    }
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 青蛙
+    var jf=frog.jumping>0?-6:0;
+    ctx.save(); ctx.translate(frog.x,frog.y+jf);
+    ctx.fillStyle='#4caf50'; ctx.beginPath(); ctx.arc(0,0,frog.r,0,7); ctx.fill();
+    ctx.fillStyle='#2e7d32'; ctx.fillRect(-frog.r,frog.r-3,frog.r*2,4);
+    // 眼睛
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-5,-7,5,0,7); ctx.arc(5,-7,5,0,7); ctx.fill();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(-5,-7,2,0,7); ctx.arc(5,-7,2,0,7); ctx.fill();
+    // 腿
+    ctx.fillStyle='#2e7d32'; ctx.fillRect(-frog.r-2,frog.r-6,5,8); ctx.fillRect(frog.r-3,frog.r-6,5,8);
+    ctx.restore();
+    // 结算
+    if(!state.running){
+      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+      if(state.over){
+        if(state.homes>=5){ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('🏆 通关！',W/2,H/2-15);}
+        else {ctx.fillStyle='#e53935';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('游戏结束',W/2,H/2-15);}
+        ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';ctx.fillText('得分:'+state.score,W/2,H/2+20);
+      }
+      else {ctx.fillStyle='#ffd700';ctx.font='22px "Press Start 2P",monospace';ctx.fillText('青蛙过马路',W/2,H/2-10);ctx.fillStyle='#fff';ctx.font='11px "Press Start 2P",monospace';ctx.fillText('点击开始按钮',W/2,H/2+25);}
+    }
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowleft','arrowright','arrowup','arrowdown',' '].indexOf(k)>=0)e.preventDefault();AOXSound.ensure();});
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  document.getElementById('startBtn').addEventListener('click',function(){init();state.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();});
+  if(window.AOXMobile&&AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true});
+  init(); loop();
+})();
+</script>
+</body>
+</html>

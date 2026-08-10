@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素钢琴 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .piano-stage { background:var(--mc-panel-dark); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); padding:18px; max-width:680px; margin:16px auto; }
+  .piano { position:relative; width:100%; height:200px; background:#000; border:3px solid #000; display:flex; user-select:none; }
+  .wkey { flex:1; background:linear-gradient(180deg,#fff,#e0e0e0); border:2px solid #000; border-top:none; cursor:pointer; position:relative; display:flex; align-items:flex-end; justify-content:center; padding-bottom:8px; font-family:'Press Start 2P',monospace; font-size:9px; color:#666; transition: background 0.05s; }
+  .wkey:active, .wkey.active { background:#ffd700; }
+  .bkey { position:absolute; width:7%; height:60%; background:linear-gradient(180deg,#333,#000); border:2px solid #000; cursor:pointer; z-index:2; }
+  .bkey:active, .bkey.active { background:#e53935; }
+  .tool-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+  .song-btn { font-family:'Press Start 2P',monospace; font-size:9px; background:var(--mc-night); color:#4dd0e1; border:2px solid #000; padding:8px 10px; cursor:pointer; box-shadow: inset 2px 2px 0 0 #2a3f5f; }
+  .song-btn:hover { color:#ffd700; }
+  .wave-btn.active { background:#ffd700; color:#000; }
+  .now-playing { text-align:center; font-family:'Press Start 2P',monospace; font-size:11px; color:#ffd700; text-shadow:1px 1px 0 #000; min-height:16px; margin:8px 0; }
+  .rec-dot { display:inline-block; width:10px; height:10px; background:#e53935; border-radius:50%; vertical-align:middle; margin-right:4px; animation:pulse 1s infinite; }
+  @keyframes pulse { 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="music.html">音乐站</a>
+    <a href="rhythm.html">节奏</a>
+    <a href="piano.html">钢琴</a>
+    <a href="dressup.html">换装</a>
+    <a href="pixel.html">画板</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎹 像素钢琴</h1>
+  <p class="subtitle">弹奏旋律！4种音色，6首预设歌曲自动播放，录音回放</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">音色</span><span id="wave">方波</span></div>
+    <div class="hud-item"><span class="label">弹奏数</span><span id="played">0</span></div>
+  </div>
+  <div class="piano-stage">
+    <div class="now-playing" id="np">点击琴键或按 A S D F G H J K（白键）</div>
+    <div class="piano" id="piano"></div>
+    <div class="tool-row">
+      <button class="song-btn wave-btn active" data-wave="square">■ 方波</button>
+      <button class="song-btn wave-btn" data-wave="triangle">▲ 三角</button>
+      <button class="song-btn wave-btn" data-wave="sine">〜 正弦</button>
+      <button class="song-btn wave-btn" data-wave="sawtooth">◢ 锯齿</button>
+    </div>
+    <div class="tool-row">
+      <button class="song-btn" data-song="twinkle"> twinkl</button>
+      <button class="song-btn" data-song="ode">欢乐颂</button>
+      <button class="song-btn" data-song="mario">马里奥</button>
+      <button class="song-btn" data-song="happy">生日</button>
+      <button class="song-btn" data-song="jingle">铃儿响</button>
+      <button class="song-btn" data-song="scale">音阶</button>
+      <button class="song-btn" id="recBtn">● 录音</button>
+      <button class="song-btn" id="playBtn">▶ 回放</button>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // C4 D4 E4 F4 G4 A4 B4 C5
+  var WHITE=[261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25];
+  var WKEYS=['C','D','E','F','G','A','B','C'];
+  var WKBIND=['a','s','d','f','g','h','j','k'];
+  // 黑键（夹在哪些白键之间）
+  var BLACK=[{f:277.18,p:0.5,l:'C#'},{f:311.13,p:1.5,l:'F#'},{f:369.99,p:2.5,l:'F#2'}];
+  // 修正：C# D# F# G# A#
+  BLACK=[
+    {f:277.18,l:'C#'},
+    {f:311.13,l:'D#'},
+    {f:415.30,l:'F#'},
+    {f:466.16,l:'G#'},
+    {f:493.88*1.06,l:'A#'}
+  ];
+  var piano=document.getElementById('piano');
+  var played=0, wave='square', recording=false, recorded=[], recStart=0, playingSong=false;
+  var activeOsc={};
+  function build(){
+    piano.innerHTML='';
+    // 白键
+    for(var i=0;i<8;i++){
+      (function(idx){
+        var k=document.createElement('div');
+        k.className='wkey'; k.dataset.freq=WHITE[idx]; k.dataset.label=WKEYS[idx];
+        k.innerHTML=WKEYS[idx]+'<br><span style="color:#999">'+WKBIND[idx].toUpperCase()+'</span>';
+        k.addEventListener('mousedown',function(){play(WHITE[idx],k);});
+        k.addEventListener('touchstart',function(e){e.preventDefault();play(WHITE[idx],k);},{passive:false});
+        k.addEventListener('mouseup',function(){release(WHITE[idx],k);});
+        k.addEventListener('mouseleave',function(){release(WHITE[idx],k);});
+        k.addEventListener('touchend',function(e){e.preventDefault();release(WHITE[idx],k);},{passive:false});
+        piano.appendChild(k);
+      })(i);
+    }
+    // 黑键定位（百分比）
+    var bpos=[{p:9.5,l:'C#',f:277.18},{p:22,l:'D#',f:311.13},{p:47,l:'F#',f:369.99},{p:59.5,l:'G#',f:415.30},{p:72,l:'A#',f:466.16}];
+    bpos.forEach(function(b,i){
+      var k=document.createElement('div');
+      k.className='bkey'; k.dataset.freq=b.f;
+      k.style.left=b.p+'%';
+      k.addEventListener('mousedown',function(){play(b.f,k);});
+      k.addEventListener('touchstart',function(e){e.preventDefault();play(b.f,k);},{passive:false});
+      k.addEventListener('mouseup',function(){release(b.f,k);});
+      k.addEventListener('mouseleave',function(){release(b.f,k);});
+      k.addEventListener('touchend',function(e){e.preventDefault();release(b.f,k);},{passive:false});
+      piano.appendChild(k);
+    });
+  }
+  function play(freq,el){
+    AOXSound.ensure();
+    var c=AOXSound.ensure();
+    if(activeOsc[freq])return;
+    var osc=c.createOscillator(); var g=c.createGain();
+    osc.type=wave; osc.frequency.value=freq;
+    g.gain.setValueAtTime(0,c.currentTime);
+    g.gain.linearRampToValueAtTime(0.25,c.currentTime+0.01);
+    g.gain.setValueAtTime(0.25,c.currentTime+0.3);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+1.2);
+    osc.connect(g); g.connect(c.destination);
+    osc.start(c.currentTime);
+    activeOsc[freq]={osc:osc,g:g,start:c.currentTime};
+    if(el)el.classList.add('active');
+    played++; document.getElementById('played').textContent=played;
+    if(recording){recorded.push({f:freq,t:Date.now()-recStart});}
+  }
+  function release(freq,el){
+    var a=activeOsc[freq]; if(!a)return;
+    try{a.g.gain.cancelScheduledValues(a.g.context.currentTime);a.g.gain.setTargetAtTime(0,a.g.context.currentTime,0.05);}catch(e){}
+    setTimeout(function(){try{a.osc.stop();}catch(e){}},200);
+    delete activeOsc[freq];
+    if(el)el.classList.remove('active');
+  }
+  // 键盘
+  document.addEventListener('keydown',function(e){
+    var k=e.key.toLowerCase();
+    var i=WKBIND.indexOf(k);
+    if(i>=0){var el=piano.querySelectorAll('.wkey')[i]; if(el&&!el.classList.contains('active'))play(WHITE[i],el);}
+  });
+  document.addEventListener('keyup',function(e){
+    var k=e.key.toLowerCase();
+    var i=WKBIND.indexOf(k);
+    if(i>=0){var el=piano.querySelectorAll('.wkey')[i]; release(WHITE[i],el);}
+  });
+  // 音色
+  var waveNames={square:'方波',triangle:'三角',sine:'正弦',sawtooth:'锯齿'};
+  document.querySelectorAll('.wave-btn').forEach(function(b){
+    b.addEventListener('click',function(){wave=b.dataset.wave;document.getElementById('wave').textContent=waveNames[wave];document.querySelectorAll('.wave-btn').forEach(function(x){x.classList.remove('active');});b.classList.add('active');SFX.click();});
+  });
+  // 预设歌曲：频率序列 + 节拍(ms)
+  var SONGS={
+    twinkle:{n:'小星星',b:[ // C C G G A A G
+      [WHITE[0],400],[WHITE[0],400],[WHITE[4],400],[WHITE[4],400],[WHITE[5],400],[WHITE[5],400],[WHITE[4],800],
+      [WHITE[3],400],[WHITE[3],400],[WHITE[2],400],[WHITE[2],400],[WHITE[1],400],[WHITE[1],400],[WHITE[0],800]
+    ]},
+    ode:{n:'欢乐颂',b:[
+      [WHITE[2],300],[WHITE[2],300],[WHITE[3],300],[WHITE[4],300],[WHITE[4],300],[WHITE[3],300],[WHITE[2],300],[WHITE[1],300],
+      [WHITE[0],300],[WHITE[0],300],[WHITE[1],300],[WHITE[2],300],[WHITE[2],450],[WHITE[1],150],[WHITE[1],600]
+    ]},
+    mario:{n:'超级马里奥',b:[
+      [WHITE[2],120],[WHITE[2],120],[0,120],[WHITE[2],120],[0,120],[WHITE[0],120],[WHITE[2],120],[WHITE[4],240],[0,240],[WHITE[3],180],[WHITE[1],180],[0,120]
+    ]},
+    happy:{n:'生日歌',b:[
+      [WHITE[0],300],[WHITE[0],200],[WHITE[1],400],[WHITE[0],400],[WHITE[4],400],[WHITE[3],800],
+      [WHITE[0],300],[WHITE[0],200],[WHITE[1],400],[WHITE[0],400],[WHITE[5],400],[WHITE[4],800]
+    ]},
+    jingle:{n:'铃儿响叮当',b:[
+      [WHITE[2],250],[WHITE[2],250],[WHITE[2],500],[WHITE[2],250],[WHITE[2],250],[WHITE[2],500],
+      [WHITE[2],250],[WHITE[4],250],[WHITE[0],375],[WHITE[1],125],[WHITE[2],800]
+    ]},
+    scale:{n:'音阶练习',b:WHITE.map(function(f){return [f,300];})}
+  };
+  function playSong(name){
+    if(playingSong)return;
+    var s=SONGS[name]; if(!s)return;
+    playingSong=true;
+    document.getElementById('np').textContent='♪ 播放：'+s.n+' ♪';
+    var i=0;
+    function step(){
+      if(!playingSong||i>=s.b.length){playingSong=false;document.getElementById('np').textContent='点击琴键或按 A S D F G H J K';return;}
+      var note=s.b[i]; i++;
+      if(note[0]>0){
+        var el=piano.querySelector('[data-freq="'+note[0]+'"]');
+        if(el){play(note[0],el);setTimeout(function(){release(note[0],el);},Math.max(80,note[1]*0.8));}
+      }
+      setTimeout(step,note[1]);
+    }
+    step();
+  }
+  document.querySelectorAll('[data-song]').forEach(function(b){b.addEventListener('click',function(){playSong(b.dataset.song);});});
+  // 录音
+  var recBtn=document.getElementById('recBtn');
+  recBtn.addEventListener('click',function(){
+    recording=!recording;
+    if(recording){recorded=[];recStart=Date.now();recBtn.innerHTML='■ 停止';document.getElementById('np').innerHTML='<span class="rec-dot"></span>录音中...';SFX.select();}
+    else {recBtn.innerHTML='● 录音';document.getElementById('np').textContent='录了 '+recorded.length+' 个音，点回放';SFX.click();}
+  });
+  document.getElementById('playBtn').addEventListener('click',function(){
+    if(playingSong||recorded.length===0){toast('没有录音');return;}
+    playingSong=true;document.getElementById('np').textContent='♪ 回放录音 ♪';
+    recorded.forEach(function(n){
+      setTimeout(function(){var el=piano.querySelector('[data-freq="'+n.f+'"]');if(el){play(n.f,el);setTimeout(function(){release(n.f,el);},250);}},n.t);
+    });
+    var total=recorded[recorded.length-1].t+400;
+    setTimeout(function(){playingSong=false;document.getElementById('np').textContent='点击琴键或按 A S D F G H J K';},total);
+  });
+  build();
+})();
+</script>
+</body>
+</html>

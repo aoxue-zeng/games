@@ -343,7 +343,15 @@
     // 文字
     {n:'打字练习',f:'practice.html',c:'文字',k:'打字 练习 键盘 指法 入门'},
     {n:'打字大作战',f:'typing.html',c:'文字',k:'打字 大作战 单词 速度'},
-    {n:'连连看',f:'linkup.html',c:'文字',k:'连连看 配对 消除 连线'}
+    {n:'连连看',f:'linkup.html',c:'文字',k:'连连看 配对 消除 连线'},
+    // 体育运动
+    {n:'投篮挑战',f:'basketball.html',c:'体育运动',k:'篮球 投篮 篮筐 射篮 弹弓 物理'},
+    {n:'点球大战',f:'soccer.html',c:'体育运动',k:'足球 点球 射门 门将 扑救 世界杯'},
+    {n:'射箭',f:'archery.html',c:'体育运动',k:'射箭 弓箭 靶心 瞄准 拉弓 箭术'},
+    // 赛车竞速
+    {n:'赛车躲避',f:'racer.html',c:'赛车竞速',k:'赛车 跑车 躲避 金币 三车道 公路'},
+    {n:'像素跑酷',f:'parkour.html',c:'赛车竞速',k:'跑酷 跳跃 滑行 障碍 自动跑 横版'},
+    {n:'漂移过弯',f:'drift.html',c:'赛车竞速',k:'漂移 赛车 过弯 赛道 圈速 俯视 椭圆'}
   ];
 
   function initAssistant() {
@@ -377,7 +385,7 @@
     }
 
     function welcome() {
-      addMsg('👋 你好！我是 AoXuan 网站助手。<br>这里有 <b>76 个游戏</b>，告诉我你想玩什么类型，我帮你找！<br><br>你可以问：<br>• "想玩射击游戏"<br>• "有马里奥吗"<br>• "手机能玩吗"<br>• "推荐个益智的"<br>• "贪吃蛇在哪"');
+        addMsg('👋 你好！我是 AoXuan 网站助手。<br>这里有 <b>82 个游戏</b>，告诉我你想玩什么类型，我帮你找！<br><br>你可以问：<br>• "想玩射击游戏"<br>• "有马里奥吗"<br>• "手机能玩吗"<br>• "推荐个益智的"<br>• "贪吃蛇在哪"<br>• "赛车/体育游戏"');
     }
 
     function toggle() {
@@ -423,14 +431,20 @@
         return '👋 你好！想玩什么游戏？告诉我类型或名字就行～';
       }
       if (q.indexOf('有多少') >= 0 || q.indexOf('几个') >= 0 || q.indexOf('多少') >= 0) {
-        return '🎮 本站共有 <b>76 个游戏</b>，分 9 大类：马里奥15、我的世界15、动作射击9、益智逻辑14、经典街机12、博弈竞猜3、策略对战2、创造休闲3、文字3。';
+        return '🎮 本站共有 <b>82 个游戏</b>，分 11 大类：马里奥15、我的世界16、动作射击46、益智逻辑17、经典街机15、博弈竞猜4、策略对战3、创造休闲5、文字5、体育运动3、赛车竞速3。';
       }
       if (q.indexOf('分类') >= 0 || q.indexOf('类别') >= 0 || q.indexOf('种类') >= 0) {
-        return '📂 9 大分类：<br>🍄 马里奥 · ⛏ 我的世界 · 🎮 动作射击 · 🧠 益智逻辑 · 🕹️ 经典街机 · 🎲 博弈竞猜 · ♟️ 策略对战 · 🎨 创造休闲 · ⌨️ 文字<br><br>主页可点分类按钮筛选！';
+        return '📂 11 大分类：<br>🍄 马里奥 · ⛏ 我的世界 · 🎮 动作射击 · 🧠 益智逻辑 · 🕹️ 经典街机 · 🎲 博弈竞猜 · ♟️ 策略对战 · 🎨 创造休闲 · ⌨️ 文字 · ⚽ 体育运动 · 🏁 赛车竞速<br><br>主页可点分类按钮筛选！';
       }
       if (q.indexOf('推荐') >= 0 || q.indexOf('好玩') >= 0 || q.indexOf('玩什么') >= 0) {
         var picks = [GAME_DB[12], GAME_DB[21], GAME_DB[27], GAME_DB[38], GAME_DB[49], GAME_DB[67]];
         return '🔥 热门推荐：<br>' + picks.map(function(g){return '• <a href="'+g.f+'">'+g.n+'</a> ('+g.c+')';}).join('<br>');
+      }
+      if (q.indexOf('体育') >= 0 || q.indexOf('运动') >= 0 || q.indexOf('篮球') >= 0 || q.indexOf('足球') >= 0 || q.indexOf('射箭') >= 0) {
+        return '⚽ 体育运动类（共3个）：<br>• <a href="basketball.html">🏀 投篮挑战</a> 拖球投篮，60秒挑战<br>• <a href="soccer.html">⚽ 点球大战</a> 选方向力度射门<br>• <a href="archery.html">🏹 射箭</a> 拉弓射移动靶心';
+      }
+      if (q.indexOf('赛车') >= 0 || q.indexOf('竞速') >= 0 || q.indexOf('跑车') >= 0 || q.indexOf('跑酷') >= 0 || q.indexOf('漂移') >= 0) {
+        return '🏁 赛车竞速类（共3个）：<br>• <a href="racer.html">🏎️ 赛车躲避</a> 三车道躲车收金币<br>• <a href="parkour.html">🏃 像素跑酷</a> 跳跃滑行越跑越快<br>• <a href="drift.html">🏎️ 漂移过弯</a> 椭圆赛道漂移跑3圈';
       }
       if (q.indexOf('音乐') >= 0 || q.indexOf('歌') >= 0 || q.indexOf('作曲') >= 0) {
         return '🎵 <a href="music.html">音乐工作站</a>！可以播放6首预设歌曲（马里奥/塞尔达等），自己编曲，导出导入JSON文件。作品存在<a href="music-vault.html">音乐仓库</a>，也能拖入mp3/wav音频播放。';

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汉诺塔 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #board { position:relative; width:560px; max-width:95vw; height:360px; background:linear-gradient(180deg,#3d2817,#1a0e05); border:4px solid #000; margin:16px auto; box-shadow:inset 4px 4px 0 0 #5d3a1a, 8px 8px 0 0 rgba(0,0,0,0.4); }
+  .peg { position:absolute; bottom:30px; width:8px; height:240px; background:#5d3a1a; border:2px solid #000; box-shadow:inset 2px 0 0 0 #8b5a2b; transform:translateX(-50%); border-radius:4px 4px 0 0; }
+  .peg-base { position:absolute; bottom:20px; width:140px; height:14px; background:#5d3a1a; border:2px solid #000; transform:translateX(-50%); }
+  .peg-label { position:absolute; bottom:2px; width:140px; text-align:center; transform:translateX(-50%); font-family:'Press Start 2P',monospace; font-size:10px; color:#ffd700; text-shadow:1px 1px 0 #000; }
+  .disk { position:absolute; height:24px; border:2px solid #000; box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.3), inset -2px -2px 0 0 rgba(0,0,0,0.3); transform:translateX(-50%); transition: left 0.15s, bottom 0.15s; cursor:pointer; }
+  .disk.lifting { bottom:290px !important; z-index:10; }
+  .disk.invalid { box-shadow: 0 0 0 3px #e53935; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="2048.html">2048</a>
+    <a href="sokoban.html">推箱子</a>
+    <a href="hanoi.html">汉诺塔</a>
+    <a href="lights.html">点灯</a>
+    <a href="maze.html">迷宫</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🗼 汉诺塔</h1>
+  <p class="subtitle">把所有盘子搬到最右柱！大盘不能放小盘上</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">步数</span><span id="moves">0</span></div>
+    <div class="hud-item"><span class="label">最少</span><span id="min">7</span></div>
+    <div class="hud-item"><span class="label">层数</span><span id="n">3</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div id="board">
+    <div class="peg-base" style="left:18%"></div><div class="peg" style="left:18%"></div><div class="peg-label" style="left:18%">A</div>
+    <div class="peg-base" style="left:50%"></div><div class="peg" style="left:50%"></div><div class="peg-label" style="left:50%">B</div>
+    <div class="peg-base" style="left:82%"></div><div class="peg" style="left:82%"></div><div class="peg-label" style="left:82%">C</div>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    点击柱子选起最上面的盘，再点目标柱放下 · 大盘不能压小盘
+  </p>
+  <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="newBtn">▶ 新游戏</button>
+    <button class="mc-btn gold" data-n="3">3层</button>
+    <button class="mc-btn" data-n="4">4层</button>
+    <button class="mc-btn" data-n="5">5层</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var PEGX=[18,50,82]; // 百分比
+  var COLORS=['#e53935','#ff9800','#ffd700','#4caf50','#2196f3','#9c27b0'];
+  var N=3, pegs, selected, moves, won, board=document.getElementById('board');
+  function bestKey(){return 'hanoi_best_'+N;}
+  function getBest(){var v=parseInt(localStorage.getItem(bestKey())||'0',10);return v||0;}
+  function setBest(v){localStorage.setItem(bestKey(),v);}
+  function init(){
+    pegs=[[],[],[]];
+    for(var i=N;i>=1;i--)pegs[0].push(i);
+    selected=-1; moves=0; won=false;
+    document.getElementById('min').textContent=Math.pow(2,N)-1;
+    document.getElementById('n').textContent=N;
+    document.getElementById('best').textContent=getBest()?'≤'+getBest():'—';
+    render();
+  }
+  function render(){
+    // 移除旧盘
+    var olds=board.querySelectorAll('.disk'); olds.forEach(function(d){d.remove();});
+    pegs.forEach(function(stack,pi){
+      stack.forEach(function(size,li){
+        var disk=document.createElement('div');
+        disk.className='disk';
+        var w=40+size*22;
+        disk.style.width=w+'px';
+        disk.style.background=COLORS[(size-1)%COLORS.length];
+        disk.style.left=PEGX[pi]+'%';
+        disk.style.bottom=(34+li*26)+'px';
+        disk.dataset.peg=pi; disk.dataset.size=size;
+        if(selected===pi && li===stack.length-1){disk.classList.add('lifting');}
+        board.appendChild(disk);
+      });
+    });
+    document.getElementById('moves').textContent=moves;
+  }
+  function clickPeg(pi){
+    if(won)return;
+    AOXSound.ensure();
+    if(selected<0){
+      if(pegs[pi].length===0){toast('这柱是空的');SFX.error();return;}
+      selected=pi; SFX.move(); render();
+    } else {
+      if(selected===pi){selected=-1;SFX.back();render();return;}
+      var from=pegs[selected], to=pegs[pi];
+      var top=from[from.length-1];
+      if(to.length>0 && to[to.length-1]<top){toast('大盘不能放小盘上');SFX.error();selected=-1;render();return;}
+      to.push(from.pop()); moves++; selected=-1; SFX.place(); render();
+      // 通关检测
+      if(pegs[2].length===N){won=true;
+        var min=Math.pow(2,N)-1;
+        SFX.win();
+        if(moves<=min || !getBest()||moves<getBest()){setBest(moves);}
+        document.getElementById('best').textContent='≤'+getBest();
+        if(moves===min)toast('🎉 完美！'+moves+'步=最少步数！');
+        else toast('🏆 通关！'+moves+'步（最少'+min+'步）');
+      }
+    }
+  }
+  // 点击柱子区域
+  board.addEventListener('click',function(e){
+    var rect=board.getBoundingClientRect();
+    var x=(e.clientX-rect.left)/rect.width*100;
+    var pi = x<34?0:(x<66?1:2);
+    clickPeg(pi);
+  });
+  board.addEventListener('touchstart',function(e){
+    e.preventDefault();
+    var rect=board.getBoundingClientRect();
+    var t=e.touches[0];
+    var x=(t.clientX-rect.left)/rect.width*100;
+    var pi = x<34?0:(x<66?1:2);
+    clickPeg(pi);
+  },{passive:false});
+  document.querySelectorAll('[data-n]').forEach(function(b){
+    b.addEventListener('click',function(){N=parseInt(b.dataset.n,10);init();SFX.click();});
+  });
+  document.getElementById('newBtn').addEventListener('click',function(){init();SFX.click();});
+  init();
+})();
+</script>
+</body>
+</html>

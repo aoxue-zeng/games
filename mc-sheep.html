@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>牧羊回家 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#5fb53f; touch-action:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="farming.html">农场</a>
+    <a href="treasure.html">寻宝</a>
+    <a href="mc-sheep.html">牧羊</a>
+    <a href="mc-archery.html">射箭场</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐑 牧羊回家</h1>
+  <p class="subtitle">引导所有绵羊回到羊圈！用草吸引它们移动</p>
+  <div class="hud" style="margin-top:20px;">
+    <div class="hud-item"><span class="label">回家</span><span id="home">0/0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">草料</span><span id="grass">∞</span></div>
+    <div class="hud-item"><span class="label">最高关</span><span id="best">1</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="560" height="440"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:16px;margin-top:12px;">
+    点击放置草料吸引羊 · 让所有羊走进羊圈（栅栏区）过关 · <span class="key">N</span> 下一关
+  </p>
+  <div style="margin-top:14px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <button class="mc-btn green" id="restartBtn">🔄 重置本关</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height, CELL=40, COLS=W/CELL, ROWS=H/CELL;
+  var state, sheep, grasses, pen, obstacles, particles, tick, wonT;
+  function getBest(){return parseInt(localStorage.getItem('mcsheep_best')||'1',10);}
+  function setBest(v){localStorage.setItem('mcsheep_best',v);}
+  function makeLevel(lv){
+    pen={x:COLS-2, y:1, w:2, h:2};
+    obstacles=[];
+    // 障碍（树/水/石头）
+    var nObs=4+lv*2;
+    for(var i=0;i<nObs;i++){
+      var x,y,tries=0;
+      do{x=Math.floor(Math.random()*COLS);y=Math.floor(Math.random()*ROWS);tries++;}while(tries<50&&(isPen(x,y)||isObs(x,y)));
+      if(tries<50)obstacles.push({x:x,y:y,type:['tree','water','rock'][i%3]});
+    }
+    sheep=[]; var nSheep=2+Math.min(lv,4);
+    for(var s=0;s<nSheep;s++){
+      var sx,sy,tries2=0;
+      do{sx=Math.floor(Math.random()*3);sy=ROWS-2-Math.floor(Math.random()*3);tries2++;}while(tries2<50&&(isObs(sx,sy)||isPen(sx,sy)));
+      sheep.push({x:sx*CELL+CELL/2,y:sy*CELL+CELL/2,tx:sx*CELL+CELL/2,ty:sy*CELL+CELL/2,dir:0,wig:Math.random()*6,home:false});
+    }
+    grasses=[]; particles=[]; wonT=0;
+    state.won=false;
+    updateHud();
+  }
+  function isPen(cx,cy){return cx>=pen.x&&cx<pen.x+pen.w&&cy>=pen.y&&cy<pen.y+pen.h;}
+  function isObs(cx,cy){return obstacles.some(function(o){return o.x===cx&&o.y===cy;});}
+  function blocked(cx,cy){return isObs(cx,cy);}
+  function init(){
+    state={level:1,running:true};
+    makeLevel(state.level);
+  }
+  function updateHud(){
+    document.getElementById('home').textContent=sheep.filter(function(s){return s.home;}).length+'/'+sheep.length;
+    document.getElementById('level').textContent=state.level;
+    document.getElementById('best').textContent=getBest();
+  }
+  function update(){
+    tick++;
+    // 羊移动
+    sheep.forEach(function(s){
+      if(s.home)return;
+      s.wig+=0.15;
+      // 找最近的草
+      var target=null,td=Infinity;
+      grasses.forEach(function(g){var d=Math.hypot(g.x-s.x,g.y-s.y); if(d<td){td=d;target=g;}});
+      var goalX,goalY;
+      if(target && td<CELL*4){goalX=target.x;goalY=target.y;}
+      else {
+        // 被羊圈吸引
+        var pcx=(pen.x+pen.w/2)*CELL, pcy=(pen.y+pen.h/2)*CELL;
+        goalX=pcx;goalY=pcy;
+      }
+      var dx=goalX-s.x, dy=goalY-s.y, d=Math.hypot(dx,dy);
+      if(d>2){
+        var sp=0.8;
+        var nx=s.x+dx/d*sp, ny=s.y+dy/d*sp;
+        // 障碍检测
+        var ncx=Math.floor(nx/CELL), ncy=Math.floor(ny/CELL);
+        if(!blocked(ncx,ncy)){s.x=nx;s.y=ny;}
+        else {
+          // 尝试绕开
+          if(!blocked(Math.floor((s.x+dx/d*sp)/CELL),Math.floor(s.y/CELL)))s.x+=dx/d*sp;
+          else if(!blocked(Math.floor(s.x/CELL),Math.floor((s.y+dy/d*sp)/CELL)))s.y+=dy/d*sp;
+        }
+        s.dir=Math.atan2(dy,dx);
+      }
+      // 到羊圈
+      if(isPen(Math.floor(s.x/CELL),Math.floor(s.y/CELL))){
+        s.home=true; SFX.coin(); fx(s.x,s.y,'#fff',8);
+        updateHud();
+        if(sheep.every(function(sh){return sh.home;})&&!state.won){
+          state.won=true; wonT=90; SFX.levelUp(); toast('🎉 全部回家！+关'+state.level);
+          if(state.level>=getBest()){setBest(state.level);}
+        }
+      }
+      // 吃草
+      grasses.forEach(function(g){if(Math.hypot(g.x-s.x,g.y-s.y)<14){g.dead=true;}});
+    });
+    grasses=grasses.filter(function(g){return !g.dead;});
+    // 通关过渡
+    if(state.won){wonT--; if(wonT<=0){state.level++; makeLevel(state.level);}}
+    for(var p=particles.length-1;p>=0;p--){var pt=particles[p];pt.x+=pt.vx;pt.y+=pt.vy;pt.vy+=0.2;pt.life--;if(pt.life<=0)particles.splice(p,1);}
+  }
+  function fx(x,y,c,n){n=n||6;for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,s=1+Math.random()*3;particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:20,c:c,size:2+Math.random()*2});}}
+  function draw(){
+    // 草地
+    ctx.fillStyle='#5fb53f'; ctx.fillRect(0,0,W,H);
+    for(var y=0;y<ROWS;y++)for(var x=0;x<COLS;x++){
+      if((x+y)%2===0){ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(x*CELL,y*CELL,CELL,CELL);}
+    }
+    // 羊圈
+    ctx.fillStyle='#8b5a2b'; ctx.fillRect(pen.x*CELL,pen.y*CELL,pen.w*CELL,4);
+    ctx.fillRect(pen.x*CELL,pen.y*CELL,4,pen.h*CELL);
+    ctx.fillRect((pen.x+pen.w)*CELL-4,pen.y*CELL,4,pen.h*CELL);
+    ctx.fillRect(pen.x*CELL,(pen.y+pen.h)*CELL-4,pen.w*CELL,4);
+    ctx.fillStyle='#3d8b2a'; ctx.fillRect(pen.x*CELL+4,pen.y*CELL+4,(pen.w*CELL-8),(pen.h*CELL-8));
+    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='16px serif'; ctx.textAlign='center';
+    ctx.fillText('🏠',pen.x*CELL+pen.w*CELL/2,pen.y*CELL+pen.h*CELL/2+6);
+    // 障碍
+    obstacles.forEach(function(o){
+      var cx=o.x*CELL, cy=o.y*CELL;
+      if(o.type==='tree'){ctx.fillStyle='#5d3a1a';ctx.fillRect(cx+CELL/2-4,cy+CELL/2,8,CELL/2);ctx.fillStyle='#2e7d32';ctx.beginPath();ctx.arc(cx+CELL/2,cy+CELL/2,CELL/2-4,0,7);ctx.fill();}
+      else if(o.type==='water'){ctx.fillStyle='#1565c0';ctx.fillRect(cx,cy,CELL,CELL);ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(cx+4,cy+8,CELL-12,3);}
+      else {ctx.fillStyle='#7f7f7f';ctx.fillRect(cx+4,cy+4,CELL-8,CELL-8);ctx.fillStyle='#555';ctx.fillRect(cx+8,cy+8,8,8);}
+    });
+    // 草
+    grasses.forEach(function(g){ctx.fillStyle='#5d3a1a';ctx.fillRect(g.x-3,g.y+2,6,4);ctx.fillStyle='#81c784';ctx.fillRect(g.x-2,g.y-4,2,6);ctx.fillRect(g.x,g.y-6,2,8);ctx.fillRect(g.x+1,g.y-4,2,6);});
+    // 羊
+    sheep.forEach(function(s){
+      var bob=Math.sin(s.wig)*1.5;
+      ctx.save(); ctx.translate(s.x,s.y+bob);
+      // 身体
+      ctx.fillStyle='#f5f5f5'; ctx.fillRect(-10,-4,20,12);
+      ctx.fillStyle='#e0e0e0'; ctx.fillRect(-10,4,20,4);
+      // 头
+      var hx=Math.cos(s.dir)*8, hy=Math.sin(s.dir)*4;
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(hx-3,hy-3,8,6);
+      ctx.fillStyle='#000'; ctx.fillRect(hx+2,hy-1,1,1);
+      // 腿
+      ctx.fillStyle='#5d3a1a'; ctx.fillRect(-8,6,3,4); ctx.fillRect(5,6,3,4);
+      ctx.restore();
+      if(s.home){ctx.fillStyle='#ffd700';ctx.font='14px serif';ctx.textAlign='center';ctx.fillText('✓',s.x,s.y-12);}
+    });
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=p.life/20;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.size,p.size);ctx.globalAlpha=1;});
+    // 通关
+    if(state.won){ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#ffd700';ctx.font='24px "Press Start 2P",monospace';ctx.textAlign='center';ctx.fillText('过关！',W/2,H/2);}
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  function placeGrass(cx,cy){
+    if(state.won)return;
+    var gx=Math.floor(cx/CELL)*CELL+CELL/2, gy=Math.floor(cy/CELL)*CELL+CELL/2;
+    var gridX=Math.floor(cx/CELL), gridY=Math.floor(cy/CELL);
+    if(blocked(gridX,gridY)||isPen(gridX,gridY))return;
+    grasses.push({x:gx,y:gy,dead:false}); SFX.place(); fx(gx,gy,'#81c784',5);
+    if(grasses.length>12)grasses.shift();
+  }
+  canvas.addEventListener('click',function(e){var r=canvas.getBoundingClientRect();placeGrass((e.clientX-r.left)*(W/r.width),(e.clientY-r.top)*(H/r.height));});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();var r=canvas.getBoundingClientRect();var t=e.touches[0];placeGrass((t.clientX-r.left)*(W/r.width),(t.clientY-r.top)*(H/r.height));},{passive:false});
+  document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='n'&&!state.won){state.level++;makeLevel(state.level);SFX.select();}});
+  document.getElementById('restartBtn').addEventListener('click',function(){makeLevel(state.level);SFX.click();});
+  init(); loop();
+})();
+</script>
+</body>
+</html>
