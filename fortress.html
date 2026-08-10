@@ -50,6 +50,7 @@
 <div id="moveStick" class="stick" style="display:none;"><div class="knob"></div></div>
 <div id="aimStick" class="stick" style="display:none;"><div class="knob"></div></div>
 <button id="fireBtn" style="display:none;">开火</button>
+<button id="nightBtn" style="position:fixed;left:24px;bottom:130px;width:64px;height:64px;border-radius:50%;background:rgba(76,175,80,0.8);border:3px solid #fff;color:#fff;font-family:'Press Start 2P',monospace;font-size:9px;z-index:50;display:none;touch-action:none;">夜视</button>
 
 <!-- 开始/选枪界面 -->
 <div class="overlay" id="startScreen">
@@ -67,6 +68,8 @@
       <div class="gun-card" data-gun="sniper"><div class="gicon">🎯</div><div class="gname">狙击枪</div><div class="gstat">射速慢<br>伤害高<br>远距穿透</div></div>
     </div>
     <p class="small">无限子弹 · 阵亡后3秒在基地重生</p>
+    <p class="small" style="color:#39ff14;">🌙 黑夜模式：必须按 A 键(手机点夜视按钮)开启夜视才能看清地图！</p>
+    <p class="small">电脑：方向键/WASD移动·鼠标瞄准·左键开火·A夜视</p>
     <button class="btn" id="playBtn">▶ 开始战斗</button>
     <a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>
   </div>
@@ -109,7 +112,7 @@
   // 修正：橙队堡垒在左(含T=橙奖杯)，紫队堡垒在右。重新定义为左右对称
   // 用代码生成更清晰
   var COLS=30,ROWS=19,CELL=Math.min(W/COLS,H/ROWS);
-  // 重新设计地图
+  // 重新设计地图：迷宫式双堡垒，更难攻防
   function buildMap(){
     var m=[];
     for(var r=0;r<ROWS;r++){
@@ -119,32 +122,58 @@
     // 外墙
     for(var c=0;c<COLS;c++){m[0][c]='#';m[ROWS-1][c]='#';}
     for(var r=0;r<ROWS;r++){m[r][0]='#';m[r][COLS-1]='#';}
-    // 橙队堡垒（左 2-5列，行4-14）
-    function fort(c0,color){
-      var r0=4,r1=14;
-      // 墙
-      for(var r=r0;r<=r1;r++){ if(m[r][c0]!=='#')m[r][c0]='#'; }
-      // 内部隔墙带门
-      var doorR=Math.floor((r0+r1)/2);
-      for(var r=r0;r<=r1;r++){
-        if(m[r][c0+1]==='.') m[r][c0+1]='#';
-      }
-      m[doorR][c0]='.'; // 门
-      m[doorR][c0+1]='.'; // 通道
-      // 奖杯室（内角）
-      var tr=r0+1,tc=c0+1;
-      m[tr][tc]='T'; m[tr][tc+1]='T';
-      m[tr+1][tc]='T'; m[tr+1][tc+1]='T';
-    }
-    fort(2,'orange'); // 橙队在左
-    fort(COLS-3,'purple'); // 紫队在右
-    // 中央草地装饰
-    for(var r=0;r<ROWS;r++){ for(var c=0;c<COLS;c++){
-      if(m[r][c]==='.' && c>10 && c<19 && Math.random()<0.06) m[r][c]='G';
-    }}
-    // 中央障碍掩体
+    function setWalls(list){ list.forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]!==undefined) m[p[0]][p[1]]='#'; }); }
+    function setTrophies(list,team){ list.forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]!==undefined) m[p[0]][p[1]]='T'; }); }
+    // ===== 橙队堡垒（左 1-6列）迷宫式 =====
+    // 外围墙框（留门）
+    setWalls([[4,2],[5,2],[6,2],[7,2],[8,2],[10,2],[11,2],[12,2],[13,2],[14,2]]); // 左墙，9行留门
+    setWalls([[4,2],[4,3],[4,4],[4,5],[4,6]]); // 上墙
+    setWalls([[14,2],[14,3],[14,4],[14,5],[14,6]]); // 下墙
+    // 内部隔墙形成曲折走廊
+    setWalls([[5,4],[6,4],[7,4],[8,4]]); // 上隔墙
+    setWalls([[10,4],[11,4],[12,4],[13,4]]); // 下隔墙
+    setWalls([[6,6],[7,6],[8,6],[9,6],[10,6]]); // 中间横墙
+    setWalls([[5,5],[13,5]]); // 竖墙片段
+    // 奖杯室（深处的2x2）
+    setTrophies([[5,3],[5,4]/*已被墙覆盖会变回. */],'orange');
+    // 重新放奖杯到安全角落
+    m[5][3]='.'; m[13][3]='.';
+    setTrophies([[4,3],[4,4]],'orange'); // 上角奖杯室
+    setTrophies([[13,3],[13,4]],'orange'); // 下角奖杯室
+    // 实际只各放一个奖杯区，修正：
+    // 清理：只在最深角落放奖杯
+    [[4,3],[4,4],[13,3],[13,4]].forEach(function(p){m[p[0]][p[1]]='.';});
+    setTrophies([[4,3]],'orange');
+    // ===== 紫队堡垒（右 COLS-7 ~ COLS-2 列）镜像 =====
+    var pc=function(c){return COLS-1-c;};
+    setWalls([[4,pc(2)],[5,pc(2)],[6,pc(2)],[7,pc(2)],[8,pc(2)],[10,pc(2)],[11,pc(2)],[12,pc(2)],[13,pc(2)],[14,pc(2)]]);
+    setWalls([[4,pc(2)],[4,pc(3)],[4,pc(4)],[4,pc(5)],[4,pc(6)]]);
+    setWalls([[14,pc(2)],[14,pc(3)],[14,pc(4)],[14,pc(5)],[14,pc(6)]]);
+    setWalls([[5,pc(4)],[6,pc(4)],[7,pc(4)],[8,pc(4)]]);
+    setWalls([[10,pc(4)],[11,pc(4)],[12,pc(4)],[13,pc(4)]]);
+    setWalls([[6,pc(6)],[7,pc(6)],[8,pc(6)],[9,pc(6)],[10,pc(6)]]);
+    setWalls([[5,pc(5)],[13,pc(5)]]);
+    setTrophies([[4,pc(3)]],'purple');
+    // ===== 中央战场：迷宫式掩体 =====
     var mc=Math.floor(COLS/2);
-    [[8,mc-1],[8,mc+1],[10,mc],[10,mc-2],[10,mc+2]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.') m[p[0]][p[1]]='#'; });
+    // 中央纵墙带两个缺口
+    setWalls([[3,mc-1],[4,mc-1],[5,mc-1],[6,mc-1],[8,mc-1],[9,mc-1],[10,mc-1],[12,mc-1],[13,mc-1],[14,mc-1],[15,mc-1]]);
+    setWalls([[3,mc+1],[4,mc+1],[5,mc+1],[6,mc+1],[8,mc+1],[9,mc+1],[10,mc+1],[12,mc+1],[13,mc+1],[14,mc+1],[15,mc+1]]);
+    // 散落掩体（L形、十字）
+    setWalls([[6,mc-3],[6,mc-2],[7,mc-3]]);
+    setWalls([[12,mc+2],[12,mc+3],[11,mc+3]]);
+    setWalls([[8,mc-3],[9,mc-3],[9,mc-2]]);
+    setWalls([[10,mc+2],[10,mc+3],[11,mc+2]]);
+    // 中央十字掩体
+    setWalls([[9,mc],[10,mc],[9,mc-1]/*已存在?*/]);
+    m[9][mc]='#'; m[10][mc]='#';
+    // 上下走廊障碍
+    setWalls([[2,8],[2,9],[2,10],[2,mc-2],[2,mc+2],[2,mc+3]]);
+    setWalls([[16,8],[16,9],[16,mc-3],[16,mc-2],[16,mc+2],[16,mc+3]]);
+    // 草地装饰（不影响通行）
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+      if(m[r][c]==='.'&&Math.random()<0.04) m[r][c]='G';
+    }
     return m;
   }
   var MAP=buildMap();
@@ -175,6 +204,8 @@
   var respawnTimers={};
   var killFeed=[];
   var camera={x:0,y:0};
+  // 夜视模式：默认黑天，必须按A键开启夜视才能看清
+  var nightVision=false;
 
   function spawnPoint(team){
     // 橙队在左堡垒内(3-4列)，紫队在右堡垒内
@@ -220,8 +251,11 @@
   // ===== 输入 =====
   var keys={}; var mouse={x:W/2,y:H/2,down:false};
   document.addEventListener('keydown',function(e){
-    keys[e.key.toLowerCase()]=true;
-    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(e.key.toLowerCase())>=0)e.preventDefault();
+    var k=e.key.toLowerCase();
+    keys[k]=true;
+    // A 键：切换夜视模式（不在移动键里，避免冲突）
+    if(k==='a'){ nightVision=!nightVision; showToast(nightVision?'🌙 夜视开启':'🌑 夜视关闭'); SFX.click(); e.preventDefault(); }
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
   });
   document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
   cv.addEventListener('mousemove',function(e){
@@ -256,8 +290,11 @@
       document.getElementById('moveStick').style.display='block';
       document.getElementById('aimStick').style.display='block';
       document.getElementById('fireBtn').style.display='block';
+      document.getElementById('nightBtn').style.display='block';
       setupStick('moveStick',moveStick);
       setupStick('aimStick',aimStick);
+      var nb=document.getElementById('nightBtn');
+      nb.addEventListener('touchstart',function(e){e.preventDefault();nightVision=!nightVision;nb.style.background=nightVision?'rgba(255,215,0,0.9)':'rgba(76,175,80,0.8)';showToast(nightVision?'🌙 夜视开启':'🌑 夜视关闭');SFX.click();},{passive:false});
     }
   }
 
@@ -327,9 +364,10 @@
   function playerInput(){
     if(!myPlayer.alive)return;
     var dx=0,dy=0;
+    // 移动：方向键为主，A键已用于夜视
     if(keys['w']||keys['arrowup'])dy-=1;
     if(keys['s']||keys['arrowdown'])dy+=1;
-    if(keys['a']||keys['arrowleft'])dx-=1;
+    if(keys['arrowleft'])dx-=1;
     if(keys['d']||keys['arrowright'])dx+=1;
     if(moveStick.active){dx=moveStick.x;dy=moveStick.y;}
     var d=Math.hypot(dx,dy);
@@ -512,6 +550,42 @@
     ctx.globalAlpha=1;ctx.textAlign='left';
     // 小地图
     drawMinimap();
+    // ===== 夜视/黑暗系统 =====
+    // 默认黑天看不清，按A键(或手机夜视按钮)开启夜视才能看清
+    if(!nightVision){
+      // 全屏黑暗，只有玩家周围一小圈微弱可见
+      var px=myPlayer.x-camera.x, py=myPlayer.y-camera.y;
+      var grad=ctx.createRadialGradient(px,py,10,px,py,90);
+      grad.addColorStop(0,'rgba(0,0,0,0)');
+      grad.addColorStop(0.7,'rgba(0,0,0,0.5)');
+      grad.addColorStop(1,'rgba(0,0,0,0.92)');
+      ctx.fillStyle=grad;
+      ctx.fillRect(0,0,W,H);
+      // 提示
+      ctx.fillStyle='#ffd700';ctx.font='bold 14px monospace';ctx.textAlign='center';
+      ctx.fillText('🌑 黑夜中 · 按 A 键 / 夜视按钮 开启夜视',W/2,H-30);
+      ctx.textAlign='left';
+    } else {
+      // 夜视开启：绿色滤镜 + 大范围可视 + 扫描线效果
+      var px2=myPlayer.x-camera.x, py2=myPlayer.y-camera.y;
+      var grad2=ctx.createRadialGradient(px2,py2,30,px2,py2,420);
+      grad2.addColorStop(0,'rgba(0,80,0,0)');
+      grad2.addColorStop(0.6,'rgba(0,60,0,0.2)');
+      grad2.addColorStop(1,'rgba(0,40,0,0.85)');
+      ctx.fillStyle=grad2;
+      ctx.fillRect(0,0,W,H);
+      // 绿色色调叠加
+      ctx.fillStyle='rgba(0,180,0,0.12)';
+      ctx.fillRect(0,0,W,H);
+      // 扫描线
+      ctx.fillStyle='rgba(0,255,0,0.04)';
+      for(var sy=0;sy<H;sy+=4) ctx.fillRect(0,sy,W,1);
+      // 夜视指示
+      ctx.fillStyle='#39ff14';ctx.font='bold 13px monospace';ctx.textAlign='center';
+      ctx.shadowColor='#39ff14';ctx.shadowBlur=6;
+      ctx.fillText('🌙 夜视中 · 再按 A 关闭',W/2,H-30);
+      ctx.shadowBlur=0;ctx.textAlign='left';
+    }
     // 死亡/重生
     if(!myPlayer.alive){
       ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,H/2-40,W,80);

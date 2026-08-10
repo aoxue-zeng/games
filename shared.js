@@ -428,6 +428,9 @@
 
   function initAssistant() {
     if (document.querySelector('.ai-assistant')) return;
+    // 仅在首页（index.html）显示助手，游戏页不显示，避免挡操作
+    var path = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    if (path !== '' && path !== 'index.html') return;
     // 浮动按钮
     var fab = document.createElement('div');
     fab.className = 'ai-fab';
