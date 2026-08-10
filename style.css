@@ -819,3 +819,328 @@ body.mc-touch-device .mc-touch-layer { display: block; }
   .ai-fab { bottom: 60px; right: 12px; width: 48px; height: 48px; font-size: 22px; }
   .ai-panel { right: 8px; bottom: 8px; width: calc(100vw - 16px); height: 70vh; }
 }
+
+/* ============================================================
+   首页封面美化（hero scene）—— 在原样式基础上叠加，不替换
+   ============================================================ */
+.hero-scene {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  border: 4px solid var(--mc-black);
+  box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.25), inset -4px -4px 0 0 rgba(0,0,0,0.35), 8px 8px 0 0 rgba(0,0,0,0.4);
+  background: linear-gradient(180deg, #1a1a4a 0%, #4a4ac8 25%, #87ceeb 55%, #87ceeb 70%, #5fb53f 70%, #3d8b2a 100%);
+  image-rendering: pixelated;
+}
+/* 星空（顶部夜空过渡到白天） */
+.hero-stars {
+  position: absolute; top: 0; left: 0; right: 0; height: 30%;
+  background-image:
+    radial-gradient(2px 2px at 12% 20%, #fff, transparent),
+    radial-gradient(2px 2px at 28% 50%, #fff, transparent),
+    radial-gradient(1px 1px at 45% 30%, #fff, transparent),
+    radial-gradient(2px 2px at 62% 60%, #ffd, transparent),
+    radial-gradient(1px 1px at 78% 25%, #fff, transparent),
+    radial-gradient(2px 2px at 88% 45%, #fff, transparent),
+    radial-gradient(1px 1px at 35% 70%, #fff, transparent),
+    radial-gradient(1px 1px at 70% 15%, #fff, transparent);
+  opacity: 0.7;
+  animation: twinkle 3s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: 0.4; } to { opacity: 0.9; } }
+
+/* 太阳/月亮 */
+.hero-sun {
+  position: absolute;
+  top: 18%; right: 12%;
+  width: 70px; height: 70px;
+  background: #fff8c0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 6px rgba(255,248,192,0.4),
+    0 0 0 14px rgba(255,248,192,0.2),
+    0 0 40px #ffe066;
+  animation: sunGlow 4s ease-in-out infinite alternate;
+}
+@keyframes sunGlow {
+  from { box-shadow: 0 0 0 6px rgba(255,248,192,0.4), 0 0 0 14px rgba(255,248,192,0.2), 0 0 30px #ffe066; }
+  to { box-shadow: 0 0 0 10px rgba(255,248,192,0.5), 0 0 0 22px rgba(255,248,192,0.25), 0 0 60px #ffd700; }
+}
+
+/* 像素云朵 */
+.hero-cloud {
+  position: absolute;
+  background: #fff;
+  box-shadow:
+    18px -14px 0 0 #fff,
+    36px -8px 0 0 #fff,
+    50px 0 0 0 #fff,
+    18px 8px 0 -2px #e8e8e8,
+    -14px 4px 0 0 #fff;
+  animation: heroCloudDrift linear infinite;
+  opacity: 0.95;
+}
+.hero-cloud.c1 { top: 22%; left: -10%; width: 40px; height: 16px; animation-duration: 38s; }
+.hero-cloud.c2 { top: 35%; left: -20%; width: 56px; height: 20px; animation-duration: 55s; animation-delay: -10s; }
+.hero-cloud.c3 { top: 12%; left: -15%; width: 32px; height: 14px; animation-duration: 45s; animation-delay: -25s; opacity: 0.7; }
+@keyframes heroCloudDrift { from { transform: translateX(0); } to { transform: translateX(130vw); } }
+
+/* 飞鸟 */
+.hero-bird {
+  position: absolute;
+  font-size: 18px;
+  color: #1a1a1a;
+  animation: birdFly linear infinite;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+}
+.hero-bird.b1 { top: 28%; animation-duration: 22s; }
+.hero-bird.b2 { top: 40%; animation-duration: 28s; animation-delay: -8s; }
+@keyframes birdFly {
+  0% { left: -5%; transform: translateY(0); }
+  25% { transform: translateY(-8px); }
+  50% { transform: translateY(4px); }
+  75% { transform: translateY(-6px); }
+  100% { left: 105%; transform: translateY(0); }
+}
+
+/* 像素山脉（多层视差） */
+.hero-mountain {
+  position: absolute;
+  bottom: 30%;
+  left: 0; right: 0;
+  height: 0;
+  pointer-events: none;
+}
+.hero-mtn {
+  position: absolute;
+  bottom: 0;
+  width: 0; height: 0;
+  border-left: solid transparent;
+  border-right: solid transparent;
+  border-bottom-style: solid;
+}
+.hero-mtn.far { opacity: 0.55; }
+.hero-mtn.m1 { left: -2%; border-left-width: 90px; border-right-width: 110px; border-bottom: 120px solid #5d6d7e; }
+.hero-mtn.m2 { left: 18%; border-left-width: 70px; border-right-width: 95px; border-bottom: 95px solid #5d6d7e; }
+.hero-mtn.m3 { right: 5%; border-left-width: 100px; border-right-width: 120px; border-bottom: 130px solid #5d6d7e; }
+.hero-mtn.m4 { right: 25%; border-left-width: 60px; border-right-width: 80px; border-bottom: 85px solid #5d6d7e; }
+/* 山顶雪 */
+.hero-mtn .snow {
+  position: absolute;
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 22px solid #fff;
+}
+
+/* 像素树（草地装饰） */
+.hero-tree {
+  position: absolute;
+  bottom: 8%;
+  width: 24px;
+}
+.hero-tree::before {
+  content: '';
+  display: block;
+  width: 8px; height: 18px;
+  margin: 0 auto;
+  background: #5d3a1a;
+  border: 2px solid #000;
+}
+.hero-tree::after {
+  content: '';
+  display: block;
+  width: 24px; height: 30px;
+  background: #2e7d32;
+  border: 2px solid #000;
+  border-radius: 50% 50% 30% 30%;
+  margin-top: -6px;
+  box-shadow: inset 3px 3px 0 0 #4caf50;
+}
+.hero-tree.t1 { left: 8%; transform: scale(0.9); }
+.hero-tree.t2 { left: 78%; transform: scale(1.1); }
+.hero-tree.t3 { left: 88%; transform: scale(0.7); }
+.hero-tree.t4 { left: 22%; transform: scale(0.75); }
+
+/* 像素花朵（草地上的小花） */
+.hero-flower {
+  position: absolute;
+  bottom: 4%;
+  font-size: 20px;
+  animation: flowerSway 2.5s ease-in-out infinite alternate;
+  text-shadow: 1px 1px 0 #000;
+}
+@keyframes flowerSway { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+.hero-flower.f1 { left: 15%; animation-delay: -0.5s; }
+.hero-flower.f2 { left: 35%; animation-delay: -1s; }
+.hero-flower.f3 { left: 55%; animation-delay: -1.5s; }
+.hero-flower.f4 { left: 70%; animation-delay: -0.8s; }
+.hero-flower.f5 { left: 92%; animation-delay: -1.2s; }
+
+/* 封面内容层（文字+按钮浮在最上） */
+.hero-content {
+  position: relative;
+  z-index: 5;
+  padding: 50px 20px 30px;
+  text-align: center;
+}
+.hero-content .title-3d {
+  font-size: 52px;
+  margin-bottom: 12px;
+}
+.hero-content .hero-tagline {
+  font-family: 'VT323', monospace;
+  font-size: 26px;
+  color: #fff;
+  text-shadow: 3px 3px 0 #000, 0 0 20px rgba(255,215,0,0.6);
+  margin-bottom: 8px;
+}
+.hero-content .hero-desc {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  color: #ffe082;
+  text-shadow: 2px 2px 0 #000;
+  margin-bottom: 24px;
+}
+.hero-cta {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  padding: 18px 36px;
+  background: linear-gradient(180deg, #6fc94a, #3d8b2a);
+  color: #fff;
+  border: 4px solid #000;
+  box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.35), inset -4px -4px 0 0 rgba(0,0,0,0.3), 6px 6px 0 0 rgba(0,0,0,0.5);
+  text-decoration: none;
+  text-shadow: 2px 2px 0 #000;
+  display: inline-block;
+  transition: transform 0.1s;
+  cursor: pointer;
+  animation: ctaPulse 1.6s ease-in-out infinite;
+}
+.hero-cta:hover {
+  transform: translate(-3px, -3px) scale(1.04);
+  box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.4), inset -4px -4px 0 0 rgba(0,0,0,0.3), 10px 10px 0 0 rgba(0,0,0,0.5);
+}
+@keyframes ctaPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+
+/* 精致像素主角（替代原 64x64 方块） */
+.hero-char {
+  position: relative;
+  width: 80px; height: 96px;
+  margin: 24px auto 0;
+  animation: charBob 1.8s ease-in-out infinite;
+}
+@keyframes charBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.hero-char .head {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 44px; height: 40px;
+  background: #ffd9a0;
+  border: 3px solid #000;
+  box-shadow: inset 3px 3px 0 0 #ffeec0;
+}
+.hero-char .hair {
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  width: 50px; height: 18px;
+  background: #5d4037;
+  border: 3px solid #000;
+  clip-path: polygon(0% 100%, 12% 30%, 35% 0%, 65% 0%, 88% 30%, 100% 100%);
+}
+.hero-char .eye {
+  position: absolute; top: 16px;
+  width: 7px; height: 9px;
+  background: #1a1a1a;
+  border: 1px solid #000;
+}
+.hero-char .eye.l { left: 11px; }
+.hero-char .eye.r { right: 11px; }
+.hero-char .mouth {
+  position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 5px;
+  background: #c62828;
+  border: 1px solid #000;
+}
+.hero-char .body {
+  position: absolute; top: 42px; left: 50%; transform: translateX(-50%);
+  width: 50px; height: 38px;
+  background: #1976d2;
+  border: 3px solid #000;
+  box-shadow: inset 3px 3px 0 0 #42a5f5;
+}
+.hero-char .arm {
+  position: absolute; top: 44px;
+  width: 12px; height: 34px;
+  background: #ffd9a0;
+  border: 3px solid #000;
+}
+.hero-char .arm.l { left: 3px; transform: rotate(-8deg); }
+.hero-char .arm.r { right: 3px; transform: rotate(8deg); }
+.hero-char .leg {
+  position: absolute; top: 78px;
+  width: 18px; height: 16px;
+  background: #1565c0;
+  border: 3px solid #000;
+}
+.hero-char .leg.l { left: 18px; }
+.hero-char .leg.r { right: 18px; }
+.hero-char .shoe {
+  position: absolute; top: 90px;
+  width: 20px; height: 8px;
+  background: #3e2723;
+  border: 3px solid #000;
+}
+.hero-char .shoe.l { left: 16px; }
+.hero-char .shoe.r { right: 16px; }
+/* 主角阴影 */
+.hero-char::after {
+  content: '';
+  position: absolute;
+  bottom: -8px; left: 50%; transform: translateX(-50%);
+  width: 70px; height: 10px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: shadowPulse 1.8s ease-in-out infinite;
+}
+@keyframes shadowPulse {
+  0%, 100% { width: 70px; opacity: 0.3; }
+  50% { width: 56px; opacity: 0.45; }
+}
+
+/* 标签徽章 */
+.hero-badge {
+  display: inline-block;
+  background: var(--mc-gold);
+  color: #000;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 6px 12px;
+  border: 3px solid #000;
+  box-shadow: 3px 3px 0 0 rgba(0,0,0,0.4);
+  margin-bottom: 14px;
+  animation: badgeBounce 2s ease-in-out infinite;
+}
+@keyframes badgeBounce {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+}
+
+/* 响应式调整 */
+@media (max-width: 760px) {
+  .hero-scene { min-height: 340px; }
+  .hero-content { padding: 36px 16px 24px; }
+  .hero-content .title-3d { font-size: 34px !important; }
+  .hero-content .hero-tagline { font-size: 20px; }
+  .hero-content .hero-desc { font-size: 16px; }
+  .hero-cta { font-size: 12px; padding: 14px 24px; }
+  .hero-char { transform: scale(0.8); }
+  .hero-sun { width: 50px; height: 50px; top: 14%; right: 8%; }
+}
+
