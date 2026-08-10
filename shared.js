@@ -418,7 +418,11 @@
     {n:'元素战争史诗',f:'epic8.html',c:'动作射击',k:'史诗 元素 boss 任务榜 英雄 传送'},
     {n:'幽灵舰队史诗',f:'epic9.html',c:'动作射击',k:'史诗 幽灵 boss 任务榜 英雄 传送'},
     {n:'地下帝国史诗',f:'epic10.html',c:'动作射击',k:'史诗 地下 boss 任务榜 英雄 传送'},
-    {n:'星辰大海史诗',f:'epic11.html',c:'动作射击',k:'史诗 星辰 boss 任务榜 英雄 传送'}
+    {n:'星辰大海史诗',f:'epic11.html',c:'动作射击',k:'史诗 星辰 boss 任务榜 英雄 传送'},
+    // 最新加入
+    {n:'记忆节奏',f:'simonsays.html',c:'益智逻辑',k:'记忆 simon 节奏 四色 复现 顺序'},
+    {n:'打地鼠',f:'whackmole.html',c:'经典街机',k:'打地鼠 锤子 金鼠 炸弹 连击 60秒'},
+    {n:'平衡球迷宫',f:'balanceball.html',c:'益智逻辑',k:'平衡球 迷宫 倾斜 重力 球 洞 金币'}
   ];
 
   function initAssistant() {
@@ -498,7 +502,7 @@
         return '👋 你好！想玩什么游戏？告诉我类型或名字就行～';
       }
       if (q.indexOf('有多少') >= 0 || q.indexOf('几个') >= 0 || q.indexOf('多少') >= 0) {
-        return '🎮 本站共有 <b>158 个游戏</b>，分 11 大类：马里奥18、我的世界19、动作射击53、益智逻辑21、经典街机20、博弈竞猜7、策略对战7、创造休闲10、文字6、体育运动4、赛车竞速4。';
+        return '🎮 本站共有 <b>161 个游戏</b>，分 11 大类：马里奥18、我的世界19、动作射击53、益智逻辑23、经典街机21、博弈竞猜7、策略对战7、创造休闲10、文字6、体育运动4、赛车竞速4。';
       }
       if (q.indexOf('分类') >= 0 || q.indexOf('类别') >= 0 || q.indexOf('种类') >= 0) {
         return '📂 11 大分类：<br>🍄 马里奥 · ⛏ 我的世界 · 🎮 动作射击 · 🧠 益智逻辑 · 🕹️ 经典街机 · 🎲 博弈竞猜 · ♟️ 策略对战 · 🎨 创造休闲 · ⌨️ 文字 · ⚽ 体育运动 · 🏁 赛车竞速<br><br>主页可点分类按钮筛选！';
@@ -506,6 +510,21 @@
       if (q.indexOf('推荐') >= 0 || q.indexOf('好玩') >= 0 || q.indexOf('玩什么') >= 0) {
         var picks = [GAME_DB[12], GAME_DB[21], GAME_DB[27], GAME_DB[38], GAME_DB[49], GAME_DB[67]];
         return '🔥 热门推荐：<br>' + picks.map(function(g){return '• <a href="'+g.f+'">'+g.n+'</a> ('+g.c+')';}).join('<br>');
+      }
+      if (q.indexOf('今日') >= 0 || q.indexOf('今天') >= 0 || q.indexOf('推荐') >= 0 || q.indexOf('每日') >= 0) {
+        var d=new Date(); var seed=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+        var pick=GAME_DB[seed%GAME_DB.length];
+        return '🎁 <b>今日推荐</b>：<br>'+pick.icon+' <a href="'+pick.f+'"><b>'+pick.n+'</b></a> ('+pick.c+')<br><br>每天都会换一个哦！想换换口味可以说"随机一个"。';
+      }
+      if (q.indexOf('随机') >= 0 || q.indexOf('运气') >= 0 || q.indexOf('随便') >= 0) {
+        var rp=GAME_DB[Math.floor(Math.random()*GAME_DB.length)];
+        return '🎲 <b>命运之选</b>：<br>'+rp.icon+' <a href="'+rp.f+'"><b>'+rp.n+'</b></a> ('+rp.c+')<br><br>不喜欢？再跟我说"随机一个"！';
+      }
+      if (q.indexOf('更新') >= 0 || q.indexOf('新加') >= 0 || q.indexOf('新内容') >= 0 || q.indexOf('新版') >= 0) {
+        return '📢 <b>最近更新</b>：<br>• 08-11 新增体育/赛车类6个游戏<br>• 08-10 pvz融合版每日植物系统(25种轮换)<br>• 08-10 首页封面美化<br>• 08-09 补全158个游戏全部收录<br><br>我会持续加新内容！';
+      }
+      if (q.indexOf('玩过') >= 0 || q.indexOf('历史') >= 0 || q.indexOf('记录') >= 0) {
+        return '🕒 最近玩过的游戏记录在首页"最近玩过"板块（localStorage 本地保存，最多8个）。每玩一个新游戏会自动记到最前面。<br>清记录可在浏览器清除 localStorage。';
       }
       if (q.indexOf('体育') >= 0 || q.indexOf('运动') >= 0 || q.indexOf('篮球') >= 0 || q.indexOf('足球') >= 0 || q.indexOf('射箭') >= 0) {
         return '⚽ 体育运动类（共3个）：<br>• <a href="basketball.html">🏀 投篮挑战</a> 拖球投篮，60秒挑战<br>• <a href="soccer.html">⚽ 点球大战</a> 选方向力度射门<br>• <a href="archery.html">🏹 射箭</a> 拉弓射移动靶心';

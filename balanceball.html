@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>平衡球迷宫 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game{background:#1a1a2e;border:4px solid #000;display:block;margin:16px auto;touch-action:none;box-shadow:6px 6px 0 rgba(0,0,0,0.4);}
+  .tilt-info{text-align:center;font-family:'VT323',monospace;font-size:18px;color:#ffd700;text-shadow:1px 1px 0 #000;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="simonsays.html">记忆节奏</a><a href="whackmole.html">打地鼠</a><a href="balanceball.html">平衡球</a><a href="maze.html">迷宫</a><a href="hanoi.html">汉诺塔</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🎱 平衡球迷宫</h1>
+  <p class="subtitle">倾斜平台让球滚到终点★！躲洞🕳️和墙，收金币，10关挑战</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1/10</span></div>
+    <div class="hud-item"><span class="label">金币</span><span id="coins">0</span></div>
+    <div class="hud-item"><span class="label">用时</span><span id="time">0.0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="lives">3</span></div>
+  </div>
+  <canvas id="game" width="440" height="440"></canvas>
+  <div class="tilt-info">手机：倾斜设备 · 电脑：方向键 或 WASD 或 鼠标移动</div>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <button class="mc-btn" id="nextBtn" style="display:none;">▶ 下一关</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  // 关卡：#墙 .空 S起点 E终点 *金币 O洞
+  var LEVELS = [];
+  LEVELS.push(['##########','#S.......#','#.######.#','#.#....#.#','#.#.##.#.#','#.#.#*.#.#','#.#.##.#.#','#.#....#.#','#.######E#','##########']);
+  LEVELS.push(['##########','#S...#...#','#.##.#.#.#','#.#..#.#.#','#.#.##.#.#','#.#*...#.#','#.######.#','#O......E#','#........#','##########']);
+  LEVELS.push(['###########','#S..#....*#','#.#.#.###.#','#.#...#...#','#.###.#.###','#.*.#.#.*.#','#.#.#.#.#.#','#.#...#.#.#','#.#####.#E#','#O.......O#','###########']);
+  LEVELS.push(['##########','#S.O....*#','#.######.#','#.#....#.#','#.#.##.#.#','#.#O#*.#.#','#.#.##.#.#','#.#....#.#','#.######E#','##########']);
+  LEVELS.push(['############','#S.*.#.....#','#.##.#.###.#','#.#.....#*.#','#.#.#####.#.#','#.*.#.....#','#.###.###.#','#.#...#...#','#.#.#.#.#.#','#.#...#.E.#','#.O..O..O.#','############']);
+  LEVELS.push(['##########','#S......*#','##########','#........#','#.######.#','#.#....#.#','#.#.O*.#.#','#.#.##.#.#','#.#....#E#','##########']);
+  LEVELS.push(['############','#S.O...*...#','#.###.###.#','#.#.....#.#','#.#.###.#.#','#.#.#*O#.#.#','#.#.#.#.#.#','#.#...#.E.#','#.#####.###','#........O#','############']);
+  LEVELS.push(['############','#S.........#','#.########.#','#.*......#.#','#.######.#.#','#.#O...#.#.#','#.#.##.#.#.#','#.#*.#.#.#.#','#.#..#.#.#.#','#.####.#.E#','#........O#','############']);
+  LEVELS.push(['##############','#S...O...*...#','#.###.######.#','#.#.*.#....#.#','#.#.###.##.#.#','#.#...*....#.#','#.###O####.#','#.#......#.#','#.#.####.#.#','#.#*...E.#.#','#.######.#.#','#..........O#','##############']);
+  LEVELS.push(['############','#S*O*O*...#','#.##.##.#.#','#.#..*..#.#','#.#.##O.#.#','#.#.#.##.#','#.#.#..*.#','#.#.####.#','#.#......E#','############']);
+  var cell=0,ball={x:0,y:0,vx:0,vy:0,r:0},map=[],coinsN=0,totalCoins=0,lives=3,curLv=0,t0=0,running=false,over=false,won=false;
+  var tilt={x:0,y:0};
+
+  function loadLevel(idx){
+    var L=LEVELS[idx];var rows=L.length,cols=L[0].length;
+    cell=Math.min(W/cols,H/rows);
+    map=[];coinsN=0;
+    for(var r=0;r<rows;r++){
+      map[r]=[];
+      for(var c=0;c<cols;c++){
+        var ch=L[r][c];
+        map[r][c]=ch;
+        if(ch==='S'){ball.x=c*cell+cell/2;ball.y=r*cell+cell/2;}
+        if(ch==='*')coinsN++;
+      }
+    }
+    ball.vx=0;ball.vy=0;ball.r=cell*0.3;
+    ball.startX=ball.x;ball.startY=ball.y;
+    totalCoins=0;t0=Date.now();over=false;won=false;
+    document.getElementById('level').textContent=(idx+1)+'/'+LEVELS.length;
+    document.getElementById('coins').textContent=0;
+    document.getElementById('lives').textContent=lives;
+  }
+  function reset(){
+    curLv=0;lives=3;running=true;loadLevel(0);SFX.select();
+  }
+  function next(){
+    curLv++;if(curLv>=LEVELS.length){toast('🎉 全部通关！你是平衡大师！');SFX.win();running=false;document.getElementById('nextBtn').style.display='none';return;}
+    loadLevel(curLv);document.getElementById('nextBtn').style.display='none';SFX.select();
+  }
+
+  // 输入
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft'||e.key==='a')tilt.x=-0.3;
+    else if(e.key==='ArrowRight'||e.key==='d')tilt.x=0.3;
+    else if(e.key==='ArrowUp'||e.key==='w')tilt.y=-0.3;
+    else if(e.key==='ArrowDown'||e.key==='s')tilt.y=0.3;
+  });
+  document.addEventListener('keyup',function(e){
+    if(['ArrowLeft','ArrowRight','a','d'].includes(e.key))tilt.x=0;
+    if(['ArrowUp','ArrowDown','w','s'].includes(e.key))tilt.y=0;
+  });
+  cv.addEventListener('mousemove',function(e){
+    if(!running)return;var r=cv.getBoundingClientRect();
+    var mx=(e.clientX-r.left)/r.width-0.5,my=(e.clientY-r.top)/r.height-0.5;
+    tilt.x=mx*0.6;tilt.y=my*0.6;
+  });
+  cv.addEventListener('touchmove',function(e){
+    if(!running)return;e.preventDefault();
+    var r=cv.getBoundingClientRect();var t=e.touches[0];
+    var mx=(t.clientX-r.left)/r.width-0.5,my=(t.clientY-r.top)/r.height-0.5;
+    tilt.x=mx*0.6;tilt.y=my*0.6;
+  },{passive:false});
+  cv.addEventListener('touchend',function(){tilt.x=0;tilt.y=0;});
+  // 重力感应
+  if(window.DeviceOrientationEvent){
+    window.addEventListener('deviceorientation',function(e){
+      if(!running)return;
+      if(e.gamma!==null)tilt.x=Math.max(-0.5,Math.min(0.5,e.gamma/30));
+      if(e.beta!==null)tilt.y=Math.max(-0.5,Math.min(0.5,(e.beta-30)/30));
+    });
+  }
+
+  function tileAt(px,py){
+    var c=Math.floor(px/cell),r=Math.floor(py/cell);
+    if(r<0||r>=map.length||c<0||c>=map[0].length)return '#';
+    return map[r][c];
+  }
+  function update(){
+    if(!running||over)return;
+    // 时间
+    document.getElementById('time').textContent=((Date.now()-t0)/1000).toFixed(1);
+    // 物理
+    ball.vx+=tilt.x*0.15;ball.vy+=tilt.y*0.15;
+    ball.vx*=0.96;ball.vy*=0.96;
+    var nx=ball.x+ball.vx,ny=ball.y+ball.vy;
+    // 墙碰撞（分别检测x和y方向）
+    if(tileAt(nx+Math.sign(ball.vx)*ball.r,ball.y+ball.r*0.5)==='#'||tileAt(nx+Math.sign(ball.vx)*ball.r,ball.y-ball.r*0.5)==='#'){ball.vx=-ball.vx*0.4;nx=ball.x;}
+    if(tileAt(nx+ball.r*0.5,ny+Math.sign(ball.vy)*ball.r)==='#'||tileAt(nx-ball.r*0.5,ny+Math.sign(ball.vy)*ball.r)==='#'){ball.vy=-ball.vy*0.4;ny=ball.y;}
+    ball.x=nx;ball.y=ny;
+    // 收金币
+    var cx=Math.floor(ball.x/cell),cy=Math.floor(ball.y/cell);
+    if(cy>=0&&cy<map.length&&cx>=0&&cx<map[0].length){
+      if(map[cy][cx]==='*'){map[cy][cx]='.';totalCoins++;document.getElementById('coins').textContent=totalCoins;SFX.coin();}
+      if(map[cy][cx]==='O'){ // 掉洞
+        SFX.error();lives--;document.getElementById('lives').textContent=lives;
+        if(lives<=0){over=true;toast('💀 掉洞了！游戏结束');SFX.lose();}
+        else{ball.x=ball.startX;ball.y=ball.startY;ball.vx=0;ball.vy=0;toast('💥 掉洞！剩 '+lives+' 命');}
+      }
+      if(map[cy][cx]==='E'){ // 到终点
+        over=true;won=true;SFX.win();
+        if(totalCoins>=coinsN)toast('🎉 完美通关！全金币！');
+        else toast('✓ 通关！(金币 '+totalCoins+'/'+coinsN+')');
+        document.getElementById('nextBtn').style.display='inline-block';
+      }
+    }
+    // 边界
+    ball.x=Math.max(ball.r,Math.min(W-ball.r,ball.x));
+    ball.y=Math.max(ball.r,Math.min(H-ball.r,ball.y));
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var r=0;r<map.length;r++){
+      for(var c=0;c<map[r].length;c++){
+        var ch=map[r][c],x=c*cell,y=r*cell;
+        if(ch==='#'){ctx.fillStyle='#5d4037';ctx.fillRect(x,y,cell,cell);ctx.fillStyle='#3e2723';ctx.fillRect(x,y,cell,3);ctx.fillRect(x,y,3,cell);}
+        else{ctx.fillStyle='#a5d6a7';ctx.fillRect(x,y,cell,cell);ctx.strokeStyle='#81c784';ctx.lineWidth=1;ctx.strokeRect(x,y,cell,cell);}
+        if(ch==='*'){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.2,0,7);ctx.fill();ctx.strokeStyle='#b8860b';ctx.stroke();}
+        if(ch==='O'){ctx.fillStyle='#000';ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.35,0,7);ctx.fill();}
+        if(ch==='E'){ctx.fillStyle='#4caf50';ctx.font=(cell*0.6)+'px sans-serif';ctx.textAlign='center';ctx.fillText('★',x+cell/2,y+cell*0.75);}
+        if(ch==='S'){ctx.fillStyle='rgba(33,150,243,0.3)';ctx.fillRect(x+4,y+4,cell-8,cell-8);}
+      }
+    }
+    // 球
+    ctx.fillStyle='#e53935';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill();
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.beginPath();ctx.arc(ball.x-ball.r*0.3,ball.y-ball.r*0.3,ball.r*0.3,0,7);ctx.fill();
+    ctx.textAlign='left';
+  }
+  function loop(){update();draw();requestAnimationFrame(loop);}
+  document.getElementById('startBtn').addEventListener('click',reset);
+  document.getElementById('nextBtn').addEventListener('click',next);
+  loadLevel(0);loop();
+})();
+</script>
+</body>
+</html>

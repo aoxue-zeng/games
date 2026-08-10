@@ -1220,4 +1220,119 @@ body.mc-touch-device .mc-touch-layer { display: block; }
   text-shadow: 1px 1px 0 #000;
 }
 
+/* ============================================================
+   每日推荐 / 最近更新 / 快捷入口板块
+   ============================================================ */
+.daily-board {
+  max-width: 1100px;
+  margin: 18px auto 24px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 760px) { .daily-board { grid-template-columns: 1fr; } }
+.daily-panel {
+  background: var(--mc-panel);
+  border: 4px solid var(--mc-black);
+  box-shadow: inset 4px 4px 0 0 var(--mc-highlight), inset -4px -4px 0 0 var(--mc-shadow), 6px 6px 0 0 rgba(0,0,0,0.4);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.daily-panel h3 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: var(--mc-gold);
+  text-shadow: 2px 2px 0 #000;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.daily-pick {
+  display: flex; gap: 14px; align-items: center;
+  text-decoration: none;
+}
+.daily-pick .dp-thumb {
+  width: 80px; height: 80px;
+  border: 3px solid #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px;
+  flex: 0 0 80px;
+  box-shadow: inset 3px 3px 0 0 rgba(255,255,255,0.3);
+}
+.daily-pick .dp-info { flex: 1; }
+.daily-pick .dp-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px; color: var(--mc-black);
+  margin-bottom: 4px;
+}
+.daily-pick .dp-cat {
+  font-family: 'VT323', monospace;
+  font-size: 16px; color: #555;
+}
+.daily-pick .dp-desc {
+  font-family: 'VT323', monospace;
+  font-size: 15px; color: #333;
+  margin-top: 4px; line-height: 1.3;
+}
+.daily-pick .dp-go {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px; color: #fff;
+  background: var(--mc-grass);
+  padding: 8px 12px; border: 3px solid #000;
+  text-shadow: 1px 1px 0 #000;
+  box-shadow: 3px 3px 0 0 rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+.rand-btn {
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  padding: 18px;
+  background: linear-gradient(180deg,#ff9800,#e65100);
+  color: #fff;
+  border: 4px solid #000;
+  box-shadow: inset 4px 4px 0 0 rgba(255,255,255,0.3), inset -4px -4px 0 0 rgba(0,0,0,0.3), 6px 6px 0 0 rgba(0,0,0,0.4);
+  text-shadow: 2px 2px 0 #000;
+  cursor: pointer;
+  transition: transform 0.1s;
+  animation: ctaPulse 1.8s ease-in-out infinite;
+}
+.rand-btn:hover { transform: translate(-2px,-2px) scale(1.02); }
+.rand-btn:active { transform: translate(2px,2px); }
+.update-list { list-style: none; padding: 0; margin: 0; }
+.update-list li {
+  font-family: 'VT323', monospace;
+  font-size: 18px; color: #333;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(0,0,0,0.15);
+  display: flex; align-items: center; gap: 6px;
+}
+.update-list li:last-child { border-bottom: none; }
+.update-list .u-date {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px; color: #888; min-width: 70px;
+}
+.update-list .u-new {
+  background: #e53935; color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px; padding: 2px 4px; border-radius: 2px;
+}
+/* 最近玩过 */
+.recent-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.recent-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--mc-night); color: #fff;
+  border: 2px solid #000;
+  padding: 6px 10px;
+  font-family: 'VT323', monospace; font-size: 16px;
+  text-decoration: none; text-shadow: 1px 1px 0 #000;
+  box-shadow: 2px 2px 0 0 rgba(0,0,0,0.3);
+}
+.recent-chip:hover { background: var(--mc-grass-dark); }
+.recent-chip .rc-icon { font-size: 20px; }
+.recent-empty { color: #888; font-family: 'VT323',monospace; font-size: 18px; }
+
+
 

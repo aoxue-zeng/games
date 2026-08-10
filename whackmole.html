@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>打地鼠 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .whack-stage{background:linear-gradient(180deg,#8d5524,#5d3a1a);border:4px solid var(--mc-black);box-shadow:inset 4px 4px 0 0 #b8860b,inset -4px -4px 0 0 #000,8px 8px 0 0 rgba(0,0,0,0.4);padding:20px;max-width:520px;margin:16px auto;}
+  .whack-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:420px;margin:0 auto;}
+  .hole{aspect-ratio:1;background:radial-gradient(ellipse at center,#3e2723 30%,#1a0e0a 70%);border:4px solid #000;border-radius:50%;position:relative;overflow:hidden;cursor:pointer;box-shadow:inset 0 8px 12px rgba(0,0,0,0.6);}
+  .mole{position:absolute;left:50%;bottom:-100%;transform:translateX(-50%);width:70%;height:70%;font-size:48px;display:flex;align-items:center;justify-content:center;transition:bottom 0.2s cubic-bezier(0.5,1.6,0.4,1);filter:drop-shadow(0 4px 4px rgba(0,0,0,0.5));}
+  .mole.up{bottom:10%;}
+  .mole.hit{animation:hitPop 0.3s;}
+  @keyframes hitPop{0%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.4) rotate(20deg)}100%{transform:translateX(-50%) scale(0)}}
+  .hammer{position:fixed;font-size:40px;pointer-events:none;z-index:1000;transform:rotate(-30deg);transition:transform 0.1s;display:none;}
+  .hammer.swing{transform:rotate(30deg);}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a><a href="simonsays.html">记忆节奏</a><a href="whackmole.html">打地鼠</a><a href="balanceball.html">平衡球</a><a href="catch.html">接贝壳</a><a href="reaction.html">反应</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:32px;">🔨 打地鼠</h1>
+  <p class="subtitle">地鼠冒头就敲！普通鼠+10，金鼠+30，炸弹鼠-20，60秒挑战</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="time">60</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div class="whack-stage">
+    <div class="whack-grid" id="grid"></div>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="hammer" id="hammer">🔨</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+  var HOLES=9,score=0,time=60,combo=0,running=false,best=parseInt(localStorage.getItem('whack_best')||'0',10),timer,spawnT;
+  document.getElementById('best').textContent=best||'—';
+  var grid=document.getElementById('grid');
+  var moles=[];
+  var hammer=document.getElementById('hammer');
+  for(var i=0;i<HOLES;i++){
+    var h=document.createElement('div');h.className='hole';h.dataset.i=i;
+    var m=document.createElement('div');m.className='mole';h.appendChild(m);
+    moles.push({el:m,type:null,up:false,hit:false});
+    h.addEventListener('click',function(e){hit(parseInt(this.dataset.i),e);});
+    h.addEventListener('touchstart',function(e){e.preventDefault();hit(parseInt(this.dataset.i),e.touches[0]);},{passive:false});
+    grid.appendChild(h);
+  }
+  document.addEventListener('mousemove',function(e){if(!running)return;hammer.style.display='block';hammer.style.left=(e.clientX-20)+'px';hammer.style.top=(e.clientY-20)+'px';});
+  document.addEventListener('mousedown',function(){hammer.classList.add('swing');setTimeout(function(){hammer.classList.remove('swing');},100);});
+
+  function spawn(){
+    var empty=[];moles.forEach(function(m,i){if(!m.up)empty.push(i);});
+    if(!empty.length)return;
+    var idx=empty[Math.floor(Math.random()*empty.length)];
+    var r=Math.random();var type='normal';
+    if(r<0.12)type='gold';else if(r<0.22)type='bomb';
+    var m=moles[idx];
+    m.type=type;m.up=true;m.hit=false;
+    m.el.textContent=type==='gold'?'🐹':type==='bomb'?'💣':'🐭';
+    m.el.style.bottom='10%';m.el.classList.add('up');
+    var life=type==='gold'?900:type==='bomb'?1500:1200-Math.min(600,score/2);
+    setTimeout(function(){ if(m.up&&!m.hit){ m.up=false;m.el.classList.remove('up');m.el.style.bottom='-100%'; } },life);
+  }
+  function hit(idx,e){
+    if(!running)return;
+    var m=moles[idx];
+    if(!m.up||m.hit){combo=0;document.getElementById('combo').textContent=combo;SFX.error();return;}
+    m.hit=true;m.up=false;m.el.classList.add('hit');
+    AOXSound.ensure();
+    if(m.type==='bomb'){score=Math.max(0,score-20);combo=0;SFX.boom();spawnParticlesAt(e,'#e53935',12);}
+    else{var pts=m.type==='gold'?30:10;score+=pts+combo;combo++;SFX.coin();spawnParticlesAt(e,m.type==='gold'?'#ffd700':'#8d5524',8);if(combo>0&&combo%5===0)toast('🔥 '+combo+'连击！');}
+    document.getElementById('score').textContent=score;
+    document.getElementById('combo').textContent=combo;
+    setTimeout(function(){m.el.classList.remove('hit','up');m.el.style.bottom='-100%';},300);
+  }
+  function spawnParticlesAt(e,color,n){
+    if(!e||!e.clientX)return;
+    var x=e.clientX,y=e.clientY;
+    for(var i=0;i<n;i++){
+      var p=document.createElement('div');p.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;width:6px;height:6px;background:'+color+';z-index:999;pointer-events:none;border-radius:50%;';
+      document.body.appendChild(p);
+      var ang=Math.random()*7,dist=20+Math.random()*40;
+      p.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+Math.cos(ang)*dist+'px,'+Math.sin(ang)*dist+'px)',opacity:0}],{duration:500}).onfinish=function(){this.cancel();p.remove();};
+    }
+  }
+  function reset(){
+    score=0;time=60;combo=0;running=true;
+    document.getElementById('score').textContent=0;document.getElementById('time').textContent=60;document.getElementById('combo').textContent=0;
+    moles.forEach(function(m){m.up=false;m.hit=false;m.el.classList.remove('up','hit');m.el.style.bottom='-100%';});
+    SFX.select();
+    if(timer)clearInterval(timer);
+    timer=setInterval(function(){time--;document.getElementById('time').textContent=time;if(time<=0)end();},1000);
+    if(spawnT)clearInterval(spawnT);
+    spawnT=setInterval(function(){if(running)spawn();},Math.max(400,1100-score/3));
+  }
+  function end(){
+    running=false;clearInterval(timer);clearInterval(spawnT);
+    SFX.lose();hammer.style.display='none';
+    if(score>best){best=score;localStorage.setItem('whack_best',best);document.getElementById('best').textContent=best;toast('🏆 新纪录 '+score+'！');}
+    else toast('⏰ 时间到！得分 '+score);
+  }
+  document.getElementById('startBtn').addEventListener('click',reset);
+})();
+</script>
+</body>
+</html>
