@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>堡垒大战 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body{overflow:hidden;background:#0a0a14;}
+  #game{display:block;margin:0 auto;background:#1a1a2e;border:3px solid #000;touch-action:none;}
+  .overlay{position:fixed;inset:0;background:rgba(5,5,15,0.92);display:flex;align-items:center;justify-content:center;z-index:100;font-family:'Press Start 2P',monospace;}
+  .panel{background:var(--mc-panel-dark);border:5px solid #000;box-shadow:inset 4px 4px 0 0 #2a3f5f,8px 8px 0 rgba(0,0,0,0.6);padding:30px;max-width:560px;text-align:center;color:#fff;}
+  .panel h1{color:var(--mc-gold);text-shadow:3px 3px 0 #000;font-size:26px;margin-bottom:8px;}
+  .panel h2{color:var(--mc-diamond);font-size:14px;margin:16px 0 10px;}
+  .panel p{font-family:'VT323',monospace;font-size:20px;color:#ffd700;line-height:1.4;margin:6px 0;}
+  .panel .small{font-size:16px;color:#aaa;}
+  .gun-row{display:flex;gap:14px;justify-content:center;margin:18px 0;flex-wrap:wrap;}
+  .gun-card{background:var(--mc-night);border:3px solid #000;padding:16px 12px;width:140px;cursor:pointer;box-shadow:3px 3px 0 rgba(0,0,0,0.5);transition:transform 0.1s;}
+  .gun-card:hover{transform:translate(-2px,-2px);}
+  .gun-card.sel{border-color:#ffd700;box-shadow:0 0 14px #ffd700,3px 3px 0 rgba(0,0,0,0.5);}
+  .gun-card .gicon{font-size:38px;}
+  .gun-card .gname{color:#ffd700;font-size:11px;margin:6px 0 4px;}
+  .gun-card .gstat{font-family:'VT323',monospace;font-size:14px;color:#4dd0e1;line-height:1.3;}
+  .btn{font-family:'Press Start 2P',monospace;font-size:13px;padding:14px 28px;background:linear-gradient(180deg,#6fc94a,#3d8b2a);color:#fff;border:4px solid #000;box-shadow:inset 3px 3px 0 rgba(255,255,255,0.3),4px 4px 0 rgba(0,0,0,0.5);text-shadow:2px 2px 0 #000;cursor:pointer;margin-top:8px;}
+  .btn:hover{transform:translate(-2px,-2px);}
+  .btn.red{background:linear-gradient(180deg,#e53935,#b71c1c);}
+  /* 手机摇杆 */
+  .stick{position:fixed;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.12);border:3px solid rgba(255,255,255,0.4);z-index:50;touch-action:none;}
+  .stick .knob{position:absolute;width:40px;height:40px;border-radius:50%;left:25px;top:25px;}
+  #moveStick{left:24px;bottom:24px;} #moveStick .knob{background:rgba(255,215,0,0.6);}
+  #aimStick{right:24px;bottom:24px;} #aimStick .knob{background:rgba(229,57,53,0.6);}
+  #fireBtn{position:fixed;right:130px;bottom:40px;width:70px;height:70px;border-radius:50%;background:rgba(229,57,53,0.7);border:3px solid #fff;color:#fff;font-family:'Press Start 2P',monospace;font-size:9px;z-index:50;touch-action:none;}
+  .hud2{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:16px;font-family:'Press Start 2P',monospace;font-size:10px;color:#fff;text-shadow:2px 2px 0 #000;}
+  .hud2 .h{background:rgba(0,0,0,0.6);padding:6px 12px;border:2px solid #000;}
+  .toast2{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#ffd700;padding:8px 16px;border:2px solid #ffd700;font-family:'Press Start 2P',monospace;font-size:11px;z-index:60;text-shadow:1px 1px 0 #000;display:none;}
+  @media(max-width:760px){.panel{padding:20px;}.panel h1{font-size:20px;}.gun-card{width:100px;}}
+</style>
+</head>
+<body>
+<canvas id="game" width="960" height="600"></canvas>
+<div class="hud2" id="hud2" style="display:none;">
+  <div class="h" id="hScore">👑 奖杯: 0/1</div>
+  <div class="h" id="hHp">❤️ 100</div>
+  <div class="h" id="hKill">💥 击杀: 0</div>
+  <div class="h" id="hTeam">🟠 橙队 5</div>
+</div>
+<div class="toast2" id="toast2"></div>
+
+<!-- 手机摇杆 -->
+<div id="moveStick" class="stick" style="display:none;"><div class="knob"></div></div>
+<div id="aimStick" class="stick" style="display:none;"><div class="knob"></div></div>
+<button id="fireBtn" style="display:none;">开火</button>
+
+<!-- 开始/选枪界面 -->
+<div class="overlay" id="startScreen">
+  <div class="panel">
+    <h1>🏰 堡垒大战</h1>
+    <p>5 v 5 团队射击 · 夺敌方奖杯获胜！</p>
+    <h2>选择你的队伍</h2>
+    <div class="gun-row">
+      <div class="gun-card sel" data-team="orange"><div class="gicon">🟠</div><div class="gname">橙队</div><div class="gstat">夺紫队奖杯<br>堡垒在左</div></div>
+      <div class="gun-card" data-team="purple"><div class="gicon">🟣</div><div class="gname">紫队</div><div class="gstat">夺橙队奖杯<br>堡垒在右</div></div>
+    </div>
+    <h2>选择你的武器</h2>
+    <div class="gun-row" id="gunRow">
+      <div class="gun-card sel" data-gun="rifle"><div class="gicon">🔫</div><div class="gname">冲锋枪</div><div class="gstat">射速快<br>伤害中<br>近中距</div></div>
+      <div class="gun-card" data-gun="sniper"><div class="gicon">🎯</div><div class="gname">狙击枪</div><div class="gstat">射速慢<br>伤害高<br>远距穿透</div></div>
+    </div>
+    <p class="small">无限子弹 · 阵亡后3秒在基地重生</p>
+    <button class="btn" id="playBtn">▶ 开始战斗</button>
+    <a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>
+  </div>
+</div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  'use strict';
+  var cv=document.getElementById('game'),ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  // 响应式
+  function fit(){ var s=Math.min(window.innerWidth/W,window.innerHeight/H); cv.style.width=(W*s)+'px'; cv.style.height=(H*s)+'px'; }
+  fit(); window.addEventListener('resize',fit);
+
+  // ===== 地图：双堡垒 =====
+  // #墙 .空 空地 G草地 B基地内 T奖杯 S出生点 1橙门 2紫门
+  var MAP_STR=[
+    "##############################",
+    "#1.....#........G.G........#2#",
+    "#1.....#......GGGGG.......#2#",
+    "#1..TTT#......GGGGG.......#2#",
+    "#1..T.T#........G.G....TTT#2#",
+    "#1..TTT#................T.T#2#",
+    "#1.....#......######....TTT#2#",
+    "#1.....#......#....#........#2",
+    "#......#......#....#........#.",
+    "#......#......######........#.",
+    "#......#....................#.",
+    "#......#....................#.",
+    "#1.....#......######........#2",
+    "#1..TTT#......#....#........#2#",
+    "#1..T.T#......#....#....TTT#2#",
+    "#1..TTT#......GGGGG....T.T#2#",
+    "#1.....#......GGGGG....TTT#2#",
+    "#1.....#........G.G........#2#",
+    "##############################"
+  ];
+  // 修正：橙队堡垒在左(含T=橙奖杯)，紫队堡垒在右。重新定义为左右对称
+  // 用代码生成更清晰
+  var COLS=30,ROWS=19,CELL=Math.min(W/COLS,H/ROWS);
+  // 重新设计地图
+  function buildMap(){
+    var m=[];
+    for(var r=0;r<ROWS;r++){
+      m[r]=[];
+      for(var c=0;c<COLS;c++) m[r][c]='.';
+    }
+    // 外墙
+    for(var c=0;c<COLS;c++){m[0][c]='#';m[ROWS-1][c]='#';}
+    for(var r=0;r<ROWS;r++){m[r][0]='#';m[r][COLS-1]='#';}
+    // 橙队堡垒（左 2-5列，行4-14）
+    function fort(c0,color){
+      var r0=4,r1=14;
+      // 墙
+      for(var r=r0;r<=r1;r++){ if(m[r][c0]!=='#')m[r][c0]='#'; }
+      // 内部隔墙带门
+      var doorR=Math.floor((r0+r1)/2);
+      for(var r=r0;r<=r1;r++){
+        if(m[r][c0+1]==='.') m[r][c0+1]='#';
+      }
+      m[doorR][c0]='.'; // 门
+      m[doorR][c0+1]='.'; // 通道
+      // 奖杯室（内角）
+      var tr=r0+1,tc=c0+1;
+      m[tr][tc]='T'; m[tr][tc+1]='T';
+      m[tr+1][tc]='T'; m[tr+1][tc+1]='T';
+    }
+    fort(2,'orange'); // 橙队在左
+    fort(COLS-3,'purple'); // 紫队在右
+    // 中央草地装饰
+    for(var r=0;r<ROWS;r++){ for(var c=0;c<COLS;c++){
+      if(m[r][c]==='.' && c>10 && c<19 && Math.random()<0.06) m[r][c]='G';
+    }}
+    // 中央障碍掩体
+    var mc=Math.floor(COLS/2);
+    [[8,mc-1],[8,mc+1],[10,mc],[10,mc-2],[10,mc+2]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.') m[p[0]][p[1]]='#'; });
+    return m;
+  }
+  var MAP=buildMap();
+  // 奖杯位置
+  var orangeTrophy=[],purpleTrophy=[];
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+    if(MAP[r][c]==='T'){
+      if(c<COLS/2) orangeTrophy.push({r:r,c:c,x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+      else purpleTrophy.push({r:r,c:c,x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+    }
+  }
+  function isWall(x,y){
+    var c=Math.floor(x/CELL),r=Math.floor(y/CELL);
+    if(r<0||r>=ROWS||c<0||c>=COLS) return true;
+    return MAP[r][c]==='#';
+  }
+
+  // ===== 武器配置 =====
+  var GUNS={
+    rifle:{name:'冲锋枪',dmg:14,rate:9,spread:0.12,speed:11,color:'#ffd700',auto:true,bulletR:3},
+    sniper:{name:'狙击枪',dmg:55,rate:55,spread:0.01,speed:18,color:'#4dd0e1',auto:false,bulletR:4,pierce:true}
+  };
+
+  // ===== 状态 =====
+  var playerTeam='orange',playerGun='rifle';
+  var players=[],bullets=[],particles=[],trophyCarrier=null,carryingTeam=null;
+  var myPlayer=null,running=false,over=false,winner=null;
+  var respawnTimers={};
+  var killFeed=[];
+  var camera={x:0,y:0};
+
+  function spawnPoint(team){
+    // 橙队在左堡垒内(3-4列)，紫队在右堡垒内
+    var pts=[];
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+      if(MAP[r][c]==='.'){
+        if(team==='orange'&&c>=1&&c<=4&&r>=5&&r<=13) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+        if(team==='purple'&&c>=COLS-5&&c<=COLS-2&&r>=5&&r<=13) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+      }
+    }
+    return pts[Math.floor(Math.random()*pts.length)];
+  }
+
+  var NAMES_O=['你','橙侠','橙焰','橙盾','橙枪'];
+  var NAMES_P=['紫电','紫影','紫刃','紫甲','紫弓'];
+
+  function makePlayer(team,isMe,name,gun){
+    var sp=spawnPoint(team);
+    return {team:team,isMe:!!isMe,name:name,gun:gun||'rifle',
+      x:sp.x,y:sp.y,angle:team==='orange'?0:Math.PI,
+      hp:100,maxhp:100,alive:true,radius:11,speed:2.2,
+      fireCD:0,target:null,aiTick:0,wanderX:sp.x,wanderY:sp.y,
+      respawn:0,kills:0,deaths:0,moving:false};
+  }
+
+  function reset(){
+    players=[];bullets=[];particles=[];trophyCarrier=null;carryingTeam=null;
+    killFeed=[];over=false;winner=null;
+    // 橙队5人
+    for(var i=0;i<5;i++){
+      var g=i===0?playerGun:(Math.random()<0.5?'rifle':'sniper');
+      var p=makePlayer('orange',i===0,NAMES_O[i],g);
+      if(i===0)myPlayer=p;
+      players.push(p);
+    }
+    // 紫队5人
+    for(var i=0;i<5;i++){
+      players.push(makePlayer('purple',false,NAMES_P[i],Math.random()<0.5?'rifle':'sniper'));
+    }
+    running=true;
+  }
+
+  // ===== 输入 =====
+  var keys={}; var mouse={x:W/2,y:H/2,down:false};
+  document.addEventListener('keydown',function(e){
+    keys[e.key.toLowerCase()]=true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(e.key.toLowerCase())>=0)e.preventDefault();
+  });
+  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  cv.addEventListener('mousemove',function(e){
+    var r=cv.getBoundingClientRect();var s=W/r.width;
+    mouse.x=(e.clientX-r.left)*s; mouse.y=(e.clientY-r.top)*s;
+  });
+  cv.addEventListener('mousedown',function(){mouse.down=true;});
+  cv.addEventListener('mouseup',function(){mouse.down=false;});
+
+  // 手机摇杆
+  var moveStick={active:false,x:0,y:0},aimStick={active:false,x:0,y:0};
+  var isTouch='ontouchstart' in window||navigator.maxTouchPoints>0;
+  function setupStick(id,stick){
+    var el=document.getElementById(id),knob=el.querySelector('.knob');
+    var cx=0,cy=0;
+    el.addEventListener('touchstart',function(e){
+      e.preventDefault();stick.active=true;var r=el.getBoundingClientRect();
+      cx=r.left+r.width/2;cy=r.top+r.height/2;
+      move(e);
+    },{passive:false});
+    el.addEventListener('touchmove',function(e){e.preventDefault();if(stick.active)move(e);},{passive:false});
+    el.addEventListener('touchend',function(e){e.preventDefault();stick.active=false;stick.x=0;stick.y=0;knob.style.left='25px';knob.style.top='25px';},{passive:false});
+    function move(e){var t=e.touches[0];var dx=t.clientX-cx,dy=t.clientY-cy;var d=Math.hypot(dx,dy);var max=35;if(d>max){dx=dx/d*max;dy=dy/d*max;}knob.style.left=(25+dx)+'px';knob.style.top=(25+dy)+'px';stick.x=dx/max;stick.y=dy/max;}
+  }
+  var fireBtn=document.getElementById('fireBtn');
+  var touchFire=false;
+  fireBtn.addEventListener('touchstart',function(e){e.preventDefault();touchFire=true;},{passive:false});
+  fireBtn.addEventListener('touchend',function(e){e.preventDefault();touchFire=false;},{passive:false});
+
+  function setupTouchUI(){
+    if(isTouch){
+      document.getElementById('moveStick').style.display='block';
+      document.getElementById('aimStick').style.display='block';
+      document.getElementById('fireBtn').style.display='block';
+      setupStick('moveStick',moveStick);
+      setupStick('aimStick',aimStick);
+    }
+  }
+
+  // ===== 射击 =====
+  function fire(p){
+    var g=GUNS[p.gun];
+    var ang=p.angle+(Math.random()-0.5)*g.spread*2;
+    bullets.push({x:p.x+Math.cos(p.angle)*p.radius,y:p.y+Math.sin(p.angle)*p.radius,
+      vx:Math.cos(ang)*g.speed,vy:Math.sin(ang)*g.speed,
+      dmg:g.dmg,team:p.team,owner:p,life:80,color:g.color,r:g.bulletR,pierce:g.pierce,hitSet:{}});
+    p.fireCD=g.rate;
+    // 后坐力粒子
+    for(var i=0;i<3;i++)particles.push({x:p.x+Math.cos(p.angle)*16,y:p.y+Math.sin(p.angle)*16,vx:Math.cos(p.angle)*2+(Math.random()-0.5)*2,vy:Math.sin(p.angle)*2+(Math.random()-0.5)*2,life:10,color:g.color,r:2});
+    if(p===myPlayer)SFX.shoot();
+    else if(Math.hypot(p.x-myPlayer.x,p.y-myPlayer.y)<400)SFX.shoot();
+  }
+
+  // ===== AI =====
+  function aiUpdate(p){
+    p.aiTick--;
+    // 找最近敌人
+    var enemy=null,minD=1e9;
+    players.forEach(function(e){ if(e.team!==p.team&&e.alive){var d=Math.hypot(e.x-p.x,e.y-p.y);if(d<minD){minD=d;enemy=e;}} });
+    // 目标：夺奖杯或护送
+    var goal=null;
+    if(trophyCarrier===p){ goal={x:p.team==='orange'?100:W-100,y:H/2}; } // 带奖杯回家
+    else if(!trophyCarrier){
+      // 去抢敌方奖杯
+      var trophy=(p.team==='orange'?purpleTrophy:orangeTrophy)[0];
+      if(trophy)goal=trophy;
+    } else if(trophyCarrier.team===p.team){
+      goal=trophyCarrier; // 跟随护送
+    } else {
+      goal=enemy||{x:W/2,y:H/2}; // 阻击
+    }
+    if(p.aiTick<=0){
+      p.aiTick=15+Math.floor(Math.random()*20);
+      p.wanderX=goal.x+(Math.random()-0.5)*60;
+      p.wanderY=goal.y+(Math.random()-0.5)*60;
+    }
+    // 移动
+    var dx=p.wanderX-p.x,dy=p.wanderY-p.y,d=Math.hypot(dx,dy);
+    if(d>8){
+      var nx=p.x+dx/d*p.speed,ny=p.y+dy/d*p.speed;
+      if(!isWall(nx,p.y))p.x=nx;
+      if(!isWall(p.x,ny))p.y=ny;
+      p.moving=true;
+    } else p.moving=false;
+    // 瞄准+射击
+    if(enemy&&minD<450){
+      p.angle=Math.atan2(enemy.y-p.y,enemy.x-p.x);
+      var los=!lineBlocked(p.x,p.y,enemy.x,enemy.y);
+      if(los&&p.fireCD<=0) fire(p);
+    } else if(goal){
+      p.angle=Math.atan2(goal.y-p.y,goal.x-p.x);
+    }
+  }
+  function lineBlocked(x1,y1,x2,y2){
+    var steps=Math.floor(Math.hypot(x2-x1,y2-y1)/8);
+    for(var i=1;i<steps;i++){
+      var t=i/steps;if(isWall(x1+(x2-x1)*t,y1+(y2-y1)*t))return true;
+    }
+    return false;
+  }
+
+  // ===== 玩家输入移动 =====
+  function playerInput(){
+    if(!myPlayer.alive)return;
+    var dx=0,dy=0;
+    if(keys['w']||keys['arrowup'])dy-=1;
+    if(keys['s']||keys['arrowdown'])dy+=1;
+    if(keys['a']||keys['arrowleft'])dx-=1;
+    if(keys['d']||keys['arrowright'])dx+=1;
+    if(moveStick.active){dx=moveStick.x;dy=moveStick.y;}
+    var d=Math.hypot(dx,dy);
+    if(d>0.15){
+      dx=d>1?dx/d:dx;dy=d>1?dy/d:dy;
+      var nx=myPlayer.x+dx*myPlayer.speed,ny=myPlayer.y+dy*myPlayer.speed;
+      if(!isWall(nx,myPlayer.y))myPlayer.x=nx;
+      if(!isWall(myPlayer.x,ny))myPlayer.y=ny;
+      myPlayer.moving=true;
+    } else myPlayer.moving=false;
+    // 瞄准
+    if(aimStick.active&&(Math.abs(aimStick.x)>0.2||Math.abs(aimStick.y)>0.2)){
+      myPlayer.angle=Math.atan2(aimStick.y,aimStick.x);
+    } else {
+      // 鼠标瞄准（屏幕坐标转世界）
+      var wmx=mouse.x+camera.x,wmy=mouse.y+camera.y;
+      myPlayer.angle=Math.atan2(wmy-myPlayer.y,wmx-myPlayer.x);
+    }
+    // 射击
+    if((mouse.down||touchFire||(aimStick.active&&(Math.abs(aimStick.x)>0.6||Math.abs(aimStick.y)>0.6)))&&myPlayer.fireCD<=0){
+      fire(myPlayer);
+    }
+  }
+
+  // ===== 主循环 =====
+  function update(){
+    if(!running||over)return;
+    // 重生
+    players.forEach(function(p){
+      if(!p.alive){p.respawn--;if(p.respawn<=0){var sp=spawnPoint(p.team);p.x=sp.x;p.y=sp.y;p.hp=p.maxhp;p.alive=true;p.fireCD=0;}}
+      if(p.fireCD>0)p.fireCD--;
+    });
+    playerInput();
+    players.forEach(function(p){ if(!p.isMe&&p.alive)aiUpdate(p); });
+    // 子弹
+    for(var b=bullets.length-1;b>=0;b--){
+      var bu=bullets[b];
+      bu.x+=bu.vx;bu.y+=bu.vy;bu.life--;
+      if(isWall(bu.x,bu.y)){ for(var k=0;k<4;k++)particles.push({x:bu.x,y:bu.y,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:12,color:'#fff',r:2}); bullets.splice(b,1);continue; }
+      // 击中玩家
+      var hit=false;
+      for(var pi=0;pi<players.length;pi++){
+        var pp=players[pi];
+        if(pp.alive&&pp.team!==bu.team&&Math.hypot(pp.x-bu.x,pp.y-bu.y)<pp.radius+bu.r){
+          if(!bu.pierce||!bu.hitSet[pi]){
+            pp.hp-=bu.dmg;
+            bu.hitSet[pi]=true;
+            if(pp===myPlayer)SFX.hurt();
+            for(var k2=0;k2<5;k2++)particles.push({x:bu.x,y:bu.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:15,color:'#e53935',r:2});
+            if(pp.hp<=0){ killPlayer(pp,bu.owner); }
+            if(!bu.pierce){hit=true;break;}
+          }
+        }
+      }
+      if(hit)bullets.splice(b,1);
+      else if(bu.life<=0)bullets.splice(b,1);
+    }
+    // 粒子
+    for(var pi2=particles.length-1;pi2>=0;pi2--){var pa=particles[pi2];pa.x+=pa.vx;pa.y+=pa.vy;pa.life--;if(pa.life<=0)particles.splice(pi2,1);}
+    // 奖杯
+    if(!trophyCarrier){
+      var myTrophy=myPlayer.team==='orange'?purpleTrophy:orangeTrophy;
+      players.forEach(function(p){
+        if(!p.alive)return;
+        var trophy=p.team==='orange'?purpleTrophy:orangeTrophy;
+        for(var ti=0;ti<trophy.length;ti++){
+          var tr=trophy[ti];
+          if(MAP[tr.r][tr.c]==='T'&&Math.hypot(p.x-tr.x,p.y-tr.y)<CELL*0.8){
+            trophyCarrier=p;carryingTeam=p.team;
+            MAP[tr.r][tr.c]='.'; // 移除
+            addKill(p.name+' 抢到了'+(p.team==='orange'?'紫色':'橙色')+'奖杯！','');
+            SFX.coin();
+          }
+        }
+      });
+    } else {
+      // 带回基地检测
+      var home=trophyCarrier.team==='orange'?{x:3*CELL,y:H/2}:{x:(COLS-3)*CELL,y:H/2};
+      if(trophyCarrier.alive&&Math.hypot(trophyCarrier.x-home.x,trophyCarrier.y-home.y)<CELL*3){
+        winner=trophyCarrier.team;over=true;running=false;SFX.win();
+      }
+      // 运载者死亡掉落
+      if(!trophyCarrier.alive){
+        // 原地放回
+        var r=Math.floor(trophyCarrier.y/CELL),c=Math.floor(trophyCarrier.x/CELL);
+        if(r>=0&&r<ROWS&&c>=0&&c<COLS&&MAP[r][c]==='.'){MAP[r][c]='T';(trophyCarrier.team==='orange'?purpleTrophy:orangeTrophy).push({r:r,c:c,x:(c+0.5)*CELL,y:(r+0.5)*CELL});}
+        trophyCarrier=null;carryingTeam=null;
+      }
+    }
+    // 相机跟随
+    camera.x=myPlayer.x-W/2;camera.y=myPlayer.y-H/2;
+    camera.x=Math.max(0,Math.min(COLS*CELL-W,camera.x));
+    camera.y=Math.max(0,Math.min(ROWS*CELL-H,camera.y));
+    updateHud();
+  }
+
+  function killPlayer(p,killer){
+    p.alive=false;p.respawn=180;p.deaths++;
+    for(var k=0;k<14;k++)particles.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*6,vy:(Math.random()-0.5)*6,life:25,color:p.team==='orange'?'#fb8c00':'#9c27b0',r:3});
+    if(killer){killer.kills++;addKill(killer.name+' 击杀 '+p.name,killer.team);}
+    if(p===myPlayer){SFX.lose();showToast('💀 你被击杀了！3秒后重生');}
+  }
+
+  function addKill(text,team){
+    killFeed.unshift({text:text,t:240,team:team||''});
+    if(killFeed.length>4)killFeed.pop();
+  }
+
+  function updateHud(){
+    document.getElementById('hHp').textContent='❤️ '+Math.max(0,Math.ceil(myPlayer.hp));
+    document.getElementById('hKill').textContent='💥 击杀 '+myPlayer.kills;
+    var alive=players.filter(function(p){return p.team===playerTeam&&p.alive;}).length;
+    document.getElementById('hTeam').textContent=(playerTeam==='orange'?'🟠':'🟣')+' '+(playerTeam==='orange'?'橙队':'紫队')+' '+alive;
+    document.getElementById('hScore').textContent='🏆 '+(trophyCarrier?(trophyCarrier===myPlayer?'你带着奖杯！回家！':(trophyCarrier.team===playerTeam?'队友带奖杯':'敌人带奖杯！拦截')):'抢敌方奖杯');
+  }
+
+  function showToast(t){var el=document.getElementById('toast2');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none';},2500);}
+
+  // ===== 绘制 =====
+  function draw(){
+    ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.translate(-camera.x,-camera.y);
+    // 地图
+    for(var r=0;r<ROWS;r++){for(var c=0;c<COLS;c++){
+      var ch=MAP[r][c],x=c*CELL,y=r*CELL;
+      if(ch==='#'){
+        // 橙紫堡垒区分色
+        var isOrange=c<COLS/2-8,isPurple=c>COLS/2+8;
+        ctx.fillStyle=isOrange?'#6d4c41':(isPurple?'#4a3a6a':'#5d4037');
+        ctx.fillRect(x,y,CELL,CELL);
+        ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(x,y,CELL,3);ctx.fillRect(x,y,3,CELL);
+        ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(x+CELL-3,y,3,CELL);
+      } else {
+        ctx.fillStyle=(r+c)%2===0?'#2a2a3e':'#252538';ctx.fillRect(x,y,CELL,CELL);
+        if(ch==='G'){ctx.fillStyle='#1b3a1b';ctx.fillRect(x+CELL*0.2,y+CELL*0.2,CELL*0.6,CELL*0.6);}
+        if(ch==='T'){
+          // 奖杯
+          var isOrangeT=c<COLS/2;
+          ctx.font=(CELL*0.7)+'px sans-serif';ctx.textAlign='center';
+          ctx.fillText(isOrangeT?'🟠':'🟣',x+CELL/2,y+CELL*0.75);
+        }
+      }
+    }}
+    // 基地区域高亮
+    ctx.fillStyle='rgba(251,140,0,0.06)';ctx.fillRect(0,4*CELL,5*CELL,11*CELL);
+    ctx.fillStyle='rgba(156,39,176,0.06)';ctx.fillRect((COLS-5)*CELL,4*CELL,5*CELL,11*CELL);
+    // 粒子
+    particles.forEach(function(p){ctx.globalAlpha=Math.max(0,p.life/25);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();});
+    ctx.globalAlpha=1;
+    // 子弹
+    bullets.forEach(function(bu){ctx.fillStyle=bu.color;ctx.shadowColor=bu.color;ctx.shadowBlur=8;ctx.beginPath();ctx.arc(bu.x,bu.y,bu.r,0,7);ctx.fill();ctx.shadowBlur=0;});
+    // 玩家
+    players.forEach(function(p){
+      if(!p.alive)return;
+      var col=p.team==='orange'?'#fb8c00':'#9c27b0';
+      var dark=p.team==='orange'?'#e65100':'#4a148c';
+      // 阴影
+      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.ellipse(p.x,p.y+3,p.radius,p.radius*0.4,0,0,7);ctx.fill();
+      // 身体
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,7);ctx.fill();
+      ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.stroke();
+      // 枪
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+      ctx.fillStyle='#333';ctx.fillRect(p.radius-2,-3,16,6);
+      ctx.restore();
+      // 名字+血条
+      ctx.fillStyle=p.isMe?'#ffd700':'#fff';ctx.font='9px monospace';ctx.textAlign='center';
+      ctx.fillText(p.name,p.x,p.y-p.radius-14);
+      ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(p.x-14,p.y-p.radius-10,28,4);
+      ctx.fillStyle=p.hp>50?'#4caf50':(p.hp>25?'#ffd700':'#e53935');ctx.fillRect(p.x-14,p.y-p.radius-10,28*(p.hp/p.maxhp),4);
+      // 我方箭头
+      if(p.isMe){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.moveTo(p.x,p.y-p.radius-18);ctx.lineTo(p.x-5,p.y-p.radius-24);ctx.lineTo(p.x+5,p.y-p.radius-24);ctx.fill();}
+      // 带奖杯光环
+      if(trophyCarrier===p){ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.radius+6+Math.sin(Date.now()/100)*2,0,7);ctx.stroke();}
+    });
+    ctx.restore();
+    // 击杀提示
+    ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.textAlign='right';
+    killFeed.forEach(function(k,i){ctx.globalAlpha=Math.min(1,k.t/60);ctx.fillText(k.text,W-16,24+i*18);});
+    ctx.globalAlpha=1;ctx.textAlign='left';
+    // 小地图
+    drawMinimap();
+    // 死亡/重生
+    if(!myPlayer.alive){
+      ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,H/2-40,W,80);
+      ctx.fillStyle='#e53935';ctx.font='bold 24px monospace';ctx.textAlign='center';
+      ctx.fillText('💀 阵亡 · '+Math.ceil(myPlayer.respawn/60)+'秒后重生',W/2,H/2+8);ctx.textAlign='left';
+    }
+  }
+  function drawMinimap(){
+    var mw=140,mh=mw*(ROWS/COLS),mx=W-mw-10,my=10,s=mw/COLS;
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(mx-2,my-2,mw+4,mh+4);
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+      if(MAP[r][c]==='#'){ctx.fillStyle='rgba(200,200,200,0.5)';ctx.fillRect(mx+c*s,my+r*s,s,s);}
+      if(MAP[r][c]==='T'){ctx.fillStyle=c<COLS/2?'#fb8c00':'#9c27b0';ctx.fillRect(mx+c*s,my+r*s,s,s);}
+    }
+    players.forEach(function(p){if(!p.alive)return;ctx.fillStyle=p.isMe?'#ffd700':(p.team==='orange'?'#fb8c00':'#9c27b0');ctx.fillRect(mx+p.x/CELL*s-1.5,my+p.y/CELL*s-1.5,3,3);});
+  }
+
+  function loop(){update();draw();if(over)showEnd();requestAnimationFrame(loop);}
+
+  function showEnd(){
+    if(!over)return;
+    var el=document.getElementById('startScreen');
+    el.style.display='flex';
+    var win=winner===playerTeam;
+    el.querySelector('.panel').innerHTML='<h1>'+(win?'🎉 胜利！':'💀 失败')+'</h1>'+
+      '<p style="color:'+(win?'#4caf50':'#e53935')+';">'+(winner==='orange'?'橙队':'紫队')+' 夺得奖杯！</p>'+
+      '<p>你的击杀：'+myPlayer.kills+' · 死亡：'+myPlayer.deaths+'</p>'+
+      '<button class="btn" id="againBtn">▶ 再来一局</button>'+
+      '<a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>';
+    document.getElementById('againBtn').addEventListener('click',function(){
+      el.style.display='none';reset();
+    });
+    over=false;
+  }
+
+  // ===== 选枪/选队 UI =====
+  document.querySelectorAll('[data-team]').forEach(function(el){
+    el.addEventListener('click',function(){
+      document.querySelectorAll('[data-team]').forEach(function(x){x.classList.remove('sel');});
+      el.classList.add('sel');playerTeam=el.dataset.team;
+    });
+  });
+  document.querySelectorAll('[data-gun]').forEach(function(el){
+    el.addEventListener('click',function(){
+      document.querySelectorAll('[data-gun]').forEach(function(x){x.classList.remove('sel');});
+      el.classList.add('sel');playerGun=el.dataset.gun;
+    });
+  });
+  document.getElementById('playBtn').addEventListener('click',function(){
+    document.getElementById('startScreen').style.display='none';
+    document.getElementById('hud2').style.display='flex';
+    setupTouchUI();
+    reset();
+    startBGM();
+  });
+
+  // ===== 战斗 BGM（程序化 WebAudio）=====
+  var audioCtx,bgmNodes=[],bgmOn=false;
+  function startBGM(){
+    try{
+      if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(bgmOn)return;bgmOn=true;
+      // 主增益
+      var master=audioCtx.createGain();master.gain.value=0.18;master.connect(audioCtx.destination);
+      // 低音鼓节奏 (每0.5秒)
+      function kick(t){var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(40,t+0.15);g.gain.setValueAtTime(0.6,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.2);o.connect(g);g.connect(master);o.start(t);o.stop(t+0.25);}
+      // 军鼓噪声
+      function snare(t){var buf=audioCtx.createBuffer(1,4410,44100);var d=buf.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);var s=audioCtx.createBufferSource();s.buffer=buf;var g=audioCtx.createGain();g.gain.value=0.3;var f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(master);s.start(t);}
+      // 贝斯线
+      var bassNotes=[55,55,73,65];
+      function bass(t,freq){var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.type='sawtooth';o.frequency.value=freq;var f=audioCtx.createBiquadFilter();f.type='lowpass';f.frequency.value=400;o.connect(f);f.connect(g);g.connect(master);g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(0.25,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+0.4);o.start(t);o.stop(t+0.45);}
+      // 主旋律 (方波)
+      var melody=[220,0,294,0,330,0,294,0,220,0,196,0,247,0,0,0];
+      function lead(t,freq){if(!freq)return;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.type='square';o.frequency.value=freq;o.connect(g);g.connect(master);g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(0.08,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+0.28);o.start(t);o.stop(t+0.3);}
+      // 调度循环
+      var bpm=130,beat=60/bpm,bar=beat*4,step=beat/2;
+      var t0=audioCtx.currentTime+0.1,barCount=0;
+      function scheduleBar(startT){
+        // 鼓
+        kick(startT);kick(startT+beat);kick(startT+beat*2);kick(startT+beat*3);
+        snare(startT+beat);snare(startT+beat*3);
+        // 贝斯
+        bass(startT,bassNotes[barCount%4]);
+        bass(startT+beat*2,bassNotes[barCount%4]);
+        // 主旋律
+        for(var i=0;i<16;i++){ lead(startT+i*step, melody[(barCount*4+i)%melody.length] ); }
+      }
+      function loop2(){
+        if(!bgmOn)return;
+        var now=audioCtx.currentTime;
+        while(t0<now+1){
+          scheduleBar(t0);
+          t0+=bar;barCount++;
+        }
+        setTimeout(loop2,200);
+      }
+      loop2();
+      bgmNodes.push(master);
+    }catch(e){console.log('BGM err',e);}
+  }
+  function stopBGM(){bgmOn=false;bgmNodes.forEach(function(n){try{n.disconnect();}catch(e){}});bgmNodes=[];}
+
+  // 首次交互启动音频
+  document.addEventListener('click',function(){if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();});
+
+  loop();
+})();
+</script>
+</body>
+</html>

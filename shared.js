@@ -422,7 +422,8 @@
     // 最新加入
     {n:'记忆节奏',f:'simonsays.html',c:'益智逻辑',k:'记忆 simon 节奏 四色 复现 顺序'},
     {n:'打地鼠',f:'whackmole.html',c:'经典街机',k:'打地鼠 锤子 金鼠 炸弹 连击 60秒'},
-    {n:'平衡球迷宫',f:'balanceball.html',c:'益智逻辑',k:'平衡球 迷宫 倾斜 重力 球 洞 金币'}
+    {n:'平衡球迷宫',f:'balanceball.html',c:'益智逻辑',k:'平衡球 迷宫 倾斜 重力 球 洞 金币'},
+    {n:'堡垒大战',f:'fortress.html',c:'动作射击',k:'堡垒 5v5 团队 射击 奖杯 重生 冲锋枪 狙击 双堡垒 对战'}
   ];
 
   function initAssistant() {
@@ -502,7 +503,7 @@
         return '👋 你好！想玩什么游戏？告诉我类型或名字就行～';
       }
       if (q.indexOf('有多少') >= 0 || q.indexOf('几个') >= 0 || q.indexOf('多少') >= 0) {
-        return '🎮 本站共有 <b>161 个游戏</b>，分 11 大类：马里奥18、我的世界19、动作射击53、益智逻辑23、经典街机21、博弈竞猜7、策略对战7、创造休闲10、文字6、体育运动4、赛车竞速4。';
+        return '🎮 本站共有 <b>162 个游戏</b>，分 11 大类：马里奥18、我的世界19、动作射击54、益智逻辑23、经典街机21、博弈竞猜7、策略对战7、创造休闲10、文字6、体育运动4、赛车竞速4。';
       }
       if (q.indexOf('分类') >= 0 || q.indexOf('类别') >= 0 || q.indexOf('种类') >= 0) {
         return '📂 11 大分类：<br>🍄 马里奥 · ⛏ 我的世界 · 🎮 动作射击 · 🧠 益智逻辑 · 🕹️ 经典街机 · 🎲 博弈竞猜 · ♟️ 策略对战 · 🎨 创造休闲 · ⌨️ 文字 · ⚽ 体育运动 · 🏁 赛车竞速<br><br>主页可点分类按钮筛选！';
@@ -528,6 +529,9 @@
       }
       if (q.indexOf('体育') >= 0 || q.indexOf('运动') >= 0 || q.indexOf('篮球') >= 0 || q.indexOf('足球') >= 0 || q.indexOf('射箭') >= 0) {
         return '⚽ 体育运动类（共3个）：<br>• <a href="basketball.html">🏀 投篮挑战</a> 拖球投篮，60秒挑战<br>• <a href="soccer.html">⚽ 点球大战</a> 选方向力度射门<br>• <a href="archery.html">🏹 射箭</a> 拉弓射移动靶心';
+      }
+      if (q.indexOf('堡垒') >= 0 || q.indexOf('5v5') >= 0 || q.indexOf('5打5') >= 0 || (q.indexOf('团队') >= 0 && q.indexOf('射击') >= 0) || q.indexOf('奖杯') >= 0) {
+        return '🏰 <b>堡垒大战</b>（5v5团队射击）：<br>• 选橙队🟠或紫队🟣（你在的队共5人）<br>• 选冲锋枪🔫（快射）或狙击枪🎯（高伤穿透）<br>• 目标：抢敌方奖杯带回自己基地！<br>• 无限子弹，阵亡3秒在基地重生<br>• 手机双摇杆+开火键，电脑WASD+鼠标<br>• 程序化战斗BGM<br><br><a href="fortress.html">▶ 开始堡垒大战</a>';
       }
       if (q.indexOf('赛车') >= 0 || q.indexOf('竞速') >= 0 || q.indexOf('跑车') >= 0 || q.indexOf('跑酷') >= 0 || q.indexOf('漂移') >= 0) {
         return '🏁 赛车竞速类（共3个）：<br>• <a href="racer.html">🏎️ 赛车躲避</a> 三车道躲车收金币<br>• <a href="parkour.html">🏃 像素跑酷</a> 跳跃滑行越跑越快<br>• <a href="drift.html">🏎️ 漂移过弯</a> 椭圆赛道漂移跑3圈';
