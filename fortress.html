@@ -43,6 +43,7 @@
   <div class="h" id="hHp">❤️ 100</div>
   <div class="h" id="hKill">💥 击杀: 0</div>
   <div class="h" id="hTeam">🟠 橙队 5</div>
+  <div class="h" id="hTime">☀️ 白天</div>
 </div>
 <div class="toast2" id="toast2"></div>
 
@@ -68,7 +69,7 @@
       <div class="gun-card" data-gun="sniper"><div class="gicon">🎯</div><div class="gname">狙击枪</div><div class="gstat">射速慢<br>伤害高<br>远距穿透</div></div>
     </div>
     <p class="small">无限子弹 · 阵亡后3秒在基地重生</p>
-    <p class="small" style="color:#39ff14;">🌙 黑夜模式：必须按 A 键(手机点夜视按钮)开启夜视才能看清地图！</p>
+    <p class="small" style="color:#39ff14;">🌗 昼夜循环：每3分钟自动切换白天/黑夜，黑夜时按 A 键(手机夜视按钮)开夜视才能看清！</p>
     <p class="small">电脑：方向键/WASD移动·鼠标瞄准·左键开火·A夜视</p>
     <button class="btn" id="playBtn">▶ 开始战斗</button>
     <a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>
@@ -204,8 +205,12 @@
   var respawnTimers={};
   var killFeed=[];
   var camera={x:0,y:0};
-  // 夜视模式：默认黑天，必须按A键开启夜视才能看清
-  var nightVision=false;
+  // 昼夜循环：每3分钟（180秒）自动切换白天/黑夜，循环往复
+  // isNight=true 时地图变暗看不清，需按A键开夜视才看清
+  var isNight=false;
+  var nightVision=false; // 夜视镜开关（只在黑夜有意义）
+  var dayNightTimer=0; // 秒计数
+  var DAY_NIGHT_CYCLE=180; // 3分钟切换一次
 
   function spawnPoint(team){
     // 橙队在左堡垒内(3-4列)，紫队在右堡垒内
@@ -253,8 +258,12 @@
   document.addEventListener('keydown',function(e){
     var k=e.key.toLowerCase();
     keys[k]=true;
-    // A 键：切换夜视模式（不在移动键里，避免冲突）
-    if(k==='a'){ nightVision=!nightVision; showToast(nightVision?'🌙 夜视开启':'🌑 夜视关闭'); SFX.click(); e.preventDefault(); }
+    // A 键：切换夜视模式（只在黑夜有意义；白天也可开但效果不变）
+    if(k==='a'){
+      nightVision=!nightVision;
+      showToast(nightVision?('🌙 夜视开启'+(isNight?'':'（白天无影响）')):'🌑 夜视关闭');
+      SFX.click(); e.preventDefault();
+    }
     if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
   });
   document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
@@ -395,6 +404,15 @@
   // ===== 主循环 =====
   function update(){
     if(!running||over)return;
+    // 昼夜循环计时（每3分钟切换一次）
+    dayNightTimer+=1/60;
+    if(dayNightTimer>=DAY_NIGHT_CYCLE){
+      dayNightTimer=0;
+      isNight=!isNight;
+      // 进入黑夜时自动提示
+      if(isNight){ showToast('🌑 夜幕降临！按 A 键开启夜视'); }
+      else { showToast('☀️ 天亮了！'); nightVision=false; }
+    }
     // 重生
     players.forEach(function(p){
       if(!p.alive){p.respawn--;if(p.respawn<=0){var sp=spawnPoint(p.team);p.x=sp.x;p.y=sp.y;p.hp=p.maxhp;p.alive=true;p.fireCD=0;}}
@@ -482,6 +500,11 @@
     var alive=players.filter(function(p){return p.team===playerTeam&&p.alive;}).length;
     document.getElementById('hTeam').textContent=(playerTeam==='orange'?'🟠':'🟣')+' '+(playerTeam==='orange'?'橙队':'紫队')+' '+alive;
     document.getElementById('hScore').textContent='🏆 '+(trophyCarrier?(trophyCarrier===myPlayer?'你带着奖杯！回家！':(trophyCarrier.team===playerTeam?'队友带奖杯':'敌人带奖杯！拦截')):'抢敌方奖杯');
+    var dnEl=document.getElementById('hTime');
+    if(dnEl){
+      var rem=Math.ceil(DAY_NIGHT_CYCLE-dayNightTimer);
+      dnEl.textContent=(isNight?'🌑 黑夜':'☀️ 白天')+' · '+Math.floor(rem/60)+':'+('0'+rem%60).slice(-2);
+    }
   }
 
   function showToast(t){var el=document.getElementById('toast2');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none';},2500);}
@@ -550,41 +573,49 @@
     ctx.globalAlpha=1;ctx.textAlign='left';
     // 小地图
     drawMinimap();
-    // ===== 夜视/黑暗系统 =====
-    // 默认黑天看不清，按A键(或手机夜视按钮)开启夜视才能看清
-    if(!nightVision){
-      // 全屏黑暗，只有玩家周围一小圈微弱可见
-      var px=myPlayer.x-camera.x, py=myPlayer.y-camera.y;
-      var grad=ctx.createRadialGradient(px,py,10,px,py,90);
-      grad.addColorStop(0,'rgba(0,0,0,0)');
-      grad.addColorStop(0.7,'rgba(0,0,0,0.5)');
-      grad.addColorStop(1,'rgba(0,0,0,0.92)');
-      ctx.fillStyle=grad;
-      ctx.fillRect(0,0,W,H);
-      // 提示
-      ctx.fillStyle='#ffd700';ctx.font='bold 14px monospace';ctx.textAlign='center';
-      ctx.fillText('🌑 黑夜中 · 按 A 键 / 夜视按钮 开启夜视',W/2,H-30);
-      ctx.textAlign='left';
+    // ===== 昼夜系统 =====
+    if(isNight){
+      // 黑夜：默认看不清，需开夜视
+      if(!nightVision){
+        // 全屏黑暗，只有玩家周围一小圈微弱可见
+        var px=myPlayer.x-camera.x, py=myPlayer.y-camera.y;
+        var grad=ctx.createRadialGradient(px,py,10,px,py,110);
+        grad.addColorStop(0,'rgba(0,0,0,0)');
+        grad.addColorStop(0.7,'rgba(0,0,10,0.5)');
+        grad.addColorStop(1,'rgba(0,0,10,0.92)');
+        ctx.fillStyle=grad;
+        ctx.fillRect(0,0,W,H);
+        // 夜空蓝调
+        ctx.fillStyle='rgba(10,10,40,0.15)';
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle='#ffd700';ctx.font='bold 13px monospace';ctx.textAlign='center';
+        ctx.fillText('🌑 黑夜 · 按 A 键 / 夜视按钮 开启夜视',W/2,H-30);
+        ctx.textAlign='left';
+      } else {
+        // 夜视开启：绿色滤镜 + 大范围可视 + 扫描线
+        var px2=myPlayer.x-camera.x, py2=myPlayer.y-camera.y;
+        var grad2=ctx.createRadialGradient(px2,py2,30,px2,py2,440);
+        grad2.addColorStop(0,'rgba(0,80,0,0)');
+        grad2.addColorStop(0.6,'rgba(0,60,0,0.2)');
+        grad2.addColorStop(1,'rgba(0,40,0,0.85)');
+        ctx.fillStyle=grad2;
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle='rgba(0,180,0,0.12)';
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle='rgba(0,255,0,0.04)';
+        for(var sy=0;sy<H;sy+=4) ctx.fillRect(0,sy,W,1);
+        ctx.fillStyle='#39ff14';ctx.font='bold 13px monospace';ctx.textAlign='center';
+        ctx.shadowColor='#39ff14';ctx.shadowBlur=6;
+        ctx.fillText('🌙 夜视中 · 再按 A 关闭',W/2,H-30);
+        ctx.shadowBlur=0;ctx.textAlign='left';
+      }
     } else {
-      // 夜视开启：绿色滤镜 + 大范围可视 + 扫描线效果
-      var px2=myPlayer.x-camera.x, py2=myPlayer.y-camera.y;
-      var grad2=ctx.createRadialGradient(px2,py2,30,px2,py2,420);
-      grad2.addColorStop(0,'rgba(0,80,0,0)');
-      grad2.addColorStop(0.6,'rgba(0,60,0,0.2)');
-      grad2.addColorStop(1,'rgba(0,40,0,0.85)');
-      ctx.fillStyle=grad2;
-      ctx.fillRect(0,0,W,H);
-      // 绿色色调叠加
-      ctx.fillStyle='rgba(0,180,0,0.12)';
-      ctx.fillRect(0,0,W,H);
-      // 扫描线
-      ctx.fillStyle='rgba(0,255,0,0.04)';
-      for(var sy=0;sy<H;sy+=4) ctx.fillRect(0,sy,W,1);
-      // 夜视指示
-      ctx.fillStyle='#39ff14';ctx.font='bold 13px monospace';ctx.textAlign='center';
-      ctx.shadowColor='#39ff14';ctx.shadowBlur=6;
-      ctx.fillText('🌙 夜视中 · 再按 A 关闭',W/2,H-30);
-      ctx.shadowBlur=0;ctx.textAlign='left';
+      // 白天：正常显示，右上角显示距黑夜倒计时
+      var remain=Math.ceil(DAY_NIGHT_CYCLE-dayNightTimer);
+      ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(W-150,52,140,20);
+      ctx.fillStyle='#ffd700';ctx.font='11px monospace';ctx.textAlign='right';
+      ctx.fillText('☀️ 白天 · '+Math.floor(remain/60)+':'+('0'+remain%60).slice(-2)+' 后天黑',W-16,66);
+      ctx.textAlign='left';
     }
     // 死亡/重生
     if(!myPlayer.alive){
