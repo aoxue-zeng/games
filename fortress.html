@@ -55,22 +55,40 @@
 
 <!-- 开始/选枪界面 -->
 <div class="overlay" id="startScreen">
-  <div class="panel">
+  <div class="panel" style="max-width:680px;max-height:92vh;overflow-y:auto;">
     <h1>🏰 堡垒大战</h1>
-    <p>5 v 5 团队射击 · 夺敌方奖杯获胜！</p>
-    <h2>选择你的队伍</h2>
+    <p>团队射击 · 夺敌方奖杯获胜！</p>
+    <h2>① 选择你的队伍</h2>
     <div class="gun-row">
       <div class="gun-card sel" data-team="orange"><div class="gicon">🟠</div><div class="gname">橙队</div><div class="gstat">夺紫队奖杯<br>堡垒在左</div></div>
       <div class="gun-card" data-team="purple"><div class="gicon">🟣</div><div class="gname">紫队</div><div class="gstat">夺橙队奖杯<br>堡垒在右</div></div>
     </div>
-    <h2>选择你的武器</h2>
+    <h2>② 每队人数 <span id="cntLbl" style="color:#ffd700;">7</span> 人（含你）</h2>
+    <input type="range" id="teamSize" min="1" max="10" value="7" style="width:80%;accent-color:#ffd700;">
+    <h2>③ 选择你的武器</h2>
     <div class="gun-row" id="gunRow">
-      <div class="gun-card sel" data-gun="rifle"><div class="gicon">🔫</div><div class="gname">冲锋枪</div><div class="gstat">射速快<br>伤害中<br>近中距</div></div>
-      <div class="gun-card" data-gun="sniper"><div class="gicon">🎯</div><div class="gname">狙击枪</div><div class="gstat">射速慢<br>伤害高<br>远距穿透</div></div>
+      <div class="gun-card sel" data-gun="rifle"><div class="gicon">🔫</div><div class="gname">冲锋枪</div><div class="gstat">射速快·中伤</div></div>
+      <div class="gun-card" data-gun="sniper"><div class="gicon">🎯</div><div class="gname">狙击枪</div><div class="gstat">慢·高伤穿透</div></div>
+      <div class="gun-card" data-gun="shotgun"><div class="gicon">💥</div><div class="gname">霰弹枪</div><div class="gstat">近战6发散射</div></div>
+      <div class="gun-card" data-gun="smg"><div class="gicon">🌀</div><div class="gname">机枪</div><div class="gstat">极高射速</div></div>
+      <div class="gun-card" data-gun="pistol"><div class="gicon">🔫</div><div class="gname">手枪</div><div class="gstat">稳定基础</div></div>
+      <div class="gun-card" data-gun="rocket"><div class="gicon">🚀</div><div class="gname">火箭筒</div><div class="gstat">范围爆炸</div></div>
     </div>
-    <p class="small">无限子弹 · 阵亡后3秒在基地重生</p>
-    <p class="small" style="color:#39ff14;">🌗 昼夜循环：每3分钟自动切换白天/黑夜，黑夜时按 A 键(手机夜视按钮)开夜视才能看清！</p>
-    <p class="small">电脑：方向键/WASD移动·鼠标瞄准·左键开火·A夜视</p>
+    <h2>④ 敌方难度（紫队AI）</h2>
+    <div class="gun-row" id="enemyDiffRow">
+      <div class="gun-card" data-diff="easy"><div class="gicon">😊</div><div class="gname">简单的</div><div class="gstat">菜鸟AI<br>精度低</div></div>
+      <div class="gun-card sel" data-diff="medium"><div class="gicon">😎</div><div class="gname">中等的</div><div class="gstat">平衡AI<br>正常精度</div></div>
+      <div class="gun-card" data-diff="hard"><div class="gicon">😡</div><div class="gname">令人发狂的</div><div class="gstat">神枪AI<br>极高精度</div></div>
+    </div>
+    <h2>⑤ 我方难度（队友AI）</h2>
+    <div class="gun-row" id="allyDiffRow">
+      <div class="gun-card sel" data-adiff="medium"><div class="gicon">😎</div><div class="gname">中等的</div><div class="gstat">正常队友</div></div>
+      <div class="gun-card" data-adiff="hard"><div class="gicon">😡</div><div class="gname">令人发狂的</div><div class="gstat">强力队友</div></div>
+      <div class="gun-card" data-adiff="easy"><div class="gicon">😊</div><div class="gname">简单的</div><div class="gstat">菜鸟队友</div></div>
+    </div>
+    <p class="small">无限子弹 · 阵亡3秒重生 · 草丛🌿可隐身(减速) · 水池~减速</p>
+    <p class="small" style="color:#39ff14;">🌗 昼夜循环每3分钟 · 黑夜按 Q 键(手机夜视按钮)开夜视 · 数字1-6换枪</p>
+    <p class="small">电脑：WASD移动·鼠标瞄准·左键开火·Q夜视·1-6换枪</p>
     <button class="btn" id="playBtn">▶ 开始战斗</button>
     <a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>
   </div>
@@ -112,69 +130,57 @@
   ];
   // 修正：橙队堡垒在左(含T=橙奖杯)，紫队堡垒在右。重新定义为左右对称
   // 用代码生成更清晰
-  var COLS=30,ROWS=19,CELL=Math.min(W/COLS,H/ROWS);
-  // 重新设计地图：迷宫式双堡垒，更难攻防
+  var COLS=44,ROWS=28,CELL=Math.floor(Math.min(W*1.6/COLS,H*1.6/ROWS));
+  // 地图设计说明（字符地图，直观可读）：
+  //  # = 墙壁   . = 空地   G = 草丛(减速)   T = 奖杯   ~ = 水池(减速)
+  //  橙队堡垒在左侧，紫队堡垒在右侧，中央是大开阔战场加掩体
+  //  注意：所有走道至少 2 格宽，保证玩家(半径11)不会卡住
+  var MAP_TEMPLATE=[
+    "############################################",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#........GGGG........#..........#",
+    "#..........#.......GGGGGG.......#..........#",
+    "#####.######....................######.#####",
+    "#....T.....#........####........#.....T....#",
+    "#....T.....#........#..#........#.....T....#",
+    "#..........#........#..#........#..........#",
+    "#..........#........####........#..........#",
+    "#..........#....................#..........#",
+    "#..........##......GGGGGG......##..........#",
+    "#..........#~......GGGGGG......~#..........#",
+    "#..........#~..................~#..........#",
+    "#..........#~..................~#..........#",
+    "#####.######....................######.#####",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "#..........#....................#..........#",
+    "############################################"
+  ];
   function buildMap(){
     var m=[];
     for(var r=0;r<ROWS;r++){
       m[r]=[];
-      for(var c=0;c<COLS;c++) m[r][c]='.';
+      for(var c=0;c<COLS;c++){
+        m[r][c]=(MAP_TEMPLATE[r]&&MAP_TEMPLATE[r][c])||'.';
+      }
     }
-    // 外墙
-    for(var c=0;c<COLS;c++){m[0][c]='#';m[ROWS-1][c]='#';}
-    for(var r=0;r<ROWS;r++){m[r][0]='#';m[r][COLS-1]='#';}
-    function setWalls(list){ list.forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]!==undefined) m[p[0]][p[1]]='#'; }); }
-    function setTrophies(list,team){ list.forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]!==undefined) m[p[0]][p[1]]='T'; }); }
-    // ===== 橙队堡垒（左 1-6列）迷宫式 =====
-    // 外围墙框（留门）
-    setWalls([[4,2],[5,2],[6,2],[7,2],[8,2],[10,2],[11,2],[12,2],[13,2],[14,2]]); // 左墙，9行留门
-    setWalls([[4,2],[4,3],[4,4],[4,5],[4,6]]); // 上墙
-    setWalls([[14,2],[14,3],[14,4],[14,5],[14,6]]); // 下墙
-    // 内部隔墙形成曲折走廊
-    setWalls([[5,4],[6,4],[7,4],[8,4]]); // 上隔墙
-    setWalls([[10,4],[11,4],[12,4],[13,4]]); // 下隔墙
-    setWalls([[6,6],[7,6],[8,6],[9,6],[10,6]]); // 中间横墙
-    setWalls([[5,5],[13,5]]); // 竖墙片段
-    // 奖杯室（深处的2x2）
-    setTrophies([[5,3],[5,4]/*已被墙覆盖会变回. */],'orange');
-    // 重新放奖杯到安全角落
-    m[5][3]='.'; m[13][3]='.';
-    setTrophies([[4,3],[4,4]],'orange'); // 上角奖杯室
-    setTrophies([[13,3],[13,4]],'orange'); // 下角奖杯室
-    // 实际只各放一个奖杯区，修正：
-    // 清理：只在最深角落放奖杯
-    [[4,3],[4,4],[13,3],[13,4]].forEach(function(p){m[p[0]][p[1]]='.';});
-    setTrophies([[4,3]],'orange');
-    // ===== 紫队堡垒（右 COLS-7 ~ COLS-2 列）镜像 =====
-    var pc=function(c){return COLS-1-c;};
-    setWalls([[4,pc(2)],[5,pc(2)],[6,pc(2)],[7,pc(2)],[8,pc(2)],[10,pc(2)],[11,pc(2)],[12,pc(2)],[13,pc(2)],[14,pc(2)]]);
-    setWalls([[4,pc(2)],[4,pc(3)],[4,pc(4)],[4,pc(5)],[4,pc(6)]]);
-    setWalls([[14,pc(2)],[14,pc(3)],[14,pc(4)],[14,pc(5)],[14,pc(6)]]);
-    setWalls([[5,pc(4)],[6,pc(4)],[7,pc(4)],[8,pc(4)]]);
-    setWalls([[10,pc(4)],[11,pc(4)],[12,pc(4)],[13,pc(4)]]);
-    setWalls([[6,pc(6)],[7,pc(6)],[8,pc(6)],[9,pc(6)],[10,pc(6)]]);
-    setWalls([[5,pc(5)],[13,pc(5)]]);
-    setTrophies([[4,pc(3)]],'purple');
-    // ===== 中央战场：迷宫式掩体 =====
+    // 中央散落掩体（确保留宽敞通道）
     var mc=Math.floor(COLS/2);
-    // 中央纵墙带两个缺口
-    setWalls([[3,mc-1],[4,mc-1],[5,mc-1],[6,mc-1],[8,mc-1],[9,mc-1],[10,mc-1],[12,mc-1],[13,mc-1],[14,mc-1],[15,mc-1]]);
-    setWalls([[3,mc+1],[4,mc+1],[5,mc+1],[6,mc+1],[8,mc+1],[9,mc+1],[10,mc+1],[12,mc+1],[13,mc+1],[14,mc+1],[15,mc+1]]);
-    // 散落掩体（L形、十字）
-    setWalls([[6,mc-3],[6,mc-2],[7,mc-3]]);
-    setWalls([[12,mc+2],[12,mc+3],[11,mc+3]]);
-    setWalls([[8,mc-3],[9,mc-3],[9,mc-2]]);
-    setWalls([[10,mc+2],[10,mc+3],[11,mc+2]]);
-    // 中央十字掩体
-    setWalls([[9,mc],[10,mc],[9,mc-1]/*已存在?*/]);
-    m[9][mc]='#'; m[10][mc]='#';
-    // 上下走廊障碍
-    setWalls([[2,8],[2,9],[2,10],[2,mc-2],[2,mc+2],[2,mc+3]]);
-    setWalls([[16,8],[16,9],[16,mc-3],[16,mc-2],[16,mc+2],[16,mc+3]]);
-    // 草地装饰（不影响通行）
-    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
-      if(m[r][c]==='.'&&Math.random()<0.04) m[r][c]='G';
-    }
+    // 上下掩体群
+    [[5,mc-2],[5,mc-1],[6,mc-3],[5,mc+1],[5,mc+2],[6,mc+3]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.')m[p[0]][p[1]]='#'; });
+    [[20,mc-2],[20,mc-1],[19,mc-3],[20,mc+1],[20,mc+2],[19,mc+3]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.')m[p[0]][p[1]]='#'; });
+    // 左右翼掩体
+    [[12,8],[12,9],[13,8],[12,mc+8],[12,mc+9],[13,mc+9]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.')m[p[0]][p[1]]='#'; });
+    [[15,8],[15,9],[15,mc+8],[15,mc+9]].forEach(function(p){ if(m[p[0]]&&m[p[0]][p[1]]==='.')m[p[0]][p[1]]='#'; });
     return m;
   }
   var MAP=buildMap();
@@ -186,71 +192,124 @@
       else purpleTrophy.push({r:r,c:c,x:(c+0.5)*CELL,y:(r+0.5)*CELL});
     }
   }
-  function isWall(x,y){
+  function tileType(x,y){
     var c=Math.floor(x/CELL),r=Math.floor(y/CELL);
-    if(r<0||r>=ROWS||c<0||c>=COLS) return true;
-    return MAP[r][c]==='#';
+    if(r<0||r>=ROWS||c<0||c>=COLS) return '#';
+    return MAP[r][c];
   }
+  function isWall(x,y){ return tileType(x,y)==='#'; }
+  function isSlow(x,y){ var t=tileType(x,y); return t==='G'||t==='~'; }
 
-  // ===== 武器配置 =====
+  // ===== 武器配置（6种）=====
   var GUNS={
-    rifle:{name:'冲锋枪',dmg:14,rate:9,spread:0.12,speed:11,color:'#ffd700',auto:true,bulletR:3},
-    sniper:{name:'狙击枪',dmg:55,rate:55,spread:0.01,speed:18,color:'#4dd0e1',auto:false,bulletR:4,pierce:true}
+    pistol:  {name:'手枪',    dmg:18,rate:22,spread:0.05,speed:12,color:'#bdbdbd',auto:false,bulletR:3,desc:'稳定基础武器'},
+    rifle:   {name:'冲锋枪',  dmg:12,rate:7, spread:0.14,speed:12,color:'#ffd700',auto:true, bulletR:3,desc:'高射速近中距'},
+    sniper:  {name:'狙击枪',  dmg:60,rate:60,spread:0.005,speed:20,color:'#4dd0e1',auto:false,bulletR:4,pierce:true,desc:'高伤穿透远距'},
+    shotgun: {name:'霰弹枪',  dmg:10,rate:40,spread:0.35,speed:10,color:'#ff5722',auto:false,bulletR:3,pellets:6,desc:'近战6发散射'},
+    smg:     {name:'机枪',    dmg:9, rate:4, spread:0.20,speed:13,color:'#7c4dff',auto:true, bulletR:3,desc:'极高射速压制'},
+    rocket:  {name:'火箭筒',  dmg:80,rate:90,spread:0.02,speed:8, color:'#e53935',auto:false,bulletR:6,explode:50,desc:'范围爆炸伤害'}
   };
 
   // ===== 状态 =====
   var playerTeam='orange',playerGun='rifle';
-  var players=[],bullets=[],particles=[],trophyCarrier=null,carryingTeam=null;
+  var teamSize=7,enemyDiff='medium',allyDiff='medium';
+  var players=[],bullets=[],particles=[],pickups=[],trophyCarrier=null,carryingTeam=null;
   var myPlayer=null,running=false,over=false,winner=null;
   var respawnTimers={};
   var killFeed=[];
   var camera={x:0,y:0};
-  // 昼夜循环：每3分钟（180秒）自动切换白天/黑夜，循环往复
-  // isNight=true 时地图变暗看不清，需按A键开夜视才看清
+  // 昼夜循环
   var isNight=false;
-  var nightVision=false; // 夜视镜开关（只在黑夜有意义）
-  var dayNightTimer=0; // 秒计数
-  var DAY_NIGHT_CYCLE=180; // 3分钟切换一次
+  var nightVision=false;
+  var dayNightTimer=0;
+  var DAY_NIGHT_CYCLE=180;
+  // 道具刷新
+  var pickupSpawnTimer=0;
+  var PICKUP_TYPES=[
+    {type:'medkit',icon:'💊',color:'#e53935',desc:'回50血'},
+    {type:'armor',icon:'🛡️',color:'#4dd0e1',desc:'加50护甲'},
+    {type:'speed',icon:'⚡',color:'#ffd700',desc:'加速8秒'},
+    {type:'ammo_rifle',icon:'🔫',color:'#ffd700',desc:'换冲锋枪'},
+    {type:'ammo_sniper',icon:'🎯',color:'#4dd0e1',desc:'换狙击枪'},
+    {type:'ammo_shotgun',icon:'💥',color:'#ff5722',desc:'换霰弹枪'},
+    {type:'ammo_smg',icon:'🌀',color:'#7c4dff',desc:'换机枪'},
+    {type:'ammo_rocket',icon:'🚀',color:'#e53935',desc:'换火箭筒'}
+  ];
 
   function spawnPoint(team){
-    // 橙队在左堡垒内(3-4列)，紫队在右堡垒内
+    // 橙队在左堡垒内部宽敞区，紫队在右堡垒内部
     var pts=[];
     for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
       if(MAP[r][c]==='.'){
-        if(team==='orange'&&c>=1&&c<=4&&r>=5&&r<=13) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
-        if(team==='purple'&&c>=COLS-5&&c<=COLS-2&&r>=5&&r<=13) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+        if(team==='orange'&&c>=1&&c<=10&&r>=1&&r<=6) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
+        if(team==='purple'&&c>=COLS-11&&c<=COLS-2&&r>=1&&r<=6) pts.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL});
       }
     }
     return pts[Math.floor(Math.random()*pts.length)];
   }
 
-  var NAMES_O=['你','橙侠','橙焰','橙盾','橙枪'];
-  var NAMES_P=['紫电','紫影','紫刃','紫甲','紫弓'];
+  var NAMES_O=['你','橙侠','橙焰','橙盾','橙枪','橙影','橙刃'];
+  var NAMES_P=['紫电','紫影','紫刃','紫甲','紫弓','紫雷','紫锋'];
 
   function makePlayer(team,isMe,name,gun){
     var sp=spawnPoint(team);
     return {team:team,isMe:!!isMe,name:name,gun:gun||'rifle',
       x:sp.x,y:sp.y,angle:team==='orange'?0:Math.PI,
-      hp:100,maxhp:100,alive:true,radius:11,speed:2.2,
+      hp:100,maxhp:100,armor:0,alive:true,radius:12,speed:2.3,
       fireCD:0,target:null,aiTick:0,wanderX:sp.x,wanderY:sp.y,
-      respawn:0,kills:0,deaths:0,moving:false};
+      respawn:0,kills:0,deaths:0,moving:false,
+      speedBoost:0 // 加速剩余秒
+    };
   }
 
+  // 难度参数：精度/反应/血量加成/伤害加成
+  var DIFF_PARAMS={
+    easy:  {acc:0.35,react:30,hpMul:0.8,dmgMul:0.7,searchR:300},
+    medium:{acc:0.65,react:18,hpMul:1.0,dmgMul:1.0,searchR:420},
+    hard:  {acc:0.92,react:8, hpMul:1.3,dmgMul:1.3,searchR:560}
+  };
   function reset(){
-    players=[];bullets=[];particles=[];trophyCarrier=null;carryingTeam=null;
-    killFeed=[];over=false;winner=null;
-    // 橙队5人
-    for(var i=0;i<5;i++){
-      var g=i===0?playerGun:(Math.random()<0.5?'rifle':'sniper');
-      var p=makePlayer('orange',i===0,NAMES_O[i],g);
+    players=[];bullets=[];particles=[];pickups=[];trophyCarrier=null;carryingTeam=null;
+    killFeed=[];over=false;winner=null;pickupSpawnTimer=0;dayNightTimer=0;isNight=false;nightVision=false;
+    var gunPool=['rifle','sniper','shotgun','smg','pistol','rocket'];
+    var ed=DIFF_PARAMS[enemyDiff],ad=DIFF_PARAMS[allyDiff];
+    // 橙队（你方）
+    for(var i=0;i<teamSize;i++){
+      var g=i===0?playerGun:gunPool[Math.floor(Math.random()*gunPool.length)];
+      var p=makePlayer('orange',i===0,i===0?'你':(NAMES_O[i%NAMES_O.length]||('橙'+(i+1))),g);
+      if(i===0){ p.diff=DIFF_PARAMS.medium; }
+      else { p.diff=ad; p.maxhp=Math.round(100*ad.hpMul); p.hp=p.maxhp; }
       if(i===0)myPlayer=p;
       players.push(p);
     }
-    // 紫队5人
-    for(var i=0;i<5;i++){
-      players.push(makePlayer('purple',false,NAMES_P[i],Math.random()<0.5?'rifle':'sniper'));
+    // 紫队（敌方）
+    for(var i=0;i<teamSize;i++){
+      var ep=makePlayer('purple',false,NAMES_P[i%NAMES_P.length]||('紫'+(i+1)),gunPool[Math.floor(Math.random()*gunPool.length)]);
+      ep.diff=ed; ep.maxhp=Math.round(100*ed.hpMul); ep.hp=ep.maxhp;
+      players.push(ep);
     }
+    for(var k=0;k<6;k++) spawnPickup();
     running=true;
+    addKill('战斗开始！'+teamSize+'v'+teamSize+' 敌方:'+({easy:'简单',medium:'中等',hard:'发狂'}[enemyDiff]),'');
+  }
+  // 道具生成（随机空地）
+  function spawnPickup(){
+    var tries=0;
+    while(tries++<50){
+      var c=2+Math.floor(Math.random()*(COLS-4)),r=2+Math.floor(Math.random()*(ROWS-4));
+      if(MAP[r][c]==='.'){
+        var t=PICKUP_TYPES[Math.floor(Math.random()*PICKUP_TYPES.length)];
+        pickups.push({x:(c+0.5)*CELL,y:(r+0.5)*CELL,type:t.type,icon:t.icon,color:t.color,bob:Math.random()*6});
+        return;
+      }
+    }
+  }
+  // 应用道具效果
+  function applyPickup(p,type){
+    if(type==='medkit'){ p.hp=Math.min(p.maxhp,p.hp+50); if(p===myPlayer)showToast('💊 +50血'); }
+    else if(type==='armor'){ p.armor=Math.min(100,p.armor+50); if(p===myPlayer)showToast('🛡️ +50护甲'); }
+    else if(type==='speed'){ p.speedBoost=8; if(p===myPlayer)showToast('⚡ 加速8秒'); }
+    else if(type.indexOf('ammo_')===0){ p.gun=type.slice(5); if(p===myPlayer)showToast('🔫 换成 '+GUNS[p.gun].name); }
   }
 
   // ===== 输入 =====
@@ -258,11 +317,16 @@
   document.addEventListener('keydown',function(e){
     var k=e.key.toLowerCase();
     keys[k]=true;
-    // A 键：切换夜视模式（只在黑夜有意义；白天也可开但效果不变）
-    if(k==='a'){
+    // Q 键：切换夜视模式（WASD正常移动，夜视单独按键）
+    if(k==='q'){
       nightVision=!nightVision;
       showToast(nightVision?('🌙 夜视开启'+(isNight?'':'（白天无影响）')):'🌑 夜视关闭');
       SFX.click(); e.preventDefault();
+    }
+    // 数字键1-6 切换武器（仅自己）
+    if(myPlayer&&myPlayer.alive){
+      var gunKeys={'1':'pistol','2':'rifle','3':'sniper','4':'shotgun','5':'smg','6':'rocket'};
+      if(gunKeys[k]){ myPlayer.gun=gunKeys[k]; showToast('🔫 换成 '+GUNS[gunKeys[k]].name); SFX.click(); }
     }
     if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
   });
@@ -310,53 +374,97 @@
   // ===== 射击 =====
   function fire(p){
     var g=GUNS[p.gun];
-    var ang=p.angle+(Math.random()-0.5)*g.spread*2;
-    bullets.push({x:p.x+Math.cos(p.angle)*p.radius,y:p.y+Math.sin(p.angle)*p.radius,
-      vx:Math.cos(ang)*g.speed,vy:Math.sin(ang)*g.speed,
-      dmg:g.dmg,team:p.team,owner:p,life:80,color:g.color,r:g.bulletR,pierce:g.pierce,hitSet:{}});
+    var pellets=g.pellets||1;
+    for(var pi=0;pi<pellets;pi++){
+      var ang=p.angle+(Math.random()-0.5)*g.spread*2;
+      bullets.push({x:p.x+Math.cos(p.angle)*p.radius,y:p.y+Math.sin(p.angle)*p.radius,
+        vx:Math.cos(ang)*g.speed,vy:Math.sin(ang)*g.speed,
+        dmg:g.dmg,team:p.team,owner:p,life:90,color:g.color,r:g.bulletR,
+        pierce:g.pierce,hitSet:{},explode:g.explode||0});
+    }
     p.fireCD=g.rate;
     // 后坐力粒子
     for(var i=0;i<3;i++)particles.push({x:p.x+Math.cos(p.angle)*16,y:p.y+Math.sin(p.angle)*16,vx:Math.cos(p.angle)*2+(Math.random()-0.5)*2,vy:Math.sin(p.angle)*2+(Math.random()-0.5)*2,life:10,color:g.color,r:2});
     if(p===myPlayer)SFX.shoot();
     else if(Math.hypot(p.x-myPlayer.x,p.y-myPlayer.y)<400)SFX.shoot();
   }
+  // 爆炸（火箭筒）
+  function explode(x,y,radius,dmg,team,owner){
+    SFX.boom();
+    for(var i=0;i<24;i++)particles.push({x:x,y:y,vx:(Math.random()-0.5)*8,vy:(Math.random()-0.5)*8,life:28,color:'#ff5722',r:4});
+    players.forEach(function(pp){
+      if(pp.alive&&pp.team!==team){
+        var d=Math.hypot(pp.x-x,pp.y-y);
+        if(d<radius){ damagePlayer(pp,dmg*(1-d/radius*0.5),owner); }
+      }
+    });
+  }
+  // 统一伤害处理（含护甲）
+  function damagePlayer(p,dmg,attacker){
+    if(!p.alive)return;
+    if(p.armor>0){ var ab=Math.min(p.armor,dmg*0.6); p.armor-=ab; dmg-=ab; }
+    p.hp-=dmg;
+    if(p===myPlayer)SFX.hurt();
+    if(p.hp<=0) killPlayer(p,attacker);
+  }
 
   // ===== AI =====
   function aiUpdate(p){
+    var D=p.diff||DIFF_PARAMS.medium;
     p.aiTick--;
-    // 找最近敌人
+    // 草丛隐身判定：在草丛里的敌人，超出搜索半径就看不清
+    function canSee(e){
+      if(!e.alive)return false;
+      var d=Math.hypot(e.x-p.x,e.y-p.y);
+      var inBush=isSlow(e.x,e.y);
+      var r=inBush?D.searchR*0.35:D.searchR; // 草丛里大幅缩短视野
+      return d<r;
+    }
+    // 找最近可见敌人
     var enemy=null,minD=1e9;
-    players.forEach(function(e){ if(e.team!==p.team&&e.alive){var d=Math.hypot(e.x-p.x,e.y-p.y);if(d<minD){minD=d;enemy=e;}} });
-    // 目标：夺奖杯或护送
+    players.forEach(function(e){ if(e.team!==p.team&&canSee(e)){var d=Math.hypot(e.x-p.x,e.y-p.y);if(d<minD){minD=d;enemy=e;}} });
+    // 目标决策
     var goal=null;
-    if(trophyCarrier===p){ goal={x:p.team==='orange'?100:W-100,y:H/2}; } // 带奖杯回家
+    if(trophyCarrier===p){ goal={x:p.team==='orange'?CELL*3:(COLS-3)*CELL,y:3*CELL}; }
     else if(!trophyCarrier){
-      // 去抢敌方奖杯
       var trophy=(p.team==='orange'?purpleTrophy:orangeTrophy)[0];
       if(trophy)goal=trophy;
     } else if(trophyCarrier.team===p.team){
-      goal=trophyCarrier; // 跟随护送
+      goal={x:trophyCarrier.x,y:trophyCarrier.y};
     } else {
-      goal=enemy||{x:W/2,y:H/2}; // 阻击
+      goal=enemy||{x:COLS*CELL/2,y:ROWS*CELL/2};
     }
     if(p.aiTick<=0){
-      p.aiTick=15+Math.floor(Math.random()*20);
-      p.wanderX=goal.x+(Math.random()-0.5)*60;
-      p.wanderY=goal.y+(Math.random()-0.5)*60;
+      p.aiTick=D.react+Math.floor(Math.random()*12);
+      p.wanderX=goal.x+(Math.random()-0.5)*80;
+      p.wanderY=goal.y+(Math.random()-0.5)*80;
     }
-    // 移动
+    // 移动（草丛减速）
     var dx=p.wanderX-p.x,dy=p.wanderY-p.y,d=Math.hypot(dx,dy);
-    if(d>8){
-      var nx=p.x+dx/d*p.speed,ny=p.y+dy/d*p.speed;
+    if(d>10){
+      var spd=p.speed;
+      if(p.speedBoost>0)spd*=1.7; else if(isSlow(p.x,p.y))spd*=0.55;
+      var nx=p.x+dx/d*spd,ny=p.y+dy/d*spd;
       if(!isWall(nx,p.y))p.x=nx;
       if(!isWall(p.x,ny))p.y=ny;
       p.moving=true;
     } else p.moving=false;
-    // 瞄准+射击
-    if(enemy&&minD<450){
-      p.angle=Math.atan2(enemy.y-p.y,enemy.x-p.x);
+    // 瞄准+射击（受精度影响）
+    if(enemy&&minD<D.searchR){
+      // 按距离选枪：远用狙，近用霰弹，中用其它
+      var prefGun=minD>350?'sniper':(minD<120?'shotgun':'rifle');
+      // AI 偶尔换枪（道具会换，这里不强制）
+      // 瞄准带误差（精度越低误差越大）
+      var aimErr=(1-D.acc)*0.5;
+      p.angle=Math.atan2(enemy.y-p.y,enemy.x-p.x)+(Math.random()-0.5)*aimErr;
       var los=!lineBlocked(p.x,p.y,enemy.x,enemy.y);
-      if(los&&p.fireCD<=0) fire(p);
+      if(los&&p.fireCD<=0){
+        // 伤害加成
+        var origDmg=GUNS[p.gun].dmg;
+        GUNS[p.gun].dmg=Math.round(origDmg*D.dmgMul);
+        fire(p);
+        GUNS[p.gun].dmg=origDmg;
+      }
     } else if(goal){
       p.angle=Math.atan2(goal.y-p.y,goal.x-p.x);
     }
@@ -373,16 +481,20 @@
   function playerInput(){
     if(!myPlayer.alive)return;
     var dx=0,dy=0;
-    // 移动：方向键为主，A键已用于夜视
+    // WASD + 方向键 完整移动（夜视已改Q键，A键恢复左移）
     if(keys['w']||keys['arrowup'])dy-=1;
     if(keys['s']||keys['arrowdown'])dy+=1;
-    if(keys['arrowleft'])dx-=1;
+    if(keys['a']||keys['arrowleft'])dx-=1;
     if(keys['d']||keys['arrowright'])dx+=1;
     if(moveStick.active){dx=moveStick.x;dy=moveStick.y;}
     var d=Math.hypot(dx,dy);
     if(d>0.15){
       dx=d>1?dx/d:dx;dy=d>1?dy/d:dy;
-      var nx=myPlayer.x+dx*myPlayer.speed,ny=myPlayer.y+dy*myPlayer.speed;
+      // 草丛/水池减速，加速道具提速
+      var spd=myPlayer.speed;
+      if(myPlayer.speedBoost>0) spd*=1.7;
+      else if(isSlow(myPlayer.x,myPlayer.y)) spd*=0.55;
+      var nx=myPlayer.x+dx*spd,ny=myPlayer.y+dy*spd;
       if(!isWall(nx,myPlayer.y))myPlayer.x=nx;
       if(!isWall(myPlayer.x,ny))myPlayer.y=ny;
       myPlayer.moving=true;
@@ -391,7 +503,6 @@
     if(aimStick.active&&(Math.abs(aimStick.x)>0.2||Math.abs(aimStick.y)>0.2)){
       myPlayer.angle=Math.atan2(aimStick.y,aimStick.x);
     } else {
-      // 鼠标瞄准（屏幕坐标转世界）
       var wmx=mouse.x+camera.x,wmy=mouse.y+camera.y;
       myPlayer.angle=Math.atan2(wmy-myPlayer.y,wmx-myPlayer.x);
     }
@@ -424,18 +535,23 @@
     for(var b=bullets.length-1;b>=0;b--){
       var bu=bullets[b];
       bu.x+=bu.vx;bu.y+=bu.vy;bu.life--;
-      if(isWall(bu.x,bu.y)){ for(var k=0;k<4;k++)particles.push({x:bu.x,y:bu.y,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:12,color:'#fff',r:2}); bullets.splice(b,1);continue; }
+      if(isWall(bu.x,bu.y)){
+        // 火箭撞墙也爆炸
+        if(bu.explode>0){ explode(bu.x,bu.y,bu.explode,bu.dmg,bu.team,bu.owner); }
+        else { for(var k=0;k<4;k++)particles.push({x:bu.x,y:bu.y,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:12,color:'#fff',r:2}); }
+        bullets.splice(b,1);continue;
+      }
       // 击中玩家
       var hit=false;
       for(var pi=0;pi<players.length;pi++){
         var pp=players[pi];
         if(pp.alive&&pp.team!==bu.team&&Math.hypot(pp.x-bu.x,pp.y-bu.y)<pp.radius+bu.r){
           if(!bu.pierce||!bu.hitSet[pi]){
-            pp.hp-=bu.dmg;
+            // 火箭爆炸
+            if(bu.explode>0){ explode(bu.x,bu.y,bu.explode,bu.dmg,bu.team,bu.owner); bullets.splice(b,1);hit=true;break; }
+            damagePlayer(pp,bu.dmg,bu.owner);
             bu.hitSet[pi]=true;
-            if(pp===myPlayer)SFX.hurt();
             for(var k2=0;k2<5;k2++)particles.push({x:bu.x,y:bu.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:15,color:'#e53935',r:2});
-            if(pp.hp<=0){ killPlayer(pp,bu.owner); }
             if(!bu.pierce){hit=true;break;}
           }
         }
@@ -445,6 +561,22 @@
     }
     // 粒子
     for(var pi2=particles.length-1;pi2>=0;pi2--){var pa=particles[pi2];pa.x+=pa.vx;pa.y+=pa.vy;pa.life--;if(pa.life<=0)particles.splice(pi2,1);}
+    // 加速时效递减
+    players.forEach(function(p){ if(p.speedBoost>0)p.speedBoost-=1/60; });
+    // 道具刷新（每10秒补一个，最多10个）
+    pickupSpawnTimer+=1/60;
+    if(pickupSpawnTimer>=10&&pickups.length<10){ pickupSpawnTimer=0; spawnPickup(); }
+    // 道具拾取
+    for(var pik=pickups.length-1;pik>=0;pik--){
+      var pk=pickups[pik]; pk.bob+=0.1;
+      players.forEach(function(p){
+        if(p.alive&&Math.hypot(p.x-pk.x,p.y-pk.y)<p.radius+14){
+          applyPickup(p,pk.type);
+          if(p===myPlayer)SFX.coin();
+          pickups.splice(pik,1);return;
+        }
+      });
+    }
     // 奖杯
     if(!trophyCarrier){
       var myTrophy=myPlayer.team==='orange'?purpleTrophy:orangeTrophy;
@@ -517,7 +649,6 @@
     for(var r=0;r<ROWS;r++){for(var c=0;c<COLS;c++){
       var ch=MAP[r][c],x=c*CELL,y=r*CELL;
       if(ch==='#'){
-        // 橙紫堡垒区分色
         var isOrange=c<COLS/2-8,isPurple=c>COLS/2+8;
         ctx.fillStyle=isOrange?'#6d4c41':(isPurple?'#4a3a6a':'#5d4037');
         ctx.fillRect(x,y,CELL,CELL);
@@ -525,9 +656,17 @@
         ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(x+CELL-3,y,3,CELL);
       } else {
         ctx.fillStyle=(r+c)%2===0?'#2a2a3e':'#252538';ctx.fillRect(x,y,CELL,CELL);
-        if(ch==='G'){ctx.fillStyle='#1b3a1b';ctx.fillRect(x+CELL*0.2,y+CELL*0.2,CELL*0.6,CELL*0.6);}
+        if(ch==='G'){ // 草丛（减速）
+          ctx.fillStyle='#1b3a1b';ctx.fillRect(x,y,CELL,CELL);
+          ctx.fillStyle='#2e7d32';ctx.fillRect(x+CELL*0.15,y+CELL*0.15,CELL*0.25,CELL*0.7);
+          ctx.fillRect(x+CELL*0.55,y+CELL*0.2,CELL*0.25,CELL*0.6);
+        }
+        if(ch==='~'){ // 水池（减速）
+          ctx.fillStyle='#0d47a1';ctx.fillRect(x,y,CELL,CELL);
+          ctx.fillStyle='rgba(77,208,225,0.3)';ctx.fillRect(x,y+CELL*0.3,CELL,CELL*0.15);
+          ctx.fillStyle='rgba(77,208,225,0.2)';ctx.fillRect(x,y+CELL*0.6,CELL,CELL*0.1);
+        }
         if(ch==='T'){
-          // 奖杯
           var isOrangeT=c<COLS/2;
           ctx.font=(CELL*0.7)+'px sans-serif';ctx.textAlign='center';
           ctx.fillText(isOrangeT?'🟠':'🟣',x+CELL/2,y+CELL*0.75);
@@ -535,8 +674,16 @@
       }
     }}
     // 基地区域高亮
-    ctx.fillStyle='rgba(251,140,0,0.06)';ctx.fillRect(0,4*CELL,5*CELL,11*CELL);
-    ctx.fillStyle='rgba(156,39,176,0.06)';ctx.fillRect((COLS-5)*CELL,4*CELL,5*CELL,11*CELL);
+    ctx.fillStyle='rgba(251,140,0,0.06)';ctx.fillRect(0,1*CELL,11*CELL,6*CELL);
+    ctx.fillStyle='rgba(156,39,176,0.06)';ctx.fillRect((COLS-11)*CELL,1*CELL,11*CELL,6*CELL);
+    // 道具
+    pickups.forEach(function(pk){
+      ctx.fillStyle=pk.color;ctx.shadowColor=pk.color;ctx.shadowBlur=8;
+      ctx.beginPath();ctx.arc(pk.x,pk.y+Math.sin(pk.bob)*2,12,0,7);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(0,0,0,0.5)';ctx.beginPath();ctx.arc(pk.x,pk.y+Math.sin(pk.bob)*2+1,12,0,7);ctx.fill();
+      ctx.font='16px sans-serif';ctx.textAlign='center';
+      ctx.fillText(pk.icon,pk.x,pk.y+Math.sin(pk.bob)*2+6);ctx.textAlign='left';
+    });
     // 粒子
     particles.forEach(function(p){ctx.globalAlpha=Math.max(0,p.life/25);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();});
     ctx.globalAlpha=1;
@@ -545,6 +692,17 @@
     // 玩家
     players.forEach(function(p){
       if(!p.alive)return;
+      // 草丛隐身：敌方在草丛里且距离>180，玩家看不清（半透明）；自己在草丛也半透明提示
+      var distToMe=Math.hypot(p.x-myPlayer.x,p.y-myPlayer.y);
+      var inBush=isSlow(p.x,p.y);
+      var hidden=false;
+      if(p!==myPlayer&&p.team!==myPlayer.team&&inBush&&distToMe>180) hidden=true;
+      ctx.globalAlpha=hidden?0.18:(inBush?0.7:1);
+      if(hidden){
+        // 只画一个模糊的草丛轮廓提示
+        ctx.fillStyle='rgba(46,125,50,0.5)';ctx.beginPath();ctx.arc(p.x,p.y,p.radius+2,0,7);ctx.fill();
+        ctx.globalAlpha=1;return;
+      }
       var col=p.team==='orange'?'#fb8c00':'#9c27b0';
       var dark=p.team==='orange'?'#e65100':'#4a148c';
       // 阴影
@@ -558,13 +716,19 @@
       ctx.restore();
       // 名字+血条
       ctx.fillStyle=p.isMe?'#ffd700':'#fff';ctx.font='9px monospace';ctx.textAlign='center';
-      ctx.fillText(p.name,p.x,p.y-p.radius-14);
+      ctx.fillText(p.name+' ['+GUNS[p.gun].name+']',p.x,p.y-p.radius-14);
+      // 血条
       ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(p.x-14,p.y-p.radius-10,28,4);
       ctx.fillStyle=p.hp>50?'#4caf50':(p.hp>25?'#ffd700':'#e53935');ctx.fillRect(p.x-14,p.y-p.radius-10,28*(p.hp/p.maxhp),4);
+      // 护甲条（蓝色，在血条上方）
+      if(p.armor>0){ ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(p.x-14,p.y-p.radius-15,28,3); ctx.fillStyle='#4dd0e1';ctx.fillRect(p.x-14,p.y-p.radius-15,28*(p.armor/100),3); }
+      // 加速光环
+      if(p.speedBoost>0){ ctx.strokeStyle='#ffd700';ctx.lineWidth=2;ctx.globalAlpha=0.6;ctx.beginPath();ctx.arc(p.x,p.y,p.radius+4,0,7);ctx.stroke();ctx.globalAlpha=1; }
       // 我方箭头
       if(p.isMe){ctx.fillStyle='#ffd700';ctx.beginPath();ctx.moveTo(p.x,p.y-p.radius-18);ctx.lineTo(p.x-5,p.y-p.radius-24);ctx.lineTo(p.x+5,p.y-p.radius-24);ctx.fill();}
       // 带奖杯光环
       if(trophyCarrier===p){ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.radius+6+Math.sin(Date.now()/100)*2,0,7);ctx.stroke();}
+      ctx.globalAlpha=1; // 恢复（草丛半透明用）
     });
     ctx.restore();
     // 击杀提示
@@ -589,7 +753,7 @@
         ctx.fillStyle='rgba(10,10,40,0.15)';
         ctx.fillRect(0,0,W,H);
         ctx.fillStyle='#ffd700';ctx.font='bold 13px monospace';ctx.textAlign='center';
-        ctx.fillText('🌑 黑夜 · 按 A 键 / 夜视按钮 开启夜视',W/2,H-30);
+        ctx.fillText('🌑 黑夜 · 按 Q 键 / 夜视按钮 开启夜视',W/2,H-30);
         ctx.textAlign='left';
       } else {
         // 夜视开启：绿色滤镜 + 大范围可视 + 扫描线
@@ -606,7 +770,7 @@
         for(var sy=0;sy<H;sy+=4) ctx.fillRect(0,sy,W,1);
         ctx.fillStyle='#39ff14';ctx.font='bold 13px monospace';ctx.textAlign='center';
         ctx.shadowColor='#39ff14';ctx.shadowBlur=6;
-        ctx.fillText('🌙 夜视中 · 再按 A 关闭',W/2,H-30);
+        ctx.fillText('🌙 夜视中 · 再按 Q 关闭',W/2,H-30);
         ctx.shadowBlur=0;ctx.textAlign='left';
       }
     } else {
@@ -663,6 +827,23 @@
     el.addEventListener('click',function(){
       document.querySelectorAll('[data-gun]').forEach(function(x){x.classList.remove('sel');});
       el.classList.add('sel');playerGun=el.dataset.gun;
+    });
+  });
+  // 人数滑块
+  var sizeSlider=document.getElementById('teamSize'),cntLbl=document.getElementById('cntLbl');
+  sizeSlider.addEventListener('input',function(){ teamSize=parseInt(sizeSlider.value); cntLbl.textContent=teamSize; });
+  // 敌方难度
+  document.querySelectorAll('[data-diff]').forEach(function(el){
+    el.addEventListener('click',function(){
+      document.querySelectorAll('[data-diff]').forEach(function(x){x.classList.remove('sel');});
+      el.classList.add('sel');enemyDiff=el.dataset.diff;
+    });
+  });
+  // 我方难度
+  document.querySelectorAll('[data-adiff]').forEach(function(el){
+    el.addEventListener('click',function(){
+      document.querySelectorAll('[data-adiff]').forEach(function(x){x.classList.remove('sel');});
+      el.classList.add('sel');allyDiff=el.dataset.adiff;
     });
   });
   document.getElementById('playBtn').addEventListener('click',function(){
