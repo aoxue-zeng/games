@@ -88,7 +88,7 @@
     </div>
     <p class="small">无限子弹 · 阵亡3秒重生 · 草丛🌿可隐身(减速) · 水池~减速</p>
     <p class="small" style="color:#39ff14;">🌗 昼夜循环每3分钟 · 黑夜按 Q 键(手机夜视按钮)开夜视 · 数字1-6换枪</p>
-    <p class="small">电脑：WASD移动·鼠标瞄准·左键开火·Q夜视·1-6换枪</p>
+    <p class="small">电脑：方向键移动·按住A瞄准·左键开火·Q夜视·1-6换枪</p>
     <button class="btn" id="playBtn">▶ 开始战斗</button>
     <a href="index.html" class="btn red" style="text-decoration:none;">← 返回</a>
   </div>
@@ -314,6 +314,7 @@
 
   // ===== 输入 =====
   var keys={}; var mouse={x:W/2,y:H/2,down:false};
+  var aimHold=false; // 按住A瞄准态（显示准星+冲锋枪/机枪弹道带）
   document.addEventListener('keydown',function(e){
     var k=e.key.toLowerCase();
     keys[k]=true;
@@ -323,6 +324,8 @@
       showToast(nightVision?('🌙 夜视开启'+(isNight?'':'（白天无影响）')):'🌑 夜视关闭');
       SFX.click(); e.preventDefault();
     }
+    // A 键：按住进入瞄准态（显示准星+冲锋枪/机枪弹道带）；左移改用←
+    if(k==='a'){ aimHold=true; cv.style.cursor='none'; }
     // 数字键1-6 切换武器（仅自己）
     if(myPlayer&&myPlayer.alive){
       var gunKeys={'1':'pistol','2':'rifle','3':'sniper','4':'shotgun','5':'smg','6':'rocket'};
@@ -330,7 +333,10 @@
     }
     if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();
   });
-  document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
+  document.addEventListener('keyup',function(e){
+    var k=e.key.toLowerCase(); keys[k]=false;
+    if(k==='a'){ aimHold=false; cv.style.cursor='default'; } // 松开A退出瞄准
+  });
   cv.addEventListener('mousemove',function(e){
     var r=cv.getBoundingClientRect();var s=W/r.width;
     mouse.x=(e.clientX-r.left)*s; mouse.y=(e.clientY-r.top)*s;
@@ -481,10 +487,10 @@
   function playerInput(){
     if(!myPlayer.alive)return;
     var dx=0,dy=0;
-    // WASD + 方向键 完整移动（夜视已改Q键，A键恢复左移）
+    // 方向键移动（A键改为按住瞄准，左移用←；W/S/D保留辅助）
     if(keys['w']||keys['arrowup'])dy-=1;
     if(keys['s']||keys['arrowdown'])dy+=1;
-    if(keys['a']||keys['arrowleft'])dx-=1;
+    if(keys['arrowleft'])dx-=1;
     if(keys['d']||keys['arrowright'])dx+=1;
     if(moveStick.active){dx=moveStick.x;dy=moveStick.y;}
     var d=Math.hypot(dx,dy);
@@ -521,7 +527,7 @@
       dayNightTimer=0;
       isNight=!isNight;
       // 进入黑夜时自动提示
-      if(isNight){ showToast('🌑 夜幕降临！按 A 键开启夜视'); }
+      if(isNight){ showToast('🌑 夜幕降临！按 Q 键开启夜视'); }
       else { showToast('☀️ 天亮了！'); nightVision=false; }
     }
     // 重生
@@ -730,6 +736,42 @@
       if(trophyCarrier===p){ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.radius+6+Math.sin(Date.now()/100)*2,0,7);ctx.stroke();}
       ctx.globalAlpha=1; // 恢复（草丛半透明用）
     });
+    // ===== 瞄准态：准星 + 冲锋枪/机枪弹道带 =====
+    var aiming=aimHold||aimStick.active;
+    if(aiming&&myPlayer.alive){
+      var g=GUNS[myPlayer.gun], ang=myPlayer.angle, L=260;
+      if(myPlayer.gun==='rifle'||myPlayer.gun==='smg'){
+        var bx=myPlayer.x, by=myPlayer.y;
+        var lx=bx+Math.cos(ang-g.spread)*L, ly=by+Math.sin(ang-g.spread)*L;
+        var rx=bx+Math.cos(ang+g.spread)*L, ry=by+Math.sin(ang+g.spread)*L;
+        // 半透明填充带
+        ctx.globalAlpha=0.12; ctx.fillStyle=g.color;
+        ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(lx,ly); ctx.lineTo(rx,ry); ctx.closePath(); ctx.fill();
+        // 两条边线 + 末端竖线
+        ctx.globalAlpha=0.85; ctx.strokeStyle=g.color; ctx.lineWidth=1.5;
+        ctx.beginPath();
+        ctx.moveTo(bx,by); ctx.lineTo(lx,ly);
+        ctx.moveTo(bx,by); ctx.lineTo(rx,ry);
+        ctx.moveTo(lx,ly); ctx.lineTo(rx,ry);
+        ctx.stroke();
+        // 中线（虚线）
+        ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+Math.cos(ang)*L,by+Math.sin(ang)*L); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha=1;
+      }
+      // 准星（仅PC鼠标态）
+      if(aimHold){
+        var cx=mouse.x+camera.x, cy=mouse.y+camera.y;
+        ctx.strokeStyle='#ffd700'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(cx,cy,8,0,7);
+        ctx.moveTo(cx-13,cy); ctx.lineTo(cx-4,cy);
+        ctx.moveTo(cx+4,cy); ctx.lineTo(cx+13,cy);
+        ctx.moveTo(cx,cy-13); ctx.lineTo(cx,cy-4);
+        ctx.moveTo(cx,cy+4); ctx.lineTo(cx,cy+13);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
     // 击杀提示
     ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.textAlign='right';
