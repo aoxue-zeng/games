@@ -124,6 +124,11 @@
         <div style="font-size:40px;">🎮</div>
         <a href="petgame.html" class="mc-btn green" style="text-decoration:none;">▶ 玩「猫狗喂食记」</a>
       </div>
+      <div class="pet-box lucky-box" id="luckyBox" title="点我开箱！">
+        <span class="chest">🎁</span>
+        <div class="pet-name">神秘宝箱</div>
+        <div class="cd" id="luckyInfo">已开 0 次 · 随时能开</div>
+      </div>
     </div>
   </section>
 
@@ -817,6 +822,8 @@
 </div>
 
 <div class="ground" style="position:fixed; bottom:0; left:0; right:0; z-index:0;"></div>
+<canvas id="fwCanvas"></canvas>
+<div id="catchChip" style="display:none;">🎯 捕捉 x0</div>
 
 <script src="sound.js"></script>
 <script src="mobile.js"></script>
@@ -1156,6 +1163,123 @@
       }
       requestAnimationFrame(petLoop);
     })();
+  }
+})();
+</script>
+<script>
+// ===== 首页小互动：双击烟花 / 乱入小动物捕捉 / 幸运宝箱 =====
+(function(){
+  // ---- 1. 像素烟花：双击页面任意处绽放 ----
+  var fc=document.getElementById('fwCanvas');
+  if(fc){
+    var fx=fc.getContext('2d'),fps=[];
+    function rs(){fc.width=innerWidth;fc.height=innerHeight;}
+    rs();addEventListener('resize',rs);
+    var PAL=[['#ffd700','#ff9800','#fff176'],['#4dd0e1','#80deea','#ffffff'],['#e91e63','#f48fb1','#ffd700'],['#4caf50','#aed581','#ffffff'],['#9c27b0','#ce93d8','#4dd0e1']];
+    function burst(px,py){
+      var p=PAL[Math.floor(Math.random()*PAL.length)];
+      var n=36+Math.floor(Math.random()*18);
+      for(var i=0;i<n;i++){
+        var a=Math.random()*Math.PI*2,v=1.5+Math.random()*4.5;
+        fps.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:50+Math.random()*30,col:p[i%3],sz:2+Math.random()*3});
+      }
+      SFX.explode();
+    }
+    function fwLoop(){
+      fx.clearRect(0,0,fc.width,fc.height);
+      for(var i=fps.length-1;i>=0;i--){
+        var q=fps[i];
+        q.x+=q.vx;q.y+=q.vy;q.vy+=0.07;q.vx*=0.985;q.life--;
+        if(q.life<=0){fps.splice(i,1);continue;}
+        fx.globalAlpha=Math.min(1,q.life/30);
+        fx.fillStyle=q.col;
+        fx.fillRect(Math.round(q.x),Math.round(q.y),q.sz,q.sz); // 像素方块火花
+      }
+      fx.globalAlpha=1;
+      requestAnimationFrame(fwLoop);
+    }
+    fwLoop();
+    document.addEventListener('dblclick',function(e){
+      burst(e.clientX,e.clientY);
+      if(Math.random()<0.25)setTimeout(function(){burst(innerWidth*(0.2+Math.random()*0.6),innerHeight*(0.15+Math.random()*0.4));},280);
+    });
+  }
+
+  // ---- 2. 乱入小动物：从屏幕跑过，点中捕捉计分 ----
+  var caught=parseInt(localStorage.getItem('aox_catch')||'0',10);
+  var chip=document.getElementById('catchChip');
+  function updChip(){chip.style.display=caught>0?'block':'none';chip.textContent='🎯 捕捉 x'+caught;}
+  updChip();
+  var ANIMALS=['🐔','🐷','🐑','🐰','🦔','🦊','🐸'];
+  function spawnRunner(){
+    var rare=Math.random()<0.12;
+    var a=document.createElement('div');
+    a.className='runner-animal'+(rare?' rare':'');
+    a.textContent=rare?(Math.random()<0.5?'🐲':'✨🐤'):ANIMALS[Math.floor(Math.random()*ANIMALS.length)];
+    var fromLeft=Math.random()<0.5;
+    var y=innerHeight*(0.25+Math.random()*0.6);
+    var dur=4+Math.random()*4;
+    a.style.top=y+'px';
+    a.style.left=fromLeft?'-60px':'auto';
+    a.style.right=fromLeft?'auto':'-60px';
+    a.style.transition='transform 0.1s';
+    document.body.appendChild(a);
+    var t0=Date.now();
+    var anim=function(){
+      var p=Math.min(1,(Date.now()-t0)/(dur*1000));
+      var px=fromLeft?p*(innerWidth+120)-60:(1-p)*(innerWidth+120)-60;
+      a.style.left=px+'px';a.style.right='auto';
+      a.style.transform='translateY('+Math.sin(p*40)*8+'px) scaleX('+(fromLeft?1:-1)+')';
+      if(p<1&&!a._caught)requestAnimationFrame(anim);
+      else if(!a._caught)a.remove();
+    };
+    anim();
+    a.addEventListener('click',function(){
+      a._caught=true;a.classList.add('caught');
+      var pts=rare?5:1;
+      caught+=pts;
+      localStorage.setItem('aox_catch',caught);
+      updChip();
+      SFX.coin();
+      toast(rare?('🌟 稀有！'+a.textContent+' +'+pts+' 分'):('捕获 '+a.textContent+'！'));
+      setTimeout(function(){a.remove();},320);
+    });
+    setTimeout(spawnRunner,(12+Math.random()*26)*1000);
+  }
+  setTimeout(spawnRunner,6000);
+
+  // ---- 3. 幸运宝箱：点击开箱随机奖励，60秒冷却 ----
+  var box=document.getElementById('luckyBox');
+  if(box){
+    var opened=parseInt(localStorage.getItem('aox_lucky')||'0',10);
+    var cdUntil=parseInt(localStorage.getItem('aox_lucky_cd')||'0',10);
+    var REW=[
+      {i:'💰',t:'金币雨！',s:'coin'},{i:'💎',t:'大钻石！',s:'gem'},
+      {i:'❤️',t:'爱心满满',s:'gem'},{i:'🎉',t:'彩带庆祝',s:'clear'},
+      {i:'🍀',t:'幸运四叶草',s:'unlock'},{i:'💣',t:'吓一跳！是空的…',s:'hit'},
+      {i:'⭐',t:'闪亮之星',s:'gem'},{i:'🍫',t:'巧克力',s:'coin'}
+    ];
+    function info(){
+      var left=Math.ceil((cdUntil-Date.now())/1000);
+      document.getElementById('luckyInfo').textContent=left>0?('冷却中 '+left+'s'):('已开 '+opened+' 次 · 随时能开');
+    }
+    info();var cdTimer=setInterval(function(){info();if(Date.now()>=cdUntil)clearInterval(cdTimer);},1000);
+    box.addEventListener('click',function(){
+      if(Date.now()<cdUntil){SFX.error();toast('宝箱还在充能…');return;}
+      box.classList.remove('shaking');void box.offsetWidth;box.classList.add('shaking');
+      setTimeout(function(){
+        var r=REW[Math.floor(Math.random()*REW.length)];
+        opened++;localStorage.setItem('aox_lucky',opened);
+        cdUntil=Date.now()+60000;localStorage.setItem('aox_lucky_cd',cdUntil);
+        clearInterval(cdTimer);cdTimer=setInterval(function(){info();if(Date.now()>=cdUntil)clearInterval(cdTimer);},1000);
+        info();
+        var fly=document.createElement('span');
+        fly.className='reward';fly.textContent=r.i;
+        box.appendChild(fly);setTimeout(function(){fly.remove();},1200);
+        SFX[r.s]&&SFX[r.s]();
+        toast('🎁 开出 '+r.i+' '+r.t);
+      },420);
+    });
   }
 })();
 </script>
