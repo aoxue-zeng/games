@@ -86,6 +86,7 @@ var HERODEFS=[
   skill:{n:'紧急炮塔',cd:500,instant:0,desc:'点击免费放一座随机炮塔'}}
 ];
 var K={
+ hero:{hp:200,dmg:15,range:90,rate:35,sp:1.9,melee:0,r:11}, // 基础值，开局会被所选英雄覆盖
  ally:{hp:160,dmg:14,range:88,rate:40,sp:1.7,melee:0,r:10},
  minion:{hp:42,dmg:7,range:24,rate:28,sp:1.6,melee:1,r:7},
  eh:{hp:230,dmg:16,range:92,rate:36,sp:1.7,melee:0,r:11},
@@ -500,12 +501,12 @@ function buildBar(){var b=document.getElementById('bar');b.innerHTML='';
  addBtn('⏸暂停','',function(){paused=!paused;SFX.click();},'small');
 }
 function addBtn(label,cost,fn,cls){var e=document.createElement('button');e.className='btn'+(cls?' '+cls:'');e.innerHTML=label+(cost?'<br><span class="c">'+cost+'</span>':'');e.onclick=fn;document.getElementById('bar').appendChild(e);return e;}
-function selBar(){var bs=document.getElementById('bar').children;for(var i=0;i<4;i++)bs[i].classList.toggle('sel',mode==='build'&&selT===i);bs[6].classList.toggle('sel',mode==='skill');}
+function selBar(){var bs=document.getElementById('bar').children;for(var i=0;i<4;i++)bs[i].classList.toggle('sel',mode==='build'&&selT===i);bs[7].classList.toggle('sel',mode==='skill');}
 function hudUpd(){
  var hd=HERODEFS[curHero];
  document.getElementById('hud').innerHTML=hd.icon+'<b>Lv.'+heroLv+'</b> · 💰<b>'+gold+'</b> · 🏰我方<b>'+Math.ceil(bases[0].hp)+'</b>'+(curMode==='defense'?' · 🌊波次<b>'+waveN+'</b>':' · ☠敌方<b>'+Math.ceil(bases[1].hp)+'</b>')+' · ⚔击杀<b>'+kills+'</b>'+(combo>=2?' · 连杀<b>x'+combo+'</b>':'');
  var bs=document.getElementById('bar').children;
- if(bs[5])bs[5].innerHTML=skillCD>0?hd.icon+'技能<br><span class="c">'+Math.ceil(skillCD/60)+'s</span>':hd.icon+hd.skill.n+'<br><span class="c">就绪</span>';
+ if(bs[7])bs[7].innerHTML=skillCD>0?hd.icon+'技能<br><span class="c">'+Math.ceil(skillCD/60)+'s</span>':hd.icon+hd.skill.n+'<br><span class="c">就绪</span>';
  if(bs[6])bs[6].innerHTML=ultCD>0?'💥大招<br><span class="c">'+Math.ceil(ultCD/60)+'s</span>':'💥大招<br><span class="c">就绪</span>';
 }
 // ===== 开始页 =====
