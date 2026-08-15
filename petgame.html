@@ -2,11 +2,23 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>猫狗喂食记 · AoXuan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🐾 猫狗喂食记 · Pet Feast</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  #gameCanvas { background:linear-gradient(180deg,#87ceeb,#c8ecf8 70%,#8bc34a 70%,#5fb53f); display:block; max-width:100%; border-radius:8px; border:3px solid #000; image-rendering:pixelated; touch-action:none; }
+  #gameCanvas { background:linear-gradient(180deg,#87ceeb,#c8ecf8 70%,#8bc34a 70%,#5fb53f); display:block; width:min(500px,100%); height:auto; border-radius:8px; border:3px solid #000; image-rendering:pixelated; touch-action:none; }
+  .lang-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:10px 0 2px; }
+  .lang-btn { font-family:'VT323',monospace; font-size:18px; padding:6px 14px; background:#2b3a55; color:#fff; border:2px solid #4a6080; border-radius:6px; cursor:pointer; }
+  .lang-btn.sel { background:#c08020; border-color:#ffd700; box-shadow:0 0 8px #ffd700; }
+  .mb-ctrl { display:none; gap:10px; justify-content:center; margin-top:10px; }
+  .mb-ctrl button { font-size:30px; width:84px; height:56px; background:#2b3a55; color:#fff; border:3px solid #4a6080; border-radius:10px; touch-action:none; }
+  .mb-ctrl button:active { background:#c08020; }
+  @media (hover:none) and (pointer:coarse) { .mb-ctrl { display:flex; } }
+  @media (max-width:520px) {
+    .hud { gap:6px; }
+    .hud-item { padding:4px 8px !important; font-size:14px !important; }
+    h1.title-3d { font-size:22px !important; }
+  }
 </style>
 </head>
 <body>
@@ -14,31 +26,40 @@
 <div class="topbar">
   <a href="index.html" class="logo">⛏ AoXuan.World</a>
   <nav>
-    <a href="index.html">首页</a>
-    <a href="petgame.html">猫狗喂食记</a>
+    <a href="index.html" data-i18n="home">首页</a>
+    <a href="petgame.html" data-i18n="title">猫狗喂食记</a>
     <a href="catch.html">接贝壳</a>
     <a href="meteor.html">流星雨</a>
   </nav>
 </div>
 <div class="container center">
-  <h1 class="title-3d" style="font-size:32px;">🐱 猫狗喂食记 🐶</h1>
-  <p class="subtitle">操控像素小人接住美食：🐟喂猫、🦴喂狗，别接炸弹！</p>
-  <div class="hud" style="margin-top:14px;">
-    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
-    <div class="hud-item"><span class="label">生命</span><span id="lives">❤❤❤</span></div>
-    <div class="hud-item"><span class="label">连击</span><span id="combo">0</span></div>
-    <div class="hud-item"><span class="label">等级</span><span id="level">1</span></div>
-    <div class="hud-item"><span class="label">最佳</span><span id="best">0</span></div>
+  <h1 class="title-3d" style="font-size:30px;" id="pageTitle">🐱 猫狗喂食记 🐶</h1>
+  <p class="subtitle" id="pageSub">操控像素小人接住美食：🐟喂猫、🦴喂狗，别接炸弹！</p>
+
+  <!-- 语言选择 -->
+  <div class="lang-row" id="langRow"></div>
+
+  <div class="hud" style="margin-top:12px;">
+    <div class="hud-item"><span class="label" data-i18n="score">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label" data-i18n="lives">生命</span><span id="lives">❤❤❤</span></div>
+    <div class="hud-item"><span class="label" data-i18n="combo">连击</span><span id="combo">0</span></div>
+    <div class="hud-item"><span class="label" data-i18n="level">等级</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label" data-i18n="best">最佳</span><span id="best">0</span></div>
   </div>
   <div class="game-stage" style="margin-top:10px;">
     <canvas id="gameCanvas" width="500" height="600"></canvas>
   </div>
-  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
-    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  <!-- 手机方向键（触屏设备自动显示） -->
+  <div class="mb-ctrl">
+    <button id="mbL">◀</button>
+    <button id="mbR">▶</button>
   </div>
-  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">
-    ← → / A D / 鼠标 / 触屏 移动 · 🐟猫咪+12开心 🦴狗狗+12开心 ❤+1命 💣扣血 · 没接住美食宠物会饿 · 双双喂满升一级！
+  <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ <span data-i18n="start">开始游戏</span></button>
+    <a href="index.html" class="mc-btn">← <span data-i18n="back">返回大厅</span></a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;" id="howto">
+    ← → / A D / 鼠标 / 触屏 移动 · 🐟喂猫 🦴喂狗 ❤+1命 💣扣血 · 双双喂满升级！
   </p>
 </div>
 <div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
@@ -47,21 +68,103 @@
 <script src="shared.js"></script>
 <script>
 (function(){
+  // ===== 多语言 =====
+  var LANGS=[
+    {id:'zh',flag:'🇨🇳',n:'中文'},
+    {id:'en',flag:'🇺🇸',n:'English'},
+    {id:'ja',flag:'🇯🇵',n:'日本語'},
+    {id:'es',flag:'🇪🇸',n:'Español'}
+  ];
+  var L={
+   zh:{
+    home:'首页',title:'🐱 猫狗喂食记 🐶',sub:'接住天上掉的美食：🐟喂猫、🦴喂狗，别接炸弹！',
+    score:'分数',lives:'生命',combo:'连击',level:'等级',best:'最佳',start:'开始游戏',back:'返回大厅',
+    howto:'← → / A D / 鼠标 / 触屏 移动 · 🐟喂猫 🦴喂狗 ❤+1命 💣扣血 · 双双喂满升级！',
+    catName:'咪咪',catKind:'橘猫',dogName:'旺财',dogKind:'柴犬',happy:'开心',
+    menu1:'接住美食，喂饱两位毛孩子！',menu2:'🐟给猫 · 🦴给狗 · 💣别接 · ❤回血',
+    tapLang:'🌐 选择语言 / Language / 言語 / Idioma',
+    over:'游戏结束',scoreTxt:'得分',comboToast:function(n){return '连击 x'+n+'！';},
+    lvup:function(n){return '🎉 两位都吃饱啦！升级 Lv.'+n+'，奖励 +50 分！';},
+    catHungry:'咪咪饿得喵喵大哭…',dogHungry:'旺财饿得汪汪直叫…',bomb:'被炸弹炸到了…',
+    revive:'复活',newBest:'新纪录！'
+   },
+   en:{
+    home:'Home',title:'🐱 Pet Feast 🐶',sub:'Catch falling treats: 🐟 for the cat, 🦴 for the dog — dodge the bombs!',
+    score:'Score',lives:'Lives',combo:'Combo',level:'Level',best:'Best',start:'Start',back:'Lobby',
+    howto:'← → / A D / mouse / touch to move · 🐟cat 🦴dog ❤+1 life 💣ouch · Fill both meters to level up!',
+    catName:'Mimi',catKind:'Ginger Cat',dogName:'Lucky',dogKind:'Shiba Inu',happy:'Happy',
+    menu1:'Catch treats and feed two fur babies!',menu2:'🐟 cat · 🦴 dog · 💣 no! · ❤ heals',
+    tapLang:'🌐 Choose your language',
+    over:'GAME OVER',scoreTxt:'Score',comboToast:function(n){return 'Combo x'+n+'!';},
+    lvup:function(n){return '🎉 Both are full! Level '+n+' · +50 bonus!';},
+    catHungry:'Mimi is crying from hunger...',dogHungry:'Lucky is howling from hunger...',bomb:'Boom! Caught a bomb...',
+    revive:'Respawn',newBest:'New Best!'
+   },
+   ja:{
+    home:'ホーム',title:'🐱 わんにゃん食事タイム 🐶',sub:'落ちてくるごはんをキャッチ！🐟は猫、🦴は犬、💣はさけて！',
+    score:'スコア',lives:'ライフ',combo:'コンボ',level:'レベル',best:'最高',start:'スタート',back:'ロビー',
+    howto:'← → / A D / マウス / タッチで移動 · 🐟猫 🦴犬 ❤回復 💣ダメージ · 2匹満腹でレベルアップ！',
+    catName:'ミミ',catKind:'茶トラ',dogName:'ラッキー',dogKind:'柴犬',happy:'きぶん',
+    menu1:'落下するごはんを受けて、2匹のおなかを満たそう！',menu2:'🐟猫 · 🦴犬 · 💣ダメ · ❤回復',
+    tapLang:'🌐 言語をえらぶ',
+    over:'ゲームオーバー',scoreTxt:'スコア',comboToast:function(n){return 'コンボ x'+n+'！';},
+    lvup:function(n){return '🎉 2匹とも満腹！Lv.'+n+' · +50ボーナス！';},
+    catHungry:'ミミがおなかをすかせてないている…',dogHungry:'ラッキーがおなかをすかせてほえている…',bomb:'バクダンにあたった…',
+    revive:'ふっかつ',newBest:'新記録！'
+   },
+   es:{
+    home:'Inicio',title:'🐱 Fiesta de Mascotas 🐶',sub:'¡Atrapa la comida: 🐟 para el gato, 🦴 para el perro, evita las 💣!',
+    score:'Puntos',lives:'Vidas',combo:'Combo',level:'Nivel',best:'Récord',start:'¡Jugar!',back:'Vestíbulo',
+    howto:'← → / A D / ratón / táctil · 🐟gato 🦴perro ❤+1 vida 💣¡no! · Llena ambos medidores para subir',
+    catName:'Mimi',catKind:'Gato Naranja',dogName:'Fortuno',dogKind:'Perro Shiba',happy:'Feliz',
+    menu1:'¡Atrapa comida y alimenta a dos peluditos!',menu2:'🐟 gato · 🦴 perro · 💣 ¡no! · ❤ cura',
+    tapLang:'🌐 Elige tu idioma',
+    over:'FIN DEL JUEGO',scoreTxt:'Puntos',comboToast:function(n){return '¡Combo x'+n+'!';},
+    lvup:function(n){return '🎉 ¡Ambos llenos! Nivel '+n+' · ¡+50 de bonus!';},
+    catHungry:'Mimi llora de hambre...',dogHungry:'Fortuno aúlla de hambre...',bomb:'¡Boom! Una bomba...',
+    revive:'Revivir',newBest:'¡Nuevo récord!'
+   }
+  };
+  var lang=localStorage.getItem('petgame_lang')||'zh';
+  if(!L[lang])lang='zh';
+  function t(k){var v=(L[lang]&&L[lang][k])!==undefined?L[lang][k]:L.zh[k];return v===undefined?k:v;}
+  // 语言按钮
+  var langRow=document.getElementById('langRow');
+  LANGS.forEach(function(lg){
+    var b=document.createElement('button');
+    b.className='lang-btn'+(lg.id===lang?' sel':'');
+    b.textContent=lg.flag+' '+lg.n;
+    b.onclick=function(){
+      lang=lg.id;localStorage.setItem('petgame_lang',lang);
+      langRow.querySelectorAll('.lang-btn').forEach(function(z){z.classList.remove('sel');});
+      b.classList.add('sel');applyLang();SFX.click();
+    };
+    langRow.appendChild(b);
+  });
+  function applyLang(){
+    document.documentElement.lang={zh:'zh-CN',en:'en',ja:'ja',es:'es'}[lang];
+    document.title='🐾 '+t('title')+' · AoXuan';
+    document.getElementById('pageTitle').textContent=t('title');
+    document.getElementById('pageSub').textContent=t('sub');
+    document.getElementById('howto').textContent=t('howto');
+    document.querySelectorAll('[data-i18n]').forEach(function(e){e.textContent=t(e.dataset.i18n);});
+    updateHud();
+  }
+
+  // ===== 游戏 =====
   var canvas=document.getElementById('gameCanvas');
   var ctx=canvas.getContext('2d');
   var W=canvas.width,H=canvas.height;
-  var state,hero,items,parts,pets,keys,mouse,spawnTick,best,t0;
+  var state,hero,items,parts,pets,keys,mouse,spawnTick,best,t0,started=false;
   best=parseInt(localStorage.getItem('petgameBest')||'0',10);
-  document.getElementById('best').textContent=best;
 
   function blk(x,y,w,h,color){
     ctx.fillStyle=color; ctx.fillRect(x,y,w,h);
     ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(x,y,w,3); ctx.fillRect(x,y,3,h);
     ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x,y+h-3,w,3); ctx.fillRect(x+w-3,y,3,h);
   }
-  // 像素冒险小人（与首页/像素冒险一致），scale 缩放，返回碰撞盒宽高
-  function drawHero(x,y,s,t){
-    var bob=Math.sin(t)*1.5, leg=Math.sin(t*2)*3;
+  function drawHero(x,y,s,tm){
+    var bob=Math.sin(tm)*1.5, leg=Math.sin(tm*2)*3;
     ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
     blk(2,10+bob,20,18,'#3d8b2a');
     blk(4,0+bob,16,14,'#f0c8a0');
@@ -75,9 +178,9 @@
     ctx.restore();
     return {w:24*s,h:34*s};
   }
-  function drawCat(x,y,s,t,happy){
-    var wag=Math.sin(t*2.6)*2, blink=(Math.sin(t*0.7)>0.97);
-    var jump=happy>80?Math.abs(Math.sin(t*4))*-4:0;
+  function drawCat(x,y,s,tm,happy){
+    var wag=Math.sin(tm*2.6)*2, blink=(Math.sin(tm*0.7)>0.97);
+    var jump=happy>80?Math.abs(Math.sin(tm*4))*-4:0;
     ctx.save(); ctx.translate(x,y+jump); ctx.scale(s,s);
     blk(4,18,4,8,'#d97f1e'); blk(0,8+wag,4,12,'#f5a340');
     blk(8,16,18,11,'#f5a340');
@@ -86,7 +189,7 @@
     blk(20,4,16,13,'#f5a340');
     blk(21,1,4,4,'#d97f1e'); blk(31,1,4,4,'#d97f1e');
     ctx.fillStyle='#ff8fa3'; ctx.fillRect(22,2,2,2); ctx.fillRect(32,2,2,2);
-    if(happy<=25){ // 饿了：眼泪
+    if(happy<=25){
       ctx.fillStyle='#222'; ctx.fillRect(24,8,2,3); ctx.fillRect(31,8,2,3);
       ctx.fillStyle='#4dd0e1'; ctx.fillRect(24,12,2,3);
     } else if(blink){ ctx.fillStyle='#222'; ctx.fillRect(24,10,3,1); ctx.fillRect(30,10,3,1); }
@@ -95,9 +198,9 @@
     ctx.restore();
     return {w:44*s,h:32*s};
   }
-  function drawDog(x,y,s,t,happy){
-    var wag=Math.sin(t*3.2)*2, blink=(Math.sin(t*0.9)>0.96);
-    var jump=happy>80?Math.abs(Math.sin(t*3.4))*-5:0;
+  function drawDog(x,y,s,tm,happy){
+    var wag=Math.sin(tm*3.2)*2, blink=(Math.sin(tm*0.9)>0.96);
+    var jump=happy>80?Math.abs(Math.sin(tm*3.4))*-5:0;
     ctx.save(); ctx.translate(x,y+jump); ctx.scale(s,s);
     blk(36,12+wag*0.6,4,6,'#8d5524'); blk(38,6+wag,4,8,'#a0652f');
     blk(18,14,18,10,'#8d5524');
@@ -108,7 +211,7 @@
     if(happy<=25){ ctx.fillStyle='#222'; ctx.fillRect(14,8,2,3); ctx.fillStyle='#4dd0e1'; ctx.fillRect(14,12,2,3); }
     else if(blink){ ctx.fillStyle='#222'; ctx.fillRect(13,10,3,1); }
     else{ ctx.fillStyle='#222'; ctx.fillRect(14,8,2,3); }
-    if(happy>25&&Math.sin(t*1.4)>-0.3){ ctx.fillStyle='#ff8fa3'; ctx.fillRect(5,16,2,4); }
+    if(happy>25&&Math.sin(tm*1.4)>-0.3){ ctx.fillStyle='#ff8fa3'; ctx.fillRect(5,16,2,4); }
     blk(17,3,5,8,'#6d4118'); blk(10,16,10,2,'#e53935');
     ctx.fillStyle='#ffd700'; ctx.fillRect(14,17,2,2);
     ctx.restore();
@@ -121,8 +224,10 @@
     var col=v>50?'#4caf50':(v>25?'#ffd700':'#e53935');
     ctx.fillStyle=col; ctx.fillRect(x,y,w*v/100,10);
     ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fillRect(x,y,w*v/100,3);
-    ctx.fillStyle='#fff'; ctx.font='10px monospace'; ctx.textAlign='center';
-    ctx.fillText(face+' '+label+' '+Math.floor(v)+'%',x+w/2,y+22);
+    ctx.fillStyle='#fff'; ctx.font='bold 11px monospace'; ctx.textAlign='center';
+    ctx.fillText(face+' '+Math.floor(v)+'%',x+w/2,y+24);
+    ctx.fillStyle='#ffd700'; ctx.font='10px monospace';
+    ctx.fillText(label,x+w/2,y+36);
   }
 
   function init(){
@@ -133,10 +238,10 @@
     updateHud();
   }
   function updateHud(){
-    document.getElementById('score').textContent=state.score;
-    document.getElementById('lives').textContent='❤'.repeat(state.lives)+'🖤'.repeat(Math.max(0,3-state.lives));
-    document.getElementById('combo').textContent=state.combo;
-    document.getElementById('level').textContent=state.level;
+    document.getElementById('score').textContent=state?state.score:0;
+    document.getElementById('lives').textContent=state?'❤'.repeat(state.lives)+'🖤'.repeat(Math.max(0,3-state.lives)):'❤❤❤';
+    document.getElementById('combo').textContent=state?state.combo:0;
+    document.getElementById('level').textContent=state?state.level:1;
     document.getElementById('best').textContent=best;
   }
   var TYPES=[
@@ -166,52 +271,46 @@
     p.v=Math.min(100,p.v+12); p.feed=Date.now();
     state.combo++; state.score+=pts*(1+Math.floor(state.combo/5));
     SFX.coin(); burst(p.x+50,p.y,'❤');
-    if(state.combo%10===0){SFX.combo(state.combo); toast('连击 x'+state.combo+'！');}
+    if(state.combo%10===0){SFX.combo(state.combo); toast(t('comboToast')(state.combo));}
     if(pets.cat.v>=100&&pets.dog.v>=100){
       state.level++; pets.cat.v=60; pets.dog.v=60;
       state.score+=50; SFX.levelUp();
-      toast('🎉 两只都喂饱啦！升到第 '+state.level+' 级，+50分！');
+      toast(t('lvup')(state.level));
       burst(W/2,H/2,'⭐',12);
     }
   }
   function gameOver(reason){
-    state.over=true; state.running=false;
+    state.over=true; state.running=false; state.overMsg=reason;
     AOXSound.stopBGM(); SFX.lose();
-    if(state.score>best){best=state.score; localStorage.setItem('petgameBest',best);}
-    state.overMsg=reason;
+    if(state.score>best){best=state.score; localStorage.setItem('petgameBest',best); state.newBest=true;}
     updateHud();
   }
   function update(){
     if(!state.running)return;
-    var t=(Date.now()-t0)/1000;
-    // 移动
+    var tm=(Date.now()-t0)/1000;
     var sp=6;
     if(keys.left)hero.x-=sp;
     if(keys.right)hero.x+=sp;
     if(mouse.active)hero.x+=(mouse.x-hero.x)*0.3;
     hero.x=Math.max(30,Math.min(W-30,hero.x));
-    // 饥饿衰减
     pets.cat.v-=0.012*state.level; pets.dog.v-=0.012*state.level;
-    if(pets.cat.v<=0){gameOver('猫咪饿坏了…喵呜 😿');return;}
-    if(pets.dog.v<=0){gameOver('狗狗饿坏了…呜呜 🐶');return;}
-    // 生成
+    if(pets.cat.v<=0){gameOver(t('catHungry'));return;}
+    if(pets.dog.v<=0){gameOver(t('dogHungry'));return;}
     spawnTick--;
     if(spawnTick<=0){
       spawn();
       spawnTick=Math.max(26,60-state.level*4-state.score/80);
     }
-    // 物品
     var hw=24*hero.s,hh=34*hero.s;
     for(var i=items.length-1;i>=0;i--){
       var it=items[i];
       it.y+=it.vy; it.rot+=it.vr;
-      var ix=it.x-14,iy=it.y-14,iw=28,ih=28;
-      var hit=ix<ix+iw&&hero.x-hw/2<it.x+14&&hero.x+hw/2>it.x-14&&it.y+14>hero.y+8&&it.y-14<hero.y+hh;
+      var hit=hero.x-hw/2<it.x+14&&hero.x+hw/2>it.x-14&&it.y+14>hero.y+8&&it.y-14<hero.y+hh;
       if(hit){
         items.splice(i,1);
         if(it.type.t==='bomb'){
           state.lives--; state.combo=0; SFX.hit(); burst(it.x,it.y,'💥',8);
-          if(state.lives<=0){gameOver('被炸弹炸到了…');return;}
+          if(state.lives<=0){gameOver(t('bomb'));return;}
         } else if(it.type.t==='heart'){
           state.lives=Math.min(5,state.lives+1); state.score+=5; SFX.gem(); burst(it.x,it.y,'💖',6);
         } else {
@@ -219,7 +318,7 @@
         }
         updateHud(); continue;
       }
-      if(it.y>H-60){ // 落地：美食没接住
+      if(it.y>H-60){
         items.splice(i,1);
         if(it.type.t!=='bomb'&&it.type.t!=='heart'){
           var p=pets[it.type.feed];
@@ -228,64 +327,73 @@
         }
       }
     }
-    // 粒子
     for(var j=parts.length-1;j>=0;j--){
       var q=parts[j];
       q.x+=q.vx; q.y+=q.vy; q.vy+=0.12; q.life--;
       if(q.life<=0)parts.splice(j,1);
     }
   }
+  // 开始页装饰：飘落的美食图标（无小人无猫狗）
+  var menuIcons=[];for(var mi=0;mi<8;mi++)menuIcons.push({x:Math.random()*W,y:Math.random()*H,v:0.4+Math.random()*0.6,icon:TYPES[Math.floor(Math.random()*TYPES.length)].icon,ph:Math.random()*6});
   function draw(){
-    var t=(Date.now()-t0)/1000;
-    // 地面
+    var tm=(Date.now()-t0)/1000;
     ctx.fillStyle='#5fb53f'; ctx.fillRect(0,H-46,W,46);
     ctx.fillStyle='#3d8b2a'; ctx.fillRect(0,H-46,W,6);
     for(var g=0;g<W;g+=18){ctx.fillStyle='#4a9e33';ctx.fillRect(g+4,H-32,3,5);}
-    // 宠物 + 开心条
-    drawCat(pets.cat.x,pets.cat.y,pets.cat.s,t,pets.cat.v);
-    drawDog(pets.dog.x,pets.dog.y,pets.dog.s,t,pets.dog.v);
-    bar(20,H-190,110,pets.cat.v,'开心','🐱');
-    bar(W-130,H-190,110,pets.dog.v,'开心','🐶');
-    // 刚被喂：冒爱心
-    if(Date.now()-pets.cat.feed<700&&Math.floor(t*6)%2===0){ctx.font='20px serif';ctx.fillText('💗',pets.cat.x+30,pets.cat.y-6);}
-    if(Date.now()-pets.dog.feed<700&&Math.floor(t*6)%2===0){ctx.font='20px serif';ctx.fillText('💗',pets.dog.x+30,pets.dog.y-6);}
-    // 物品
+    if(!started){
+      // 标题页：只有风景和飘落美食
+      for(var i=0;i<menuIcons.length;i++){
+        var m=menuIcons[i];
+        m.y+=m.v; if(m.y>H-40){m.y=-20;m.x=Math.random()*W;}
+        ctx.globalAlpha=0.5; ctx.font='24px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(m.icon,m.x+Math.sin(tm+m.ph)*14,m.y); ctx.globalAlpha=1;
+      }
+      ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,H/2-108,W,180);
+      ctx.fillStyle='#ffd700'; ctx.font='bold 30px "Press Start 2P",monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🐾',W/2,H/2-78);
+      ctx.font='bold 22px monospace'; ctx.fillStyle='#fff';
+      ctx.fillText(t('menu1'),W/2,H/2-30);
+      ctx.font='16px monospace';
+      ctx.fillText(t('menu2'),W/2,H/2+4);
+      ctx.fillStyle='#4dd0e1'; ctx.font='13px monospace';
+      ctx.fillText(t('tapLang'),W/2,H/2+46);
+      return;
+    }
+    // 游戏中：猫狗 + 名牌
+    drawCat(pets.cat.x,pets.cat.y,pets.cat.s,tm,pets.cat.v);
+    drawDog(pets.dog.x,pets.dog.y,pets.dog.s,tm,pets.dog.v);
+    bar(20,H-200,110,pets.cat.v,t('catName')+' · '+t('catKind'),'🐱');
+    bar(W-130,H-200,110,pets.dog.v,t('dogName')+' · '+t('dogKind'),'🐶');
+    if(Date.now()-pets.cat.feed<700&&Math.floor(tm*6)%2===0){ctx.font='20px serif';ctx.fillText('💗',pets.cat.x+30,pets.cat.y-6);}
+    if(Date.now()-pets.dog.feed<700&&Math.floor(tm*6)%2===0){ctx.font='20px serif';ctx.fillText('💗',pets.dog.x+30,pets.dog.y-6);}
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    for(var i=0;i<items.length;i++){
-      var it=items[i];
+    for(var i2=0;i2<items.length;i2++){
+      var it=items[i2];
       ctx.save(); ctx.translate(it.x,it.y); ctx.rotate(Math.sin(it.rot)*0.4);
       ctx.font='26px serif'; ctx.fillText(it.type.icon,0,0);
       ctx.restore();
     }
-    // 主角（托盘）
     ctx.fillStyle='#8d5524'; ctx.fillRect(hero.x-34,hero.y+66,68,8);
     ctx.fillStyle='#000'; ctx.globalAlpha=0.25; ctx.fillRect(hero.x-30,hero.y+66,60,3); ctx.globalAlpha=1;
-    drawHero(hero.x-24*hero.s/2,hero.y,hero.s,t);
-    // 粒子
+    drawHero(hero.x-24*hero.s/2,hero.y,hero.s,tm);
     for(var j=0;j<parts.length;j++){
       var q=parts[j];
       ctx.globalAlpha=Math.min(1,q.life/30);
       ctx.font=Math.floor(18*q.s)+'px serif'; ctx.fillText(q.emoji,q.x,q.y);
       ctx.globalAlpha=1;
     }
-    // 状态提示
-    if(!state.running){
+    if(!state.running&&state.over){
       ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,H/2-90,W,150);
-      ctx.fillStyle='#ffd700'; ctx.font='bold 30px "Press Start 2P",monospace';
-      ctx.fillText(state.over?'GAME OVER':'猫狗喂食记',W/2,H/2-40);
+      ctx.fillStyle='#e53935'; ctx.font='bold 28px "Press Start 2P",monospace';
+      ctx.fillText(t('over'),W/2,H/2-44);
       ctx.fillStyle='#fff'; ctx.font='16px monospace';
-      if(state.over){
-        ctx.fillText(state.overMsg||'',W/2,H/2);
-        ctx.fillText('得分 '+state.score+' · 最佳 '+best,W/2,H/2+28);
-      } else {
-        ctx.fillText('接住美食喂饱猫猫狗狗！',W/2,H/2);
-        ctx.fillText('🐟给猫 🦴给狗 💣别接 ❤回血',W/2,H/2+28);
-      }
+      ctx.fillText(state.overMsg||'',W/2,H/2-6);
+      ctx.fillText(t('scoreTxt')+' '+state.score+' · '+t('best')+' '+best+(state.newBest?'  ⭐'+t('newBest'):''),W/2,H/2+26);
     }
   }
   function loop(){ update(); draw(); requestAnimationFrame(loop); }
 
-  // 输入
+  // ===== 输入（键盘 + 鼠标 + 触屏 + 手机按键）=====
   document.addEventListener('keydown',function(e){
     if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=true;
     if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=true;
@@ -294,25 +402,37 @@
     if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=false;
     if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=false;
   });
+  function toGame(e){
+    var r=canvas.getBoundingClientRect();
+    var cx=(e.touches?e.touches[0].clientX:e.clientX);
+    return (cx-r.left)*(W/r.width);
+  }
   canvas.addEventListener('mousemove',function(e){
-    var r=canvas.getBoundingClientRect();
-    mouse.x=(e.clientX-r.left)*(W/r.width); mouse.active=true;
+    mouse.x=toGame(e); mouse.active=true;
   });
-  canvas.addEventListener('touchmove',function(e){
-    e.preventDefault();
-    var r=canvas.getBoundingClientRect();
-    mouse.x=(e.touches[0].clientX-r.left)*(W/r.width); mouse.active=true;
-  },{passive:false});
   canvas.addEventListener('touchstart',function(e){
-    var r=canvas.getBoundingClientRect();
-    mouse.x=(e.touches[0].clientX-r.left)*(W/r.width); mouse.active=true;
-  });
+    e.preventDefault(); mouse.x=toGame(e); mouse.active=true;
+  },{passive:false});
+  canvas.addEventListener('touchmove',function(e){
+    e.preventDefault(); mouse.x=toGame(e); mouse.active=true;
+  },{passive:false});
+  // 手机 ◀▶ 长按键
+  function bindHold(id,dir){
+    var b=document.getElementById(id);
+    var on=function(e){e.preventDefault();keys[dir]=true;mouse.active=false;};
+    var off=function(e){e.preventDefault();keys[dir]=false;};
+    b.addEventListener('pointerdown',on);
+    b.addEventListener('pointerup',off);
+    b.addEventListener('pointerleave',off);
+    b.addEventListener('pointercancel',off);
+  }
+  bindHold('mbL','left'); bindHold('mbR','right');
 
   document.getElementById('startBtn').addEventListener('click',function(){
-    init(); state.running=true;
+    init(); started=true; state.running=true;
     SFX.click(); AOXSound.startBGM('menu');
   });
-  init(); loop();
+  applyLang(); init(); loop();
 })();
 </script>
 </body>
