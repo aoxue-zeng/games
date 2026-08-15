@@ -35,6 +35,14 @@ body{margin:0;background:#0a0a12;color:#fff;font-family:'VT323',monospace;overfl
 .opt.hero .hs{display:block;font-size:7px;color:#9ab;margin-top:3px;line-height:1.5;}
 .sect{font-family:'Press Start 2P',monospace;font-size:10px;margin:14px 0 6px;color:#ffd700;}
 #toast{position:absolute;top:48px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);border:2px solid #ffd700;padding:5px 14px;font-size:19px;border-radius:6px;display:none;z-index:15;white-space:nowrap;}
+#shop{position:absolute;inset:0;background:rgba(0,0,0,.74);display:none;align-items:center;justify-content:center;z-index:22;padding:10px;}
+.shop-grid{display:grid;grid-template-columns:repeat(2,200px);gap:8px;max-height:56vh;overflow-y:auto;justify-content:center;}
+.sitem{background:#22304a;border:2px solid #4a6080;border-radius:8px;padding:7px 9px;text-align:left;cursor:pointer;font-family:'VT323',monospace;font-size:17px;line-height:1.25;color:#fff;}
+.sitem:hover{border-color:#ffd700;}
+.sitem.no{opacity:.45;}
+.sitem .sp{color:#ffd700;}
+.sitem .sd{color:#9ab;font-size:14px;}
+.scat{font-family:'Press Start 2P',monospace;font-size:9px;color:#ffd700;margin:8px 0 4px;}
 .vs{font-family:'Press Start 2P',monospace;font-size:12px;color:#fff;margin:0 4px;}
 </style>
 </head>
@@ -44,6 +52,7 @@ body{margin:0;background:#0a0a12;color:#fff;font-family:'VT323',monospace;overfl
 <div id="hud"></div>
 <div id="bar"></div>
 <div id="toast"></div>
+<div id="shop"><div class="panel" id="shopPanel" style="max-width:460px;"></div></div>
 <div id="over"><div class="panel" id="opanel"></div></div>
 </div>
 <script>
@@ -93,6 +102,20 @@ var K={
  emerg:{hp:120,dmg:12,range:80,rate:36,sp:1.6,melee:0,r:9},
  em:{hp:46,dmg:7,range:24,rate:28,sp:1.55,melee:1,r:7}
 };
+// ===== 商店：永久强化 + 消耗品（越买越贵）=====
+var SHOP=[
+ {id:'wpn',i:'⚔️',n:'武器强化',d:'英雄伤害+20%（永久）',cost:120,inc:60,max:5,perm:1},
+ {id:'arm',i:'🛡️',n:'护甲强化',d:'生命上限+15%并治疗（永久）',cost:100,inc:50,max:5,perm:1},
+ {id:'boot',i:'👟',n:'疾速之靴',d:'英雄移速+15%（永久）',cost:80,inc:40,max:3,perm:1},
+ {id:'amulet',i:'💰',n:'金币护符',d:'被动收入+2金/5秒（永久）',cost:150,inc:70,max:3,perm:1},
+ {id:'regen',i:'❤️',n:'再生吊坠',d:'英雄每2秒回1血（永久）',cost:130,inc:60,max:3,perm:1},
+ {id:'potion',i:'🧪',n:'治疗药水',d:'立即回复150生命',cost:60,inc:15,max:0},
+ {id:'bombx',i:'💣',n:'集束炸弹',d:'全场敌人受60伤',cost:100,inc:20,max:0},
+ {id:'hour',i:'🕐',n:'时间沙漏',d:'立即重置技能+大招冷却',cost:90,inc:20,max:0},
+ {id:'repair',i:'🧱',n:'城墙修复',d:'我方主城回复150血',cost:80,inc:20,max:0},
+ {id:'mercs',i:'👥',n:'雇佣兵队',d:'立即召唤3名队友',cost:220,inc:30,max:0}
+];
+var upg={wpn:0,arm:0,boot:0,amulet:0,regen:0},shopBought={};
 var grid,zones,bases,units,towers,bullets,parts,strikzs,floats,pickups,gold,mode,selT,hero,tick,espT,mercT,ultCD,combo,comboT,kills,running,over,paused,diff,mx,my,curDiff='normal',curMap=0,blueN=2,redN=2,curHero=0,heroLv=1,skillCD=0,enhT=0,invT=0,invisT=0,rageT=0,curMode='siege',waveN=0,waveT=0,idc=0;
 // ===== 音效 =====
 var AC=null;
@@ -119,7 +142,7 @@ function wall(px,py){var cx=Math.floor(px/CELL),cy=Math.floor(py/CELL);if(cx<0||
 function towerAt(px,py){for(var i=0;i<towers.length;i++){var t=towers[i];if(Math.abs(t.x-px)<CELL*.8&&Math.abs(t.y-py)<CELL*.8)return t;}return null;}
 function mkU(x,y,team,kind){var k=K[kind];var u={id:++idc,x:x,y:y,team:team,kind:kind,hp:k.hp,maxhp:k.hp,dmg:k.dmg,range:k.range,rate:k.rate,cd:Math.random()*k.rate,sp:k.sp,melee:k.melee,r:k.r,tx:null,ty:null,slow:0,bt:0};return u;}
 function lvMul(){return 1+(heroLv-1)*.12;}
-function heroMaxHp(){var d=HERODEFS[curHero];return Math.round(d.hp*(1+(heroLv-1)*.15));}
+function heroMaxHp(){var d=HERODEFS[curHero];return Math.round(d.hp*(1+(heroLv-1)*.15)*(1+.15*upg.arm));}
 function start(){
  diff=DIFF[curDiff];genMap();
  var hd=HERODEFS[curHero];
@@ -129,6 +152,7 @@ function start(){
  gold=250+(redN-blueN)*150;
  mode='move';selT=0;tick=0;espT=120;mercT=900;ultCD=0;combo=0;comboT=0;kills=0;over=false;paused=false;running=true;
  heroLv=1;skillCD=0;enhT=0;invT=0;invisT=0;rageT=0;waveN=0;waveT=1800;
+ upg={wpn:0,arm:0,boot:0,amulet:0,regen:0};shopBought={};
  hero=mkU(bases[0].x+30,bases[0].y,'blue','hero');
  hero.kind='hero';hero.def=hd;hero.maxhp=hd.hp;hero.hp=hd.hp;hero.dmg=hd.dmg;hero.range=hd.range;hero.rate=hd.rate;hero.sp=hd.sp;hero.melee=hd.melee;hero.r=11;
  units.push(hero);
@@ -141,6 +165,7 @@ function start(){
 function moveU(u){
  if(u.slow>0)u.slow--;var sp=u.sp*(u.slow>0?.45:1);
  if(inZone(u.x,u.y,'ice'))sp*=1.4;
+ if(u===hero)sp*=1+.15*upg.boot; // 疾速之靴
  if(inZone(u.x,u.y,'mud'))sp*=.55;
  if(u.tx!==null){var dx=u.tx-u.x,dy=u.ty-u.y,d=Math.hypot(dx,dy);
   if(d<3){u.tx=null;u.ty=null;}else{
@@ -172,7 +197,7 @@ function findTgt(u,range){
  return null;
 }
 function actU(u){
- if(u.cd>0)u.cd--;var rg=u.range,lm=(u===hero)?lvMul():1;
+ if(u.cd>0)u.cd--;var rg=u.range,lm=(u===hero)?lvMul()*(1+.2*upg.wpn):1;
  if(u===hero)rg=Math.round(rg*(1+(heroLv-1)*.04));
  var rt=u.rate;if(u===hero&&rageT>0)rt=Math.round(rt*.5);
  var t=findTgt(u,rg);
@@ -362,7 +387,7 @@ function tryBuildT(u,team){
 // ===== 主更新 =====
 function upd(){
  if(!running||over||paused)return;tick++;
- if(tick%50===0)gold+=Math.round(5*diff.gold);
+ if(tick%50===0)gold+=Math.round(5*diff.gold)+2*upg.amulet;
  if(comboT>0){comboT--;if(comboT===0)combo=0;}
  if(ultCD>0)ultCD--;
  if(skillCD>0)skillCD--;
@@ -395,6 +420,7 @@ function upd(){
  if(curMode!=='defense'&&ehAlive<redN&&tick%240===0)units.push(mkU(bases[1].x+(Math.random()-.5)*30,bases[1].y,'red','eh'));
  if(alAlive<blueN-1&&tick%300===0){units.push(mkU(bases[0].x-10,bases[0].y-24,'blue','ally'));toast('🔵 增援队友抵达！');}
  if(hero._dead){hero._rt--;if(hero._rt<=0){hero._dead=false;hero.hp=hero.maxhp;hero.x=bases[0].x+20;hero.y=bases[0].y;toast('英雄复活！');}}
+ if(upg.regen>0&&tick%120===0&&!hero._dead)hero.hp=Math.min(hero.maxhp,hero.hp+upg.regen); // 再生吊坠
  bases.forEach(function(b){if(b.hp>0&&b.hp<b.maxhp&&!(curMode==='defense'&&b===bases[1]))b.hp=Math.min(b.maxhp,b.hp+.06);});
  units.forEach(function(u){if(u.hp>0&&!u._dead){ai(u);moveU(u);actU(u);}});
  bases.forEach(actBase);
@@ -526,16 +552,73 @@ function buildBar(){var b=document.getElementById('bar');b.innerHTML='';
  addBtn('💥大招','',function(){if(ultCD>0){toast('大招冷却中');return;}ultCD=600;units.forEach(function(u){if(u.team==='red'&&u.hp>0)hit(u,90,hero);});towers.forEach(function(t){if(t.team==='red')hit(t,60,hero);});if(curMode!=='defense')hit(bases[1],60,hero);SFX.ult();for(var i=0;i<20;i++)parts.push({x:Math.random()*W,y:Math.random()*H,life:25,col:'#ffaa00',r:8,big:1});toast('💥 全屏轰炸！');});
  var hd=HERODEFS[curHero];
  addBtn(hd.icon+'技能','',function(){if(skillCD>0){toast('技能冷却中 '+Math.ceil(skillCD/60)+'s');return;}if(hd.skill.instant){castSkill(hero.x,hero.y);}else{mode='skill';SFX.click();toast('点击地图释放：'+hd.skill.n);selBar();}},'skill');
+ addBtn('🛒商店','',function(){toggleShop();},'skill');
  addBtn('⏸暂停','',function(){paused=!paused;SFX.click();},'small');
 }
 function addBtn(label,cost,fn,cls){var e=document.createElement('button');e.className='btn'+(cls?' '+cls:'');e.innerHTML=label+(cost?'<br><span class="c">'+cost+'</span>':'');e.onclick=fn;document.getElementById('bar').appendChild(e);return e;}
-function selBar(){var bs=document.getElementById('bar').children;for(var i=0;i<4;i++)bs[i].classList.toggle('sel',mode==='build'&&selT===i);bs[6].classList.toggle('sel',mode==='skill');}
+function selBar(){var bs=document.getElementById('bar').children;for(var i=0;i<4;i++)bs[i].classList.toggle('sel',mode==='build'&&selT===i);bs[7].classList.toggle('sel',mode==='skill');}
 function hudUpd(){
  var hd=HERODEFS[curHero];
  document.getElementById('hud').innerHTML=hd.icon+'<b>Lv.'+heroLv+'</b> · 💰<b>'+gold+'</b> · 🏰我方<b>'+Math.ceil(bases[0].hp)+'</b>'+(curMode==='defense'?' · 🌊波次<b>'+waveN+'</b>':' · ☠敌方<b>'+Math.ceil(bases[1].hp)+'</b>')+' · ⚔击杀<b>'+kills+'</b>'+(combo>=2?' · 连杀<b>x'+combo+'</b>':'');
  var bs=document.getElementById('bar').children;
- if(bs[5])bs[5].innerHTML=skillCD>0?hd.icon+'技能<br><span class="c">'+Math.ceil(skillCD/60)+'s</span>':hd.icon+hd.skill.n+'<br><span class="c">就绪</span>';
+ if(bs[7])bs[7].innerHTML=skillCD>0?hd.icon+'技能<br><span class="c">'+Math.ceil(skillCD/60)+'s</span>':hd.icon+hd.skill.n+'<br><span class="c">就绪</span>';
  if(bs[6])bs[6].innerHTML=ultCD>0?'💥大招<br><span class="c">'+Math.ceil(ultCD/60)+'s</span>':'💥大招<br><span class="c">就绪</span>';
+ if(bs[8])bs[8].innerHTML='🛒商店<br><span class="c">'+gold+'金';
+}
+// ===== 商店 =====
+function shopCost(it){return it.cost+it.inc*(shopBought[it.id]||0);}
+function toggleShop(force){
+ var sp=document.getElementById('shop');
+ var show=force!==undefined?force:sp.style.display!=='flex';
+ if(show&&(!running||over))return;
+ sp.style.display=show?'flex':'none';
+ paused=show;
+ if(show){renderShop();SFX.click();}
+ else SFX.back&&SFX.back();
+}
+function renderShop(){
+ var p=document.getElementById('shopPanel');
+ var html='<h1 style="color:#ffd700;">🛒 战地商店</h1><p style="font-size:18px;">💰 金币：<b style="color:#ffd700;">'+gold+'</b>（购买即时生效，商店打开时游戏暂停）</p>';
+ html+='<div class="scat">⚙️ 永久强化（本局有效，越买越贵）</div><div class="shop-grid">';
+ SHOP.filter(function(s){return s.perm;}).forEach(function(s){
+  var lv=upg[s.id]||0,maxed=s.max&&lv>=s.max,cost=shopCost(s),no=maxed||gold<cost;
+  html+='<div class="sitem'+(no?' no':'')+'" data-buy="'+s.id+'">'+s.i+' <b>'+s.n+'</b>'+(s.max?' <span class="sd">Lv.'+lv+'/'+s.max+'</span>':'')+
+   '<br><span class="sd">'+s.d+'</span><br><span class="sp">'+(maxed?'已满级':'💰'+cost)+'</span></div>';
+ });
+ html+='</div><div class="scat">🎒 消耗品（立即可用）</div><div class="shop-grid">';
+ SHOP.filter(function(s){return !s.perm;}).forEach(function(s){
+  var cost=shopCost(s),no=gold<cost;
+  html+='<div class="sitem'+(no?' no':'')+'" data-buy="'+s.id+'">'+s.i+' <b>'+s.n+'</b><br><span class="sd">'+s.d+'</span><br><span class="sp">💰'+cost+' · 已买'+(shopBought[s.id]||0)+'</span></div>';
+ });
+ html+='</div><br><button class="pbtn" id="shopClose">✅ 关闭并继续</button>';
+ p.innerHTML=html;
+ p.querySelectorAll('[data-buy]').forEach(function(el){
+  el.addEventListener('click',function(){buyShop(el.dataset.buy);});
+ });
+ document.getElementById('shopClose').onclick=function(){toggleShop(false);};
+}
+function buyShop(id){
+ var s=SHOP.filter(function(z){return z.id===id;})[0];
+ if(!s)return;
+ var lv=upg[id]||0;
+ if(s.max&&lv>=s.max){SFX.error();return;}
+ var cost=shopCost(s);
+ if(gold<cost){SFX.error();toast('金币不足！打怪赚钱再来～');return;}
+ gold-=cost;shopBought[id]=(shopBought[id]||0)+1;
+ if(s.perm){
+  upg[id]=lv+1;
+  if(id==='arm'){ // 护甲：提升上限并按差值治疗
+   var old=hero.maxhp,nm=heroMaxHp();hero.maxhp=nm;hero.hp=Math.min(nm,hero.hp+(nm-old));
+  }
+  SFX.levelUp();toast(s.i+' '+s.n+' Lv.'+(lv+1)+'！（永久强化）');
+ }else{
+  if(id==='potion'){hero.hp=Math.min(hero.maxhp,hero.hp+150);SFX.heal();toast('🧪 回复150生命！');}
+  else if(id==='bombx'){units.forEach(function(u){if(u.team==='red'&&u.hp>0)hit(u,60,hero);});towers.forEach(function(t){if(t.team==='red')hit(t,40,hero);});for(var i=0;i<14;i++)parts.push({x:Math.random()*W,y:Math.random()*H,life:25,col:'#ffaa00',r:7,big:1});SFX.boom();toast('💣 集束炸弹引爆全场！');}
+  else if(id==='hour'){skillCD=0;ultCD=0;SFX.unlock();toast('🕐 技能和大招冷却已重置！');}
+  else if(id==='repair'){bases[0].hp=Math.min(bases[0].maxhp,bases[0].hp+150);SFX.heal();toast('🧱 主城修复+150！');}
+  else if(id==='mercs'){for(var m=0;m<3;m++)units.push(mkU(bases[0].x+(Math.random()-.5)*50,bases[0].y-20,'blue','ally'));SFX.place();toast('👥 雇佣兵队登场！');}
+ }
+ hudUpd();renderShop();
 }
 // ===== 开始页 =====
 function startScreen(){
@@ -543,7 +626,7 @@ function startScreen(){
  var heroHtml=HERODEFS.map(function(h,i){return '<span class="opt hero'+(i===curHero?' sel':'')+'" data-h="'+i+'"><span class="hi">'+h.icon+'</span><span class="hn">'+h.n+'</span><span class="hs">⚡'+h.skill.n+'：'+h.skill.desc+'</span></span>';}).join('');
  var mapHtml=MAPS.map(function(m,i){return '<span class="opt map'+(i===curMap?' sel':'')+'" data-m="'+i+'"><span class="mi">'+m.icon+'</span>'+m.n+'<br><span style="font-size:7px;color:#9ab;">'+m.desc+'</span></span>';}).join('');
  p.innerHTML='<h1 style="color:#ffd700;">⚔ 军团攻城战4<br><span style="font-size:12px;color:#ff5722;">王者崛起</span></h1>'+
-  '<p style="font-size:18px;line-height:1.4;">击杀<b style="color:#ffd700">敌方英雄</b>=奖金+<b style="color:#ff8fa3">额外奖金</b>+升级<br>击杀<b style="color:#4dd0e1">敌方佣兵◆</b>=奖金+升级（无额外奖金）<br>击杀<b>小兵</b>=仅基础金币</p>'+
+  '<p style="font-size:18px;line-height:1.4;">击杀<b style="color:#ffd700">敌方英雄</b>=奖金+<b style="color:#ff8fa3">额外奖金</b>+升级<br>击杀<b style="color:#4dd0e1">敌方佣兵◆</b>=奖金+升级（无额外奖金）<br>击杀<b>小兵</b>=仅基础金币 · 赚钱去<b style="color:#4dd0e1;">🛒商店</b>买强化！</p>'+
   '<p class="sect">🎮 选择模式</p>'+
   '<span class="opt'+(curMode==='siege'?' sel':'')+'" data-mode="siege">⚔ 经典攻城</span><span class="opt'+(curMode==='defense'?' sel':'')+'" data-mode="defense">🌊 无尽防守</span>'+
   '<p class="sect">🦸 选择英雄</p>'+heroHtml+
