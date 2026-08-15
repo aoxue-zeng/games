@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆翻牌 · 进化版 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #board{display:grid;gap:8px;justify-content:center;margin:12px auto;max-width:560px;}
+  .card{aspect-ratio:1;background:#2b3a55;border:3px solid #000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:clamp(20px,6vw,34px);cursor:pointer;transition:transform .25s;transform-style:preserve-3d;position:relative;color:transparent;user-select:none;}
+  .card.open{background:#f7f3e8;transform:rotateY(180deg);color:#000;}
+  .card.done{background:#4caf50;opacity:.55;cursor:default;color:#000;}
+  .card.special{box-shadow:0 0 8px #ffd700;}
+  .card.peek{background:#f7f3e8;color:#000;}
+  .ctrl{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px;}
+  .itbtn{font-family:'VT323',monospace;font-size:18px;padding:8px 16px;background:#3a2a55;color:#fff;border:3px solid #7c4dff;border-radius:8px;cursor:pointer;}
+  .itbtn:disabled{opacity:.4;cursor:default;}
+  .stars{font-size:22px;letter-spacing:3px;}
+  .bar{height:14px;background:#111;border:2px solid #000;border-radius:7px;overflow:hidden;max-width:560px;margin:8px auto;}
+  .bar>div{height:100%;background:#4caf50;transition:width .3s,background .3s;}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar"><a href="index.html" class="logo">⛏ AoXuan.World</a><nav><a href="index.html">首页</a><a href="memory.html">原版记忆翻牌</a><a href="flip.html">记忆配对</a></nav></div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🃏 记忆翻牌 · 进化版</h1>
+  <p class="subtitle">关卡制 · 特殊牌 · 道具技能 · 连击倍率 · 星级评价</p>
+  <div class="hud" style="margin-top:12px;flex-wrap:wrap;">
+    <div class="hud-item"><span class="label">总分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">关卡</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">x1</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">0</span></div>
+  </div>
+  <div class="bar"><div id="timeBar" style="width:100%"></div></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;" id="timeTxt">⏱ 60s</p>
+  <div class="stars" id="stars">☆ ☆ ☆</div>
+  <div id="board"></div>
+  <div class="ctrl">
+    <button class="itbtn" id="peekBtn">👁 偷看 <span id="peekN">1</span></button>
+    <button class="itbtn" id="shufBtn">🔄 洗牌 <span id="shufN">1</span></button>
+    <button class="mc-btn green" id="startBtn">▶ 开始</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:8px;">
+    🃏万能牌=配任意牌 · 💣炸弹牌翻开-4s · 🕐时钟牌配对+10s · 连续配对成功叠倍率 · 每关1次偷看+1次洗牌 · 通关按剩余时间评星
+  </p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script><script src="mobile.js"></script><script src="shared.js"></script>
+<script>
+(function(){
+var POOL=['🍄','⭐','💎','🔥','❄️','🌵','🌵','🌻','🦊','🐸','🐙','🦋','🚀','🎸','🍕','🍩','⚽','🎲','🐈','🐳','🌈','⚡','🍅','🥕','🧀','🍇','🍉','🥝'];
+var LAYOUTS=[[4,3],[4,4],[5,4],[6,4],[6,5]];
+var board,score,level,combo,time,maxTime,started,flipping,first,matched,timer,peekN,shufN,bombUsed;
+var best=parseInt(localStorage.getItem('memoryEvoBest')||'0',10);
+document.getElementById('best').textContent=best;
+function startLevel(){
+ var L=LAYOUTS[Math.min(LAYOUTS.length-1,level-1)];
+ var cols=L[0],rows=L[1],n=cols*rows;
+ maxTime=Math.max(35,70-level*4);time=maxTime;
+ combo=1;first=null;flipping=false;matched=0;bombUsed=[];
+ peekN=1;shufN=1;updItems();
+ board=document.getElementById('board');
+ board.style.gridTemplateColumns='repeat('+cols+',1fr)';
+ board.innerHTML='';
+ // 选图案（含特殊牌）
+ var faces=[];
+ var pairs=Math.floor(n/2);
+ var wildPair=Math.random()<.8?1:0,bombPair=1,clockPair=level>=2?1:0;
+ var normalPairs=pairs-wildPair-bombPair-clockPair;
+ var pool=POOL.slice();shuffle(pool);
+ for(var i=0;i<normalPairs&&pool.length;i++){faces.push(pool[i],pool[i]);}
+ for(var w=0;w<wildPair;w++)faces.push('🃏','🃏');
+ for(var b=0;b<bombPair;b++)faces.push('💣','💣');
+ for(var c=0;c<clockPair;c++)faces.push('🕐','🕐');
+ while(faces.length>n)faces.splice(faces.indexOf(faces[faces.length-1]),1),faces.pop();
+ shuffle(faces);
+ faces.forEach(function(f){
+  var el=document.createElement('div');
+  el.className='card'+(f==='🃏'||f==='💣'||f==='🕐'?' special':'');
+  el.dataset.f=f;
+  el.addEventListener('click',function(){flip(el);});
+  board.appendChild(el);
+ });
+ updHud();updTime();
+}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}}
+function updHud(){
+ document.getElementById('score').textContent=score;
+ document.getElementById('level').textContent=level;
+ document.getElementById('combo').textContent='x'+combo;
+}
+function updItems(){
+ document.getElementById('peekN').textContent=peekN;
+ document.getElementById('shufN').textContent=shufN;
+ document.getElementById('peekBtn').disabled=peekN<=0||!started;
+ document.getElementById('shufBtn').disabled=shufN<=0||!started;
+}
+function updTime(){
+ var p=Math.max(0,time/maxTime*100);
+ var bar=document.getElementById('timeBar');
+ bar.style.width=p+'%';
+ bar.style.background=p>50?'#4caf50':(p>25?'#ffd700':'#e53935');
+ document.getElementById('timeTxt').textContent='⏱ '+Math.ceil(time)+'s';
+ var st=p>60?'★★★':(p>30?'★☆☆':'★');
+ document.getElementById('stars').textContent=p>60?'⭐⭐⭐':(p>30?'⭐☆☆':'⭐');
+}
+function flip(el){
+ if(!started||flipping||el.classList.contains('open')||el.classList.contains('done'))return;
+ SFX.click();
+ // 炸弹牌：翻开扣时间
+ if(el.dataset.f==='💣'&&bombUsed.indexOf(el)<0){
+  bombUsed.push(el);time=Math.max(1,time-4);SFX.explode();toast('💣 炸弹牌！-4秒');
+ }
+ el.classList.add('open');
+ if(!first){first=el;return;}
+ flipping=true;
+ var a=first,b=el;first=null;
+ var ok=(a.dataset.f===b.dataset.f)||(a.dataset.f==='🃏'||b.dataset.f==='🃏');
+ if(ok){
+  setTimeout(function(){
+   a.classList.add('done');b.classList.add('done');
+   if(a.dataset.f==='🕐'||b.dataset.f==='🕐'){time+=10;SFX.unlock();toast('🕐 时钟牌！+10秒');}
+   var pts=100*combo;score+=pts;
+   combo=Math.min(9,combo+1);
+   SFX.coin();matched+=2;updHud();
+   flipping=false;
+   if(matched>=board.children.length)levelClear();
+  },350);
+ } else {
+  setTimeout(function(){
+   a.classList.remove('open');b.classList.remove('open');
+   combo=1;SFX.error();updHud();
+   flipping=false;
+  },700);
+ }
+}
+function levelClear(){
+ started=false;clearInterval(timer);
+ var p=time/maxTime;
+ var stars=p>.6?3:(p>.3?2:1);
+ var bonus=Math.round(time)*10+stars*200;
+ score+=bonus;
+ SFX.win();
+ toast('🎉 过关！⭐'.repeat(stars)+' +奖励'+bonus);
+ updHud();
+ setTimeout(function(){
+  level++;
+  started=true;startLevel();startTimer();
+ },1400);
+}
+function gameOver(){
+ started=false;clearInterval(timer);SFX.lose();
+ if(score>best){best=score;localStorage.setItem('memoryEvoBest',best);document.getElementById('best').textContent=best;}
+ toast('💀 时间到！总分 '+score+' · 到达第 '+level+' 关');
+ document.getElementById('startBtn').textContent='▶ 再来一局';
+}
+function startTimer(){
+ clearInterval(timer);
+ timer=setInterval(function(){
+  if(!started)return;
+  time-=0.1;
+  if(time<=0){time=0;updTime();gameOver();return;}
+  updTime();
+ },100);
+}
+document.getElementById('peekBtn').addEventListener('click',function(){
+ if(peekN<=0||!started)return;
+ peekN--;updItems();SFX.unlock();
+ var cards=[].slice.call(board.querySelectorAll('.card:not(.done)'));
+ cards.forEach(function(el){el.classList.add('peek');});
+ toast('👁 偷看 2 秒！');
+ setTimeout(function(){cards.forEach(function(el){if(!el.classList.contains('open'))el.classList.remove('peek');});},2000);
+});
+document.getElementById('shufBtn').addEventListener('click',function(){
+ if(shufN<=0||!started)return;
+ shufN--;updItems();SFX.rotate();
+ var cards=[].slice.call(board.querySelectorAll('.card'));
+ var faces=cards.map(function(el){return el.dataset.f;});
+ shuffle(faces);
+ cards.forEach(function(el,i){
+  var done=el.classList.contains('done');
+  el.dataset.f=faces[i];
+  el.classList.remove('open','done');
+  el.className='card'+(faces[i]==='🃏'||faces[i]==='💣'||faces[i]==='🕐'?' special':'')+(done?' done':'');
+  if(done)el.classList.add('done');
+ });
+ first=null;
+ toast('🔄 洗牌完成！重新记忆吧');
+});
+document.getElementById('startBtn').addEventListener('click',function(){
+ score=0;level=1;started=true;
+ SFX.click();
+ startLevel();startTimer();
+ this.textContent='▶ 重新开始';
+});
+})();
+</script>
+</body>
+</html>
