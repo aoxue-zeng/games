@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>霓虹双蛇 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background:#05010f; }
+  #gameCanvas { background:#08031a; touch-action:none; border:3px solid #2a0a5e; box-shadow:0 0 40px #7c4dff66, inset 0 0 60px #1a0640; border-radius:8px; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="neonsnake.html">霓虹双蛇</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="starfall.html">星穹弹幕</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🌈 霓虹双蛇</h1>
+  <p class="subtitle">赛博朋克发光蛇！吃光球变身，撞到就炸成烟花~</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">P1长度</span><span id="l1">3</span></div>
+    <div class="hud-item"><span class="label">P2/AI</span><span id="l2" style="color:#9ab">未加入</span></div>
+    <div class="hud-item"><span class="label">P1分数</span><span id="s1">0</span></div>
+    <div class="hud-item"><span class="label">最高</span><span id="hi">0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="520" height="560"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    P1 <span class="key">方向键</span>/滑动 · P2 <span class="key">WASD</span> · 💫光球+10 · ✨能量球+30加速长3
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 再来一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height,G=26,COLS=Math.floor(W/G),ROWS=Math.floor(H/G);
+  var snakes,food,energy,parts,frame,over,duo,enemyAI,allyAI,stars;
+  function mkSnake(cells,hue,name,cls){
+   return {cells:cells,dir:{x:1,y:0},nd:{x:1,y:0},hue:hue,score:0,dead:false,name:name,cls:cls,grow:0};
+  }
+  function init(){
+   snakes=[mkSnake([{x:5,y:8},{x:4,y:8},{x:3,y:8}],190,'你','p1')];
+   if(duo)snakes.push(mkSnake([{x:COLS-6,y:ROWS-8},{x:COLS-5,y:ROWS-8},{x:COLS-4,y:ROWS-8}],320,'P2','p2'));
+   if(enemyAI){var e=mkSnake([{x:COLS-6,y:8},{x:COLS-5,y:8},{x:COLS-4,y:8}],0,'🤖'+enemyAI.name,'enemy');e.ai=1;snakes.push(e);}
+   if(allyAI){var a=mkSnake([{x:5,y:ROWS-8},{x:4,y:ROWS-8},{x:3,y:ROWS-8}],110,'🤝'+allyAI.name,'ally');a.ai=1;snakes.push(a);}
+   food=null;energy=null;parts=[];frame=0;over=false;
+   stars=[];for(var i=0;i<40;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:.3+Math.random()*1.2});
+   spawnFood();updHud();
+  }
+  function begin(info){duo=info.duo;enemyAI=info.enemy;allyAI=info.ally;init();}
+  function free(x,y){return snakes.every(function(s){return s.dead||!s.cells.some(function(c){return c.x===x&&c.y===y;});});}
+  function spawnFood(){
+   for(var t=0;t<200;t++){var x=1+Math.floor(Math.random()*(COLS-2)),y=1+Math.floor(Math.random()*(ROWS-2));
+    if(free(x,y)){food={x:x,y:y,ph:0};return;}}
+  }
+  function spawnEnergy(){for(var t=0;t<200;t++){var x=1+Math.floor(Math.random()*(COLS-2)),y=1+Math.floor(Math.random()*(ROWS-2));
+   if(free(x,y)&&(!food||food.x!==x||food.y!==y)){energy={x:x,y:y,ph:0};return;}}}
+  function updHud(){
+   document.getElementById('l1').textContent=snakes[0].cells.length;
+   document.getElementById('s1').textContent=snakes[0].score;
+   document.getElementById('hi').textContent=localStorage.getItem('neonsnake_hi')||0;
+   var e2=document.getElementById('l2');
+   if(snakes[1]){e2.textContent=(snakes[1].cls==='enemy'?'敌AI ':'')+snakes[1].cells.length;e2.style.color=snakes[1].cls==='enemy'?'#ff5c8a':'#64b5f6';}
+  }
+  function boom(x,y,hue,n){
+   for(var i=0;i<n;i++){
+    var a=Math.random()*Math.PI*2,v=1+Math.random()*3.5;
+    parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:30+Math.random()*25,hue:hue+Math.random()*60-30,r:1.5+Math.random()*2.5});
+   }
+  }
+  function killSnake(s){
+   s.dead=true;
+   s.cells.forEach(function(c){boom(c.x*G+G/2,c.y*G+G/2,s.hue,4);});
+   boom(s.cells[0].x*G+G/2,s.cells[0].y*G+G/2,s.hue,26);
+   SFX.boom();
+   // 只剩一条活的或玩家死了→结束
+   if(s.cls==='p1'){
+    var hi=Math.max(s.score,parseInt(localStorage.getItem('neonsnake_hi')||'0'));
+    localStorage.setItem('neonsnake_hi',hi);
+    endGame(false);
+   }else{
+    var alive=snakes.filter(function(k){return !k.dead;});
+    if(snakes[0].dead)endGame(snakes[0].score>=120);
+    else if(alive.length===1&&alive[0]===snakes[0])endGame(true);
+   }
+  }
+  function endGame(win){
+   if(over)return;over=true;
+   if(win)Site.winGame(snakes[0].score+'分');else Site.loseGame();
+   if(enemyAI)Site.aiScore(snakes[0].score);
+   toast(win?'🏆 你称霸了霓虹场地!':'💀 蛇蛇熄灭了... '+snakes[0].score+'分');
+  }
+  function aiSteer(s){
+   var head=s.cells[0],tgt=energy||food;
+   if(!tgt)return;
+   var dx=tgt.x-head.x,dy=tgt.y-head.y;
+   var cand=[];
+   if(Math.abs(dx)>Math.abs(dy)){cand=[{x:Math.sign(dx)||1,y:0},{x:0,y:Math.sign(dy)||1}];}
+   else{cand=[{x:0,y:Math.sign(dy)||1},{x:Math.sign(dx)||1,y:0}];}
+   cand.push({x:s.dir.x,y:s.dir.y}); // 兜底直行
+   for(var i=0;i<cand.length;i++){
+    var d=cand[i];
+    if(d.x===-s.dir.x&&d.y===-s.dir.y)continue;
+    if(d.x===0&&d.y===0)continue;
+    var nx=head.x+d.x,ny=head.y+d.y;
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS)continue;
+    if(!free(nx,ny)){continue;}
+    // 避免钻进死胡同的粗略检查: 下一格周围空位数
+    var open=0;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(o){var ax=nx+o[0],ay=ny+o[1];if(ax>=0&&ay>=0&&ax<COLS&&ay<ROWS&&free(ax,ay))open++;});
+    if(open===0&&i<2)continue;
+    s.nd=d;return;
+   }
+  }
+  function step(){
+   frame++;
+   stars.forEach(function(st){st.y+=st.s;if(st.y>H){st.y=-2;st.x=Math.random()*W;}});
+   snakes.forEach(function(s){
+    if(s.dead)return;
+    if(s.ai&&frame%2===0)aiSteer(s);
+    // 应用转向
+    if(!(s.nd.x===-s.dir.x&&s.nd.y===-s.dir.y&&s.cells.length>1))s.dir=s.nd;
+    var h=s.cells[0],nx=h.x+s.dir.x,ny=h.y+s.dir.y;
+    // 撞墙/撞身
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS||!free(nx,ny)){killSnake(s);return;}
+    s.cells.unshift({x:nx,y:ny});
+    if(s.grow>0)s.grow--;else s.cells.pop();
+    // 吃
+    if(food&&nx===food.x&&ny===food.y){
+     s.score+=10;s.grow+=1;boom(nx*G+G/2,ny*G+G/2,55,10);SFX.coin();spawnFood();
+     if(!energy&&Math.random()<.18)spawnEnergy();
+    }
+    if(energy&&nx===energy.x&&ny===energy.y){
+     s.score+=30;s.grow+=3;boom(nx*G+G/2,ny*G+G/2,300,20);SFX.levelUp();energy=null;
+    }
+   });
+   parts.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96;p.life--;});
+   parts=parts.filter(function(p){return p.life>0;});
+   if(frame%10===0)updHud();
+  }
+  function glowCell(x,y,size,hue,alpha){
+   ctx.save();
+   ctx.shadowColor='hsl('+hue+',100%,60%)';ctx.shadowBlur=18;
+   ctx.fillStyle='hsla('+hue+',100%,65%,'+alpha+')';
+   ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,size,size,5):ctx.rect(x,y,size,size);ctx.fill();
+   ctx.restore();
+  }
+  function draw(){
+   ctx.fillStyle='#08031a';ctx.fillRect(0,0,W,H);
+   // 星尘
+   stars.forEach(function(st){ctx.fillStyle='rgba(255,255,255,'+(.15+st.s*.2)+')';ctx.fillRect(st.x,st.y,st.s+.5,st.s+.5);});
+   // 网格微光
+   ctx.strokeStyle='rgba(124,77,255,.07)';ctx.lineWidth=1;
+   for(var gx=0;gx<=COLS;gx++){ctx.beginPath();ctx.moveTo(gx*G,0);ctx.lineTo(gx*G,ROWS*G);ctx.stroke();}
+   for(var gy=0;gy<=ROWS;gy++){ctx.beginPath();ctx.moveTo(0,gy*G);ctx.lineTo(W,gy*G);ctx.stroke();}
+   // 食物(脉冲光球)
+   if(food){
+    food.ph+=.12;var pul=1+Math.sin(food.ph)*.18;
+    ctx.save();ctx.shadowColor='#ffd700';ctx.shadowBlur=22;
+    ctx.fillStyle='#ffd700';
+    ctx.beginPath();ctx.arc(food.x*G+G/2,food.y*G+G/2,G*.32*pul,0,7);ctx.fill();ctx.restore();
+   }
+   if(energy){
+    energy.ph+=.2;var p2=1+Math.sin(energy.ph)*.25;
+    ctx.save();ctx.shadowColor='#e040fb';ctx.shadowBlur=28;
+    ctx.fillStyle='#e040fb';
+    ctx.font=G*.9+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('✨',energy.x*G+G/2,energy.y*G+G/2+1);ctx.restore();
+   }
+   // 蛇(渐变色相+发光)
+   snakes.forEach(function(s){
+    if(s.dead)return;
+    var t=frame*.15;
+    s.cells.forEach(function(c,i){
+     var hue=(s.hue+i*9+t)%360,sh=G-4-i*0.06;
+     glowCell(c.x*G+2,c.y*G+2,Math.max(8,sh),hue,i===0?.95:.85-i*.02);
+     if(i===0){ // 蛇眼
+      ctx.fillStyle='#fff';
+      var ex=c.x*G+G/2+s.dir.x*3,ey=c.y*G+G/2+s.dir.y*3;
+      ctx.beginPath();ctx.arc(ex-3,ey-2,2,0,7);ctx.arc(ex+3,ey-2,2,0,7);ctx.fill();
+     }
+    });
+    // 名牌
+    var h0=s.cells[0];
+    ctx.font='bold 11px monospace';ctx.textAlign='center';
+    ctx.fillStyle=s.cls==='enemy'?'#ff5c8a':s.cls==='p2'?'#64b5f6':s.cls==='ally'?'#a5d6a7':'#fff';
+    ctx.fillText(s.name,h0.x*G+G/2,h0.y*G-6);
+   });
+   // 粒子
+   parts.forEach(function(p){
+    ctx.save();ctx.globalAlpha=Math.min(1,p.life/30);
+    ctx.shadowColor='hsl('+p.hue+',100%,65%)';ctx.shadowBlur=12;
+    ctx.fillStyle='hsl('+p.hue+',100%,70%)';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();ctx.restore();
+   });
+   if(over){
+    ctx.fillStyle='rgba(5,1,15,.72)';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.shadowColor='#e040fb';ctx.shadowBlur=26;
+    ctx.fillStyle='#fff';ctx.font='bold 32px monospace';ctx.textAlign='center';
+    ctx.fillText('GAME OVER',W/2,H/2-8);ctx.restore();
+    ctx.fillStyle='#ce93d8';ctx.font='15px monospace';
+    ctx.fillText('得分 '+snakes[0].score+' · 点「再来一局」',W/2,H/2+26);
+   }
+  }
+  function loop(){ if(!over)step(); draw(); requestAnimationFrame(loop); }
+  // 输入
+  var DIRS={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},KeyW:{x:0,y:-1},KeyS:{x:0,y:1},KeyA:{x:-1,y:0},KeyD:{x:1,y:0}};
+  window.addEventListener('keydown',function(ev){
+   var d=DIRS[ev.code];if(!d)return;
+   ev.preventDefault();
+   if(ev.code.indexOf('Arrow')===0){if(snakes[0])snakes[0].nd=d;}
+   else{var s2=snakes[1];if(s2&&s2.cls==='p2')s2.nd=d;else if(snakes[0]&&!snakes[1])snakes[0].nd=d;}
+  });
+  var touchStart=null;
+  canvas.addEventListener('touchstart',function(ev){touchStart={x:ev.touches[0].clientX,y:ev.touches[0].clientY};},{passive:true});
+  canvas.addEventListener('touchend',function(ev){
+   if(!touchStart||!snakes[0])return;
+   var dx=ev.changedTouches[0].clientX-touchStart.x,dy=ev.changedTouches[0].clientY-touchStart.y;
+   if(Math.abs(dx)>Math.abs(dy))snakes[0].nd={x:dx>0?1:-1,y:0};
+   else snakes[0].nd={x:0,y:dy>0?1:-1};
+  },{passive:true});
+  document.getElementById('newBtn').onclick=function(){SFX.click();Site.beginGame('🌈 霓虹双蛇',{duo:true},begin);};
+  function toast(t){var e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';document.body.appendChild(e);}e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show');},2200);}
+  var loopOn=false;
+  setInterval(function(){ if(!over&&frame%1===0){} },9999); // (空占位保持结构)
+  Site.beginGame('🌈 霓虹双蛇',{duo:true},function(info){begin(info);if(!loopOn){loopOn=true;loop();}});
+})();
+</script>
+</body>
+</html>

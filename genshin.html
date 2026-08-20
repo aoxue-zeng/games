@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>？？？ · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background:linear-gradient(160deg,#0c1a2e 0%,#123352 55%,#1d5a7a 100%); }
+  #gameCanvas { background:linear-gradient(#0e2440,#1b4a6e); border:3px solid #4fc3f7; box-shadow:0 0 50px #4fc3f744; border-radius:10px; }
+  .key { display:inline-block; background:#123352; border:2px solid #000; box-shadow: inset -2px -2px 0 0 #071626, inset 2px 2px 0 0 #2a6a96; padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; color:#fff; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav><a href="index.html">首页</a></nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🌪️ 提瓦特Q萌远征</h1>
+  <p class="subtitle">元素反应+抽卡玄学！异世相遇，尽享美味~(二创致敬之作)</p>
+  <div class="hud" style="margin-top:16px;">
+    <div class="hud-item"><span class="label">深境层</span><span id="floor">1/5</span></div>
+    <div class="hud-item"><span class="label">原石</span><span id="gems">0</span></div>
+    <div class="hud-item"><span class="label">保底</span><span id="pity">-</span></div>
+    <div class="hud-item"><span class="label">状态</span><span id="stat">备战</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:12px;"><canvas id="gameCanvas" width="560" height="420"></canvas></div>
+  <div id="cmdBar" style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="btnAtk">⚔ 普攻</button>
+    <button class="mc-btn" id="btnE">✨ 元素战技</button>
+    <button class="mc-btn" id="btnQ">💢 元素爆发</button>
+    <button class="mc-btn" id="btnSwitch">🔄 切人</button>
+    <button class="mc-btn" id="btnGacha" style="background:#9c27b0;color:#fff">🎁 抽卡</button>
+  </div>
+  <div id="log" style="margin-top:10px;background:#00000088;border:2px solid #4fc3f7;border-radius:8px;padding:10px 14px;max-width:560px;min-height:90px;max-height:150px;overflow-y:auto;color:#b3e5fc;font-size:13px;line-height:1.7;text-align:left;"></div>
+  <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 重新远征</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var EL={wind:'🌪️',fire:'🔥',ice:'❄️',elec:'⚡',water:'💧',none:''};
+  var REACT={fire_ice:['融化',2.0,''],fire_elec:['超载',1.8,'aoe'],ice_elec:['超导',1.6,'def'],water_fire:['蒸发',2.0,''],water_elec:['感电',1.5,'chain'],ice_water:['冻结',1.2,'freeze'],wind_any:['扩散',1.3,'aoe']};
+  var CHARS=[
+   {id:'aether',n:'旅行者',i:'🌷',el:'wind',hp:110,mhp:110,atk:15,e:'风刃横扫(全体)',q:'风息炸弹(全体扩散)'},
+   {id:'paimon',n:'派蒙',i:'👑',el:'none',hp:92,mhp:92,atk:9,e:'应急食品(回血28)',q:'数 Piccolo(全体回18+小伤)'},
+   {id:'amber',n:'安柏',i:'🐰',el:'fire',hp:96,mhp:96,atk:17,e:'兔兔伯爵(火伤)',q:'箭雨(全体火伤)'},
+   {id:'kaeya',n:'凯亚',i:'🥶',el:'ice',hp:104,mhp:104,atk:16,e:'霜袭(冰伤)',q:'凛风圈(全体冰伤)'},
+   {id:'lisa',n:'丽莎',i:'📚',el:'elec',hp:98,mhp:98,atk:18,e:'苍雷(雷伤)',q:'蔷薇雷光(全体雷伤)'},
+   {id:'barbara',n:'芭芭拉',i:'🎵',el:'water',hp:100,mhp:100,atk:11,e:'水环(回血20)',q:'奇迹之泉(全体回14)'}
+  ];
+  var FLOORS=[
+   [{n:'火史莱姆',i:'🔴',hp:60,atk:10,el:'fire'},{n:'水史莱姆',i:'🔵',hp:60,atk:10,el:'water'}],
+   [{n:'丘丘人',i:'👹',hp:80,atk:13,el:'none'},{n:'雷史莱姆',i:'🟣',hp:55,atk:11,el:'elec'},{n:'冰史莱姆',i:'⚪',hp:55,atk:11,el:'ice'}],
+   [{n:'盗宝团',i:'🗡️',hp:90,atk:15,el:'none'},{n:'盗宝团',i:'🗡️',hp:90,atk:15,el:'none'},{n:'药剂师',i:'🧪',hp:70,atk:14,el:'water'}],
+   [{n:'遗迹守卫',i:'🤖',hp:170,atk:19,el:'none'},{n:'雷萤术士',i:'🦋',hp:80,atk:15,el:'elec'}],
+   [{n:'无相之风·Q',i:'💠',hp:280,atk:23,el:'wind',boss:1}]
+  ];
+  var team,foes,floor,round,gems,phase,sel,log,floats,frame,over,pity,gachaCount,eleAura;
+  function logAdd(t){var el=document.getElementById('log');el.innerHTML+='<div>'+t+'</div>';el.scrollTop=el.scrollHeight;}
+  function init(){
+   team=CHARS.slice(0,4).map(c=>Object.assign({},c,{alive:true,eCd:0,qReady:true}));
+   floor=1;round=1;gems=0;phase='cmd';sel=0;over=false;pity=0;gachaCount=0;eleAura={};
+   document.getElementById('log').innerHTML='';
+   floats=[];frame=0;
+   spawnFoes();
+   logAdd('🌪️ 深境螺旋·Q萌版 第1层开启！异世相遇，尽享美味~');
+   logAdd('💡 元素反应: 火碰冰=融化·火碰雷=超载·切人打组合!');
+   gacha(10,true);
+   updHud();
+  }
+  function spawnFoes(){foes=FLOORS[floor-1].map(f=>Object.assign({},f,{mhp:f.hp,alive:true,x:0,aura:null}));}
+  function aliveT(){return team.filter(c=>c.alive);}
+  function aliveF(){return foes.filter(f=>f.alive);}
+  function cur(){return aliveT()[Math.min(sel,aliveT().length-1)]||team[0];}
+  function updHud(){
+   document.getElementById('floor').textContent=floor+'/5';
+   document.getElementById('gems').textContent=gems;
+   document.getElementById('pity').textContent=90-pity+'抽';
+   document.getElementById('stat').textContent=over?(gems>=60?'🏆 通关!':'💀 团灭...'):(phase==='cmd'?'你的回合':'敌方回合');
+   document.getElementById('btnE').textContent='✨ 战技'+(cur().eCd>0?'(CD)':'');
+   document.getElementById('btnQ').textContent='💢 爆发'+(cur().qReady?'(ready)':'(充能)');
+  }
+  // ===== 抽卡(全梗) =====
+  function gacha(n,free){
+   var out=[];
+   for(var i=0;i<n;i++){
+    gachaCount++;pity++;
+    var gold=pity>=90||Math.random()<0.006;
+    if(gold)pity=0;
+    out.push(gold);
+   }
+   var golds=out.filter(Boolean).length;
+   if(golds===0){logAdd('🎁 十连结果: <b style="color:#4fc3f7">全蓝!</b> 三星武器+蓝色角色...保底还剩'+(90-pity)+'抽');
+    if(gachaCount>=30&&!free){logAdd('(内心os: 会不会玩啊这游戏)');SFX.error();}}
+   else{logAdd('🎁 十连出金! <b style="color:#ffd700">★'+golds+'个五星!</b> '+['七七','迪卢克','刻晴','莫娜'][Math.floor(Math.random()*4)]+'到碗里来!');SFX.levelUp();
+    team.forEach(c=>{c.atk+=golds*3;});logAdd('五星光环: 全队攻击+'+golds*3+'!');}
+   updHud();
+  }
+  // ===== 元素反应 =====
+  function applyDmg(f,base,el,tag){
+   var mult=1,react=null;
+   if(el&&el!=='none'&&el!=='wind'){
+    if(f.aura&&f.aura!==el){
+     var key=el<f.aura?el+'_'+f.aura:f.aura+'_'+el;
+     var r=REACT[key];
+     if(r){react=r;mult=r[1];f.aura=null;}
+    }else if(el){f.aura=el;}
+   }
+   if(el==='wind'&&Object.keys(eleAura).length){}
+   var v=Math.max(1,Math.round(base*mult*(0.9+Math.random()*0.2)));
+   f.hp-=v;
+   floats.push({x:f.x,y:110,t:'-'+v+(react?' '+react[0]+'!':''),c:react?'#ff7043':'#ffd700',life:react?60:40});
+   logAdd(tag+' → '+f.n+' <b style="color:#ffd700">'+v+'</b>'+(react?(' <b style="color:#ff7043">'+react[0]+'!</b>'):'')+' 伤害');
+   SFX.hit();
+   if(react&&react[2]==='aoe'){
+    aliveF().forEach(o=>{if(o!==f){o.hp-=Math.round(v*.4);floats.push({x:o.x,y:110,t:'-'+Math.round(v*.4),c:'#ff7043',life:36});}});
+    logAdd('💥 反应波及其余敌人!');
+   }
+   if(f.hp<=0){f.alive=false;gems+=f.boss?25:5;SFX.boom();logAdd('💥 '+f.n+' 倒下了! +'+(f.boss?25:5)+'原石');}
+  }
+  function act(type){
+   if(phase!=='cmd'||over)return;
+   var c=cur();
+   if(type==='atk'){
+    var t=aliveF()[0];if(!t)return;
+    applyDmg(t,c.atk,c.el==='none'?null:c.el,'⚔ '+c.n+'普攻');
+   }else if(type==='e'){
+    if(c.eCd>0){logAdd('⏳ 战技冷却中');return;}
+    c.eCd=2;
+    if(c.id==='paimon'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+28);});logAdd('🌭 派蒙(不情愿地)治疗全队28点!');SFX.levelUp();}
+    else if(c.id==='barbara'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+20);});logAdd('🎵 芭芭拉治疗全队20点!');SFX.levelUp();}
+    else{var t1=aliveF()[0];if(t1)applyDmg(t1,c.atk*1.6,c.el,'✨ '+c.n+c.e);}
+   }else if(type==='q'){
+    if(!c.qReady){logAdd('💢 爆发还在充能(普攻充能)');return;}
+    c.qReady=false;SFX.levelUp();
+    if(c.id==='paimon'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+18);});aliveF().forEach(f=>applyDmg(f,c.atk*1.1,null,'👑 派蒙'));logAdd('👑 派蒙愤怒了!');}
+    else if(c.id==='barbara'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+14);});aliveF().forEach(f=>applyDmg(f,c.atk,null,'🎵 芭芭拉'));logAdd('🎵 奇迹之泉!');}
+    else{aliveF().forEach(f=>applyDmg(f,c.atk*1.5,c.el,'💢 '+c.n+c.q));}
+    // 大招充能: 全队充50%
+   }else if(type==='switch'){
+    sel=(sel+1)%Math.max(1,aliveT().length);SFX.select();
+    logAdd('🔄 切换到 '+cur().n+'!');
+   }
+   // 充能
+   team.forEach(x=>{if(x.eCd>0)x.eCd--;if(!x.qReady&&Math.random()<.5)x.qReady=true;});
+   updHud();
+   if(!aliveF().length){nextFloor();return;}
+   phase='foe';
+   setTimeout(foeTurn,650);
+  }
+  function foeTurn(){
+   if(over)return;
+   aliveF().forEach(f=>{
+    var tg=aliveT()[Math.floor(Math.random()*Math.max(1,aliveT().length))];
+    if(!tg)return;
+    var v=Math.max(1,Math.round(f.atk*(0.85+Math.random()*0.3)*0.8));
+    tg.hp-=v;
+    floats.push({x:0,y:0,t:'-'+v,c:'#ff5252',life:40,target:tg});
+    logAdd('💢 '+f.n+' 攻击 '+tg.n+' '+v+' 伤害');
+    if(tg.hp<=0){tg.alive=false;tg.hp=0;logAdd('😭 '+tg.n+' 倒下了...');}
+   });
+   round++;updHud();
+   if(!aliveT().length){endGame(false);return;}
+   phase='cmd';updHud();
+  }
+  function nextFloor(){
+   if(floor>=FLOORS.length){endGame(true);return;}
+   floor++;gems+=10;
+   team.forEach(c=>{if(!c.alive){c.alive=true;c.hp=Math.round(c.mhp*.5);}else c.hp=Math.min(c.mhp,c.hp+Math.round(c.mhp*.35));});
+   spawnFoes();
+   logAdd('🌀 第'+floor+'层开启! 小队喘了口气(+原石10)');
+   SFX.unlock();updHud();phase='cmd';
+  }
+  function endGame(win){
+   over=true;phase='over';
+   if(win){Site.winGame(gems+'原石');localStorage.setItem('genshin_clear',Date.now());logAdd('🏆 <b style="color:#ffd700">满星通关爱丽丝深境! 原石'+gems+'</b>');SFX.win();}
+   else{Site.loseGame();logAdd('💀 旅行团灭... 派蒙:下次一定!');SFX.lose();}
+   updHud();
+  }
+  // ===== 绘制 =====
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function draw(){
+   frame++;
+   ctx.clearRect(0,0,W,H);
+   ctx.fillStyle='#0e2440';ctx.fillRect(0,0,W,H);
+   for(var s=0;s<40;s++){var sx=(s*137+frame*.15*(1+s%3))%W,sy=(s*97)%150;ctx.fillStyle='rgba(180,220,255,'+(.1+(s%3)*.1)+')';ctx.fillRect(sx,sy,1.5,1.5);}
+   // 敌人
+   var fw=92,gap=(W-fw*Math.max(1,foes.length))/(foes.length+1);
+   foes.forEach(function(f,i){
+    var x=gap+i*(fw+gap),y=28;f.x=x+fw/2;
+    ctx.save();ctx.globalAlpha=f.alive?1:.22;
+    ctx.shadowColor=f.el&&f.el!=='none'?'#4fc3f7':'#90a4ae';ctx.shadowBlur=f.boss?22:8;
+    ctx.fillStyle=f.boss?'#37474f':'#26536e';roundRect(x,y,fw,f.boss?88:70,16);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle='#000a';ctx.lineWidth=2;roundRect(x,y,fw,f.boss?88:70,16);ctx.stroke();
+    ctx.font=(f.boss?32:24)+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(f.i,x+fw/2,y+(f.boss?38:30));
+    ctx.font='11px monospace';ctx.fillStyle='#b3e5fc';ctx.fillText(f.n,x+fw/2,y+(f.boss?72:58));
+    if(f.aura){ctx.font='15px serif';ctx.fillText(EL[f.aura],x+fw-14,y+14);}
+    ctx.restore();
+    ctx.fillStyle='#000';ctx.fillRect(x,y-8,fw,6);
+    ctx.fillStyle='#4dd0e1';ctx.fillRect(x+1,y-7,(fw-2)*Math.max(0,f.hp/f.mhp),4);
+   });
+   ctx.strokeStyle='#4fc3f744';ctx.setLineDash([6,10]);ctx.lineWidth=2;
+   ctx.beginPath();ctx.moveTo(0,146);ctx.lineTo(W,146);ctx.stroke();ctx.setLineDash([]);
+   // 我方(显示全部4人,当前选中高亮)
+   var tw=110,tgap=(W-tw*4)/5;
+   team.forEach(function(c,i){
+    var x=tgap+i*(tw+tgap),y=205;
+    ctx.save();ctx.globalAlpha=c.alive?1:.3;
+    ctx.shadowColor='#4fc3f7';ctx.shadowBlur=(i===sel&&phase==='cmd')?18:6;
+    ctx.fillStyle='#1b4a6e';roundRect(x,y,tw,80,14);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle=i===sel?'#ffd700':'#000a';ctx.lineWidth=i===sel?3:2;
+    roundRect(x,y,tw,80,14);ctx.stroke();
+    ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(c.i,x+tw/2,y+30);
+    if(c.el&&c.el!=='none'){ctx.font='13px serif';ctx.fillText(EL[c.el],x+tw-16,y+16);}
+    ctx.font='bold 12px monospace';ctx.fillStyle='#fff';
+    ctx.fillText(c.n,x+tw/2,y+62);
+    ctx.restore();
+    ctx.fillStyle='#000';ctx.fillRect(x,y+86,tw,7);
+    ctx.fillStyle='#66bb6a';ctx.fillRect(x+1,y+87,(tw-2)*Math.max(0,c.hp/c.mhp),5);
+   });
+   floats=floats.filter(f=>f.life>0);
+   floats.forEach(function(f){
+    f.life--;f.y-=0.7;
+    ctx.globalAlpha=Math.min(1,f.life/20);
+    ctx.font='bold 15px monospace';ctx.textAlign='center';
+    var fx=f.x,fy=f.y;
+    if(f.target){var idx=team.indexOf(f.target);fx=tgap+idx*(tw+tgap)+tw/2;fy=205+40;}
+    ctx.fillStyle='#000';ctx.fillText(f.t,fx+1,fy+1);
+    ctx.fillStyle=f.c;ctx.fillText(f.t,fx,fy);
+    ctx.globalAlpha=1;
+   });
+   if(over){
+    ctx.fillStyle='rgba(8,18,36,.78)';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.shadowColor='#4fc3f7';ctx.shadowBlur=22;
+    ctx.fillStyle='#fff';ctx.font='bold 26px monospace';ctx.textAlign='center';
+    ctx.fillText(gems>=60?'🏆 满星通关!':'💥 远征失败',W/2,H/2-8);ctx.restore();
+    ctx.fillStyle='#b3e5fc';ctx.font='14px monospace';
+    ctx.fillText('原石'+gems+' · 十连'+gachaCount+'抽 · 点「重新远征」',W/2,H/2+22);
+   }
+   requestAnimationFrame(draw);
+  }
+  canvas.addEventListener('click',function(ev){
+   if(phase!=='cmd'||over)return;
+   var r=canvas.getBoundingClientRect();
+   var mx=(ev.clientX-r.left)*(W/r.width);
+   var tw=110,tgap=(W-tw*4)/5;
+   for(var i=0;i<team.length;i++){
+    var x=tgap+i*(tw+tgap);
+    if(mx>=x&&mx<=x+tw&&team[i].alive){sel=i;SFX.select();updHud();break;}
+   }
+  });
+  document.getElementById('btnAtk').onclick=()=>act('atk');
+  document.getElementById('btnE').onclick=()=>act('e');
+  document.getElementById('btnQ').onclick=()=>act('q');
+  document.getElementById('btnSwitch').onclick=()=>act('switch');
+  document.getElementById('btnGacha').onclick=function(){
+   if(gems>=10){gems-=10;gacha(10,false);SFX.click();}else logAdd('💎 原石不够10个(打败敌人获得)!');
+  };
+  document.getElementById('newBtn').onclick=function(){SFX.click();Site.beginGame('🌪️ 提瓦特Q萌远征',{},init);};
+  // ===== 满级解锁校验 =====
+  if(window.Site){
+   var p=Site.pet();
+   if(!p||p.level<(Site.PET_MAX||10)){
+    document.body.innerHTML='<div class="container center" style="padding-top:120px">'+
+     '<div style="font-size:80px">💧</div>'+
+     '<h1 style="color:#b3e5fc;font-size:22px;">...</h1>'+
+     '<p style="color:#4fc3f7;font-size:14px;">风带来了故事的种子，时间使之发芽。</p>'+
+     '<a href="index.html" class="mc-btn" style="margin-top:20px">← 返回</a></div>';
+    return;
+   }
+   Site.beginGame('🌪️ 提瓦特Q萌远征',{},init);
+  }else init();
+  draw();
+})();
+</script>
+</body>
+</html>

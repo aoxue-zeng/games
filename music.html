@@ -90,7 +90,7 @@
   <p class="subtitle">播放预设歌曲、自己编曲、拖入文件导入！</p>
 
   <div class="music-app">
-    <!-- 工具栏 -->
+
     <div class="m-toolbar">
       <button class="m-btn" id="playBtn">▶ 播放</button>
       <button class="m-btn" id="stopBtn">⏹ 停止</button>
@@ -115,19 +115,15 @@
       <input type="file" id="fileInput" accept=".json,.txt">
     </div>
 
-    <!-- 音符调色盘 -->
     <div class="m-palette" id="palette"></div>
 
-    <!-- 轨道编辑区 -->
     <div class="m-track-area" id="trackArea"></div>
 
-    <!-- 拖拽区 -->
     <div class="m-drop" id="dropZone">
       🎵 把歌曲文件（.json）拖到这里导入<br>
       <span style="font-size:9px;opacity:0.7">或点「导入」按钮选择文件</span>
     </div>
 
-    <!-- 信息 -->
     <div class="m-info">
       <span>音符: <span id="noteCount">0</span></span>
       <span>小节: <span id="bars">4</span></span>

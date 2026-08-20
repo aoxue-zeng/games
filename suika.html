@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合成大西瓜 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:linear-gradient(#fff8e1,#ffe0b2); touch-action:none; cursor:pointer; border:4px solid #8d5524; box-shadow:0 6px 0 #5d3a1a; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="suika.html">合成大西瓜</a>
+    <a href="2048.html">2048</a>
+    <a href="tetris.html">俄罗斯方块</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🍉 合成大西瓜</h1>
+  <p class="subtitle">两个一样的水果碰一起→合成更大的！小心别堆过警戒线~</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">得分</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">最大</span><span id="best">-</span></div>
+    <div class="hud-item"><span class="label">投手</span><span id="who">P1</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">-</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="440" height="620"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    <span class="key">移动</span>瞄准 · <span class="key">点击/空格</span>投放 · 🍇→🍒→🥕→🍊→🍎→🍐→🍑→🍍→🍈→🍉
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 再来一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var FR=[{i:'🍇',r:13,s:1},{i:'🍒',r:19,s:3},{i:'🥕',r:26,s:6},{i:'🍊',r:33,s:10},{i:'🍎',r:40,s:15},{i:'🍐',r:48,s:21},{i:'🍑',r:57,s:28},{i:'🍍',r:67,s:36},{i:'🍈',r:78,s:45},{i:'🍉',r:90,s:55}];
+  var fruits,score,best,over,drop,dropX,nextT,canDrop,combo,comboT,duo,turn,enemyAI,overT,startF;
+  function init(){
+   fruits=[];score=0;over=false;drop=null;canDrop=true;combo=0;comboT=0;turn=0;overT=0;
+   best=localStorage.getItem('suika_best')||0;
+   nextT=Math.floor(Math.random()*5);
+   document.getElementById('score').textContent='0';
+   document.getElementById('best').textContent=best?FR[best-1].i:'-';
+   updWho();
+  }
+  function updWho(){ document.getElementById('who').textContent=duo?('P'+(turn+1)):'你'; }
+  var loopStarted=false;
+  function begin(info){
+   duo=info.duo;enemyAI=info.enemy;
+   init();
+   spawnDrop();
+   if(!loopStarted){loopStarted=true;loop();}
+  }
+  function spawnDrop(){
+   drop={t:Math.floor(Math.random()*5),x:W/2,y:64};
+   canDrop=true;updWho();
+  }
+  function release(){
+   if(!drop||!canDrop)return;
+   fruits.push({t:drop.t,x:drop.x,y:drop.y,vx:0,vy:0,cool:18});
+   SFX.drop();canDrop=false;drop=null;
+   if(duo)turn=1-turn;
+   setTimeout(function(){ if(!over){ spawnDrop(); if(duo)updWho(); } },600);
+  }
+  function physics(){
+   var i,j;
+   for(i=0;i<fruits.length;i++){
+    var f=fruits[i];
+    if(f.cool>0)f.cool--;
+    f.vy+=0.32;f.vx*=0.985;
+    f.x+=f.vx;f.y+=f.vy;
+    if(f.x<FR[f.t].r+6){f.x=FR[f.t].r+6;f.vx=Math.abs(f.vx)*.3;}
+    if(f.x>W-FR[f.t].r-6){f.x=W-FR[f.t].r-6;f.vx=-Math.abs(f.vx)*.3;}
+    if(f.y>H-FR[f.t].r-6){f.y=H-FR[f.t].r-6;f.vy*=-0.25;f.vx*=0.9;}
+   }
+   // 两两碰撞
+   for(i=0;i<fruits.length;i++)for(j=i+1;j<fruits.length;j++){
+    var a=fruits[i],b=fruits[j];
+    var dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||0.01,min=FR[a.t].r+FR[b.t].r;
+    if(d<min){
+     if(a.t===b.t&&a.t<FR.length-1&&a.cool<=0&&b.cool<=0){ merge(i,j); continue; }
+     var ov=(min-d)/2,nx=dx/d,ny=dy/d;
+     a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+     var rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
+     if(rv<0){ var imp=rv*0.35; a.vx+=nx*imp;a.vy+=ny*imp;b.vx-=nx*imp;b.vy-=ny*imp; }
+    }
+   }
+   fruits=fruits.filter(function(f){return f.y<H+200;});
+  }
+  function merge(i,j){
+   var a=fruits[i],b=fruits[j];
+   var nt=a.t+1;
+   fruits.splice(j,1);fruits.splice(i,1);
+   fruits.push({t:nt,x:(a.x+b.x)/2,y:(a.y+b.y)/2,vx:0,vy:-1,cool:14});
+   score+=FR[nt].s;
+   combo++;comboT=90;
+   if(combo>=2){score+=combo*2;toast('连击x'+combo+'!');}
+   SFX.combo();floatTxt((a.x+b.x)/2,(a.y+b.y)/2-20,FR[nt].i+' +'+FR[nt].s);
+   document.getElementById('score').textContent=score;
+   if(nt+1>best){best=nt+1;localStorage.setItem('suika_best',best);document.getElementById('best').textContent=FR[best-1].i;}
+  }
+  var floats=[];
+  function floatTxt(x,y,t){floats.push({x:x,y:y,t:t,life:50});}
+  function checkOver(){
+   var danger=110,i,f;
+   for(i=0;i<fruits.length;i++){
+    f=fruits[i];
+    if(f.y-FR[f.t].r<danger&&Math.abs(f.vy)<0.6&&f.cool<=0){
+     overT++;
+     if(overT>100){gameOver();return;}
+     return;
+    }
+   }
+   overT=Math.max(0,overT-2);
+  }
+  function gameOver(){
+   over=true;
+   if(score>=200)Site.winGame('得分'+score);else Site.loseGame();
+   Site.aiScore(score);
+   toast('游戏结束！得分'+score+(best?' · 最大'+FR[best-1].i:''));
+   SFX.lose();
+  }
+  function draw(){
+   ctx.clearRect(0,0,W,H);
+   // 警戒线
+   ctx.strokeStyle=overT>30?'#e53935':'#ef9a9a';ctx.setLineDash([8,6]);ctx.lineWidth=2;
+   ctx.beginPath();ctx.moveTo(0,110);ctx.lineTo(W,110);ctx.stroke();ctx.setLineDash([]);
+   if(overT>30){ctx.fillStyle='rgba(229,57,53,.15)';ctx.fillRect(0,0,W,110);}
+   // 水果
+   fruits.forEach(function(f){
+    var fr=FR[f.t];
+    ctx.beginPath();ctx.arc(f.x,f.y,fr.r,0,7);
+    ctx.fillStyle=['#ce93d8','#ef5350','#ff8a65','#ffb74d','#e57373','#aed581','#ffab91','#ffd54f','#aed581','#66bb6a'][f.t];
+    ctx.globalAlpha=.35;ctx.fill();ctx.globalAlpha=1;
+    ctx.strokeStyle='#00000055';ctx.lineWidth=2;ctx.stroke();
+    ctx.font=fr.r*1.3+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(fr.i,f.x,f.y+2);
+   });
+   // 待投放
+   if(drop){
+    var dr=FR[drop.t];
+    ctx.globalAlpha=.35;
+    ctx.beginPath();ctx.arc(drop.x,drop.y,dr.r,0,7);ctx.fillStyle='#000';ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.font=dr.r*1.3+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(dr.i,drop.x,drop.y+2);
+    ctx.strokeStyle='#0003';ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(drop.x,drop.y+dr.r);ctx.lineTo(drop.x,110);ctx.stroke();ctx.setLineDash([]);
+   }
+   floats=floats.filter(function(f){return f.life>0;});
+   floats.forEach(function(f){
+    f.life--;f.y-=0.8;
+    ctx.globalAlpha=Math.min(1,f.life/25);
+    ctx.font='bold 17px monospace';ctx.textAlign='center';
+    ctx.fillStyle='#000';ctx.fillText(f.t,f.x+1,f.y+1);
+    ctx.fillStyle='#e65100';ctx.fillText(f.t,f.x,f.y);
+    ctx.globalAlpha=1;
+   });
+   if(comboT>0){comboT--;if(comboT===0){combo=0;document.getElementById('combo').textContent='-';}
+    else document.getElementById('combo').textContent='x'+combo;}
+   if(over){
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffd700';ctx.font='bold 30px monospace';ctx.textAlign='center';
+    ctx.fillText('🍉 得分 '+score,W/2,H/2-10);
+    ctx.fillStyle='#fff';ctx.font='14px monospace';
+    ctx.fillText('点「再来一局」重开',W/2,H/2+24);
+   }
+  }
+  function loop(){
+   if(!over){physics();checkOver();}
+   draw();
+   requestAnimationFrame(loop);
+  }
+  canvas.addEventListener('mousemove',function(ev){
+   var r=canvas.getBoundingClientRect();
+   var mx=(ev.clientX-r.left)*(W/r.width);
+   if(drop)drop.x=Math.max(FR[drop.t].r+8,Math.min(W-FR[drop.t].r-8,mx));
+  });
+  canvas.addEventListener('touchmove',function(ev){
+   ev.preventDefault();
+   var r=canvas.getBoundingClientRect();
+   var mx=(ev.touches[0].clientX-r.left)*(W/r.width);
+   if(drop)drop.x=Math.max(FR[drop.t].r+8,Math.min(W-FR[drop.t].r-8,mx));
+  },{passive:false});
+  canvas.addEventListener('click',function(ev){
+   var r=canvas.getBoundingClientRect();
+   var mx=(ev.clientX-r.left)*(W/r.width);
+   if(drop)drop.x=Math.max(FR[drop.t].r+8,Math.min(W-FR[drop.t].r-8,mx));
+   release();
+  });
+  window.addEventListener('keydown',function(ev){
+   if(ev.code==='Space'){ev.preventDefault();release();}
+   if(ev.code==='ArrowLeft'&&drop)drop.x=Math.max(FR[drop.t].r+8,drop.x-24);
+   if(ev.code==='ArrowRight'&&drop)drop.x=Math.min(W-FR[drop.t].r-8,drop.x+24);
+  });
+  document.getElementById('newBtn').onclick=function(){
+   SFX.click();
+   Site.beginGame('🍉 合成大西瓜',{duo:true},begin);
+  };
+  function toast(t){var e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';document.body.appendChild(e);}e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show');},1800);}
+  // 首次进入由战报开始
+  Site.beginGame('🍉 合成大西瓜',{duo:true},begin);
+})();
+</script>
+</body>
+</html>

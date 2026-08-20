@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>断网恐龙 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#f7f7f7; touch-action:none; image-rendering:pixelated; border:4px solid #424242; box-shadow:0 6px 0 #262626; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="dino.html">断网恐龙</a>
+    <a href="runner.html">接金币跑酷</a>
+    <a href="flappy.html">像素鸟</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🦖 断网恐龙</h1>
+  <p class="subtitle">致敬Chrome断网页面！跳仙人掌、蹲躲翼龙，看谁跑得远~</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">P1里程</span><span id="s1">0</span></div>
+    <div class="hud-item"><span class="label">P2里程</span><span id="s2" style="color:#9ab">未加入</span></div>
+    <div class="hud-item"><span class="label">🤖AI</span><span id="sai" style="color:#ce93d8">-</span></div>
+    <div class="hud-item"><span class="label">速度</span><span id="spd">1.0x</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="880" height="280"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    P1 <span class="key">空格/W</span>跳 <span class="key">S</span>蹲 · P2 <span class="key">↑</span>跳 <span class="key">↓</span>蹲 · 手机<span class="key">点屏幕</span>跳
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 再跑一次</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height,GROUND=232;
+  var players,obstacles,frame,speed,dist,night,duo,enemyAI,allyAI,clouds,ended;
+  function mkDino(x,color,name){return {x:x,y:GROUND,vy:0,duck:false,dead:false,score:0,color:color,name:name,blink:0};}
+  function init(){
+   players=[mkDino(90,'#535353','P1')];
+   if(duo)players.push(mkDino(50,'#1565c0','P2'));
+   if(enemyAI){var a=mkDino(150,'#9c27b0','AI');a.ai=1;a.ghost=1;players.push(a);}
+   if(allyAI){var b=mkDino(30,'#2e7d32','AI队友');b.ghost=1;b.ally=1;b.ai=1;players.push(b);}
+   obstacles=[];frame=0;speed=6;dist=0;night=0;clouds=[];ended=false;
+   for(var i=0;i<4;i++)clouds.push({x:Math.random()*W,y:30+Math.random()*70,s:.3+Math.random()*.5});
+   updHud();
+  }
+  function begin(info){duo=info.duo;enemyAI=info.enemy;allyAI=info.ally;init();}
+  function updHud(){
+   document.getElementById('s1').textContent=Math.floor(players[0]?players[0].score:0);
+   var e2=document.getElementById('s2');
+   if(duo&&players[1])e2.textContent=Math.floor(players[1].score),e2.style.color='#64b5f6';
+   var ea=document.getElementById('sai');
+   if(enemyAI&&players.length>2){ea.textContent=Math.floor(players[2].dead?players[2].score:players[2].score);}
+   document.getElementById('spd').textContent=(speed/6).toFixed(1)+'x';
+  }
+  function jump(d){
+   if(d.dead)return;
+   if(d.y>=GROUND-1){d.vy=-12.2;d.duck=false;SFX.jump();}
+  }
+  function spawnOb(){
+   var r=Math.random();
+   if(r<0.62){ // 仙人掌
+    var n=1+Math.floor(Math.random()*3),big=Math.random()<.4,w=n*(big?22:16);
+    obstacles.push({type:'cactus',x:W+30,w:w,h:big?46:34,n:n,big:big});
+   }else{ // 翼龙(3高度)
+    var h=[0,26,52][Math.floor(Math.random()*3)];
+    obstacles.push({type:'bird',x:W+30,w:38,h:22,fly:h,ph:0});
+   }
+  }
+  function hit(d,o){
+   var dy=d.duck?24:44,dw=36;
+   var dTop=d.y-dy;
+   var oy=o.type==='cactus'?GROUND-o.h:GROUND-56-o.fly;
+   var oh=o.type==='cactus'?o.h:o.h;
+   return (d.x+dw-8>o.x+4)&&(d.x+8<o.x+o.w-4)&&(dTop+6<oy+oh)&&(d.y-4>oy);
+  }
+  function aiThink(d){
+   // AI自动玩: 看最近的障碍
+   var near=null,nd=1e9;
+   obstacles.forEach(function(o){var dd=o.x-d.x;if(dd>=-10&&dd<nd){nd=dd;near=o;}});
+   if(!near)return;
+   var tt=nd/speed;
+   if(d.y>=GROUND-1){
+    if(near.type==='cactus'&&tt<0.32){ if(Math.random()<0.9)jump(d); }
+    else if(near.type==='bird'&&near.fly<30&&tt<0.3){ if(Math.random()<0.9)jump(d); }
+    else if(near.type==='bird'&&near.fly>=30&&tt<0.4){ d.duck=true; setTimeout(function(){d.duck=false;},420); }
+   }
+  }
+  function step(){
+   frame++;
+   speed=Math.min(14,6+dist/900);
+   dist+=speed;
+   if(dist>0&&dist%700<speed)night=1-night;
+   players.forEach(function(d){
+    if(d.dead)return;
+    if(d.ai&&frame%3===0)aiThink(d);
+    d.vy+=0.62;d.y+=d.vy;
+    if(d.y>GROUND){d.y=GROUND;d.vy=0;}
+    if(!d.dead)d.score+=speed*0.06;
+    if(frame%6===0)d.blink=Math.random()<.1?6:0;
+   });
+   if(frame%Math.max(28,Math.floor(64-speed*3))===0)spawnOb();
+   obstacles.forEach(function(o){o.x-=speed+(o.type==='bird'?1.5:0);if(o.type==='bird')o.ph+=0.25;});
+   obstacles=obstacles.filter(function(o){return o.x>-80;});
+   // 碰撞
+   players.forEach(function(d){
+    if(d.dead)return;
+    for(var i=0;i<obstacles.length;i++){
+     if(hit(d,obstacles[i])){
+      if(d.ghost){d.dead=true;d.deathScore=d.score;SFX.hurt();toast(d.name+' 挂了! 里程'+Math.floor(d.score));}
+      else{d.dead=true;SFX.hurt();}
+      break;
+     }
+    }
+   });
+   // 玩家全灭→结束(幽灵AI死了不影响)
+   var alive=players.some(function(d){return !d.dead&&!d.ghost;});
+   if(!alive&&!ended)endGame();
+   if(frame%5===0)updHud();
+  }
+  function endGame(){
+   ended=true;
+   var my=Math.floor(players[0].score);
+   var p2=duo&&players[1]?Math.floor(players[1].score):null;
+   var aiS=enemyAI?Math.floor((players[2].deathScore!==undefined?players[2].deathScore:players[2].score)*1.0):null;
+   var best=Math.max(my,p2||0);
+   if(best>=500)Site.winGame('里程'+best);else Site.loseGame();
+   if(enemyAI&&aiS!==null){
+    toast(aiS<best?('🏆 你跑赢AI['+enemyAI.name+']! '+best+' vs '+aiS):('🤖 AI['+enemyAI.name+'] 更持久 '+aiS+' vs '+best));
+   }
+   if(p2!==null)toast(p2===my?'🤝 平局! 各'+my+'米':(p2>my?'🔵 P2赢! '+p2+'米':'🟤 P1赢! '+my+'米'));
+   SFX.lose();
+  }
+  function drawDino(d){
+   var dy=d.duck?24:44,x=d.x,y=d.y;
+   ctx.save();
+   if(d.ghost)ctx.globalAlpha=0.45;
+   ctx.fillStyle=d.color;
+   // 身体
+   ctx.fillRect(x,y-dy+ (d.duck?8:14),34,dy-(d.duck?8:14));
+   // 头
+   if(d.duck)ctx.fillRect(x+14,y-dy+4,26,16);
+   else ctx.fillRect(x+18,y-dy,18,18);
+   // 尾巴
+   ctx.fillRect(x-4,y-dy+(d.duck?10:18),8,10);
+   // 腿(跑动动画)
+   if(y>=GROUND-1){
+    var ph=Math.floor(frame/6)%2;
+    ctx.fillRect(x+4+(ph?0:12),y-8,10,8);
+   }else{ctx.fillRect(x+6,y-8,9,8);ctx.fillRect(x+20,y-8,9,8);}
+   // 眼睛
+   ctx.fillStyle=d.blink>0?d.color:'#fff';
+   ctx.fillRect(x+(d.duck?32:30),y-dy+(d.duck?8:4),4,4);
+   if(d.blink>0)d.blink--;
+   ctx.fillStyle=d.color;
+   if(!d.dead){ctx.fillStyle='#fff';ctx.fillRect(x+(d.blink>0?32:30),y-dy+(d.duck?8:4),4,4);ctx.fillStyle='#000';ctx.fillRect(x+(d.blink>0?33:31),y-dy+(d.duck?9:5),2,2);}
+   // 名牌
+   ctx.globalAlpha=d.ghost?0.8:1;
+   ctx.font='10px monospace';ctx.textAlign='left';
+   ctx.fillStyle=d.ghost?'#ce93d8':'#fff';ctx.fillText(d.name,x-2,y-dy-6);
+   ctx.restore();
+  }
+  function draw(){
+   ctx.fillStyle=night?'#1a237e':'#f7f7f7';
+   ctx.fillRect(0,0,W,H);
+   // 月亮/太阳
+   ctx.fillStyle=night?'#fff176':'#fdd835';
+   ctx.beginPath();ctx.arc(W-90,52,night?16:20,0,7);ctx.fill();
+   if(!night){ctx.strokeStyle='rgba(253,216,53,.5)';ctx.lineWidth=2;ctx.stroke();}
+   // 星星
+   if(night){ctx.fillStyle='#fff';for(var s=0;s<8;s++){ctx.fillRect((s*137+31)%W,(s*53)%90+14,2,2);}}
+   // 云
+   ctx.fillStyle=night?'rgba(255,255,255,.25)':'rgba(0,0,0,.08)';
+   clouds.forEach(function(c){c.x-=c.s;if(c.x<-90)c.x=W+40;ctx.fillRect(c.x,c.y,54,12);ctx.fillRect(c.x+10,c.y-8,30,10);});
+   // 地面
+   ctx.fillStyle=night?'#283593':'#e0e0e0';ctx.fillRect(0,GROUND+8,W,3);
+   ctx.fillStyle=night?'#3949ab':'#bdbdbd';
+   for(var g=0;g<W;g+=26){ctx.fillRect((g-dist*1%26+26)%W,GROUND+18,12,2);}
+   // 障碍
+   obstacles.forEach(function(o){
+    if(o.type==='cactus'){
+     ctx.fillStyle=night?'#1b5e20':'#4d7c2a';
+     for(var k=0;k<o.n;k++){
+      var cx=o.x+k*(o.big?22:16);
+     ctx.fillRect(cx+4,GROUND-o.h+6,o.big?12:9,o.h-6);
+     ctx.fillRect(cx,GROUND-o.h+16,7,12);
+     ctx.fillRect(cx+(o.big?13:10),GROUND-o.h+12,7,10);
+     }
+    }else{
+     var oy=GROUND-56-o.fly,up=Math.sin(o.ph)>0;
+     ctx.fillStyle=night?'#b39ddb':'#6d4c41';
+     // 翼龙: 身体+翅膀
+     ctx.fillRect(o.x+10,oy+8,20,8);
+     ctx.fillRect(o.x+2,oy+10,10,6);
+     if(up)ctx.fillRect(o.x+12,oy-8,16,14);
+     else ctx.fillRect(o.x+12,oy+14,16,14);
+    }
+   });
+   players.forEach(function(d){drawDino(d);});
+   // HUD in canvas
+   ctx.fillStyle=night?'#fff':'#535353';
+   ctx.font='bold 20px monospace';ctx.textAlign='right';
+   ctx.fillText('HI '+Math.max(Math.floor(players[0]?players[0].score:0),parseInt(localStorage.getItem('dino_hi')||'0')),W-20,36);
+   if(ended){
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 26px monospace';ctx.textAlign='center';
+    ctx.fillText('G A M E  O V E R',W/2,H/2-8);
+    ctx.font='14px monospace';
+    ctx.fillText('点「再跑一次」',W/2,H/2+22);
+    var hi=Math.max(Math.floor(players[0].score),parseInt(localStorage.getItem('dino_hi')||'0'));
+    localStorage.setItem('dino_hi',hi);
+   }
+  }
+  function loop(){ if(!ended)step(); draw(); requestAnimationFrame(loop); }
+  // 输入
+  window.addEventListener('keydown',function(ev){
+   if(ev.code==='Space'||ev.code==='KeyW'){ev.preventDefault();if(players[0])jump(players[0]);}
+   if(ev.code==='KeyS'&&players[0])players[0].duck=true;
+   if(ev.code==='ArrowUp'&&duo&&players[1]){ev.preventDefault();jump(players[1]);}
+   if(ev.code==='ArrowDown'&&duo&&players[1])players[1].duck=true;
+  });
+  window.addEventListener('keyup',function(ev){
+   if(ev.code==='KeyS'&&players[0])players[0].duck=false;
+   if(ev.code==='ArrowDown'&&duo&&players[1])players[1].duck=false;
+  });
+  canvas.addEventListener('touchstart',function(ev){ev.preventDefault();if(players[0])jump(players[0]);},{passive:false});
+  canvas.addEventListener('click',function(){if(players[0])jump(players[0]);});
+  document.getElementById('newBtn').onclick=function(){SFX.click();Site.beginGame('🦖 断网恐龙',{duo:true},begin);};
+  function toast(t){var e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';document.body.appendChild(e);}e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show');},2200);}
+  var loopOn=false;
+  Site.beginGame('🦖 断网恐龙',{duo:true},function(info){begin(info);if(!loopOn){loopOn=true;loop();}});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大鱼吃小鱼 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:linear-gradient(#0d47a1,#01579b,#02606f); touch-action:none; border:4px solid #01244a; box-shadow:0 6px 0 #001232; cursor:none; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="fisheat.html">大鱼吃小鱼</a>
+    <a href="fishing.html">钓鱼大师</a>
+    <a href="suika.html">合成大西瓜</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🐟 大鱼吃小鱼</h1>
+  <p class="subtitle">吃比你小的，躲比你大的！长到 Lv.8 成为海域霸主 🦈</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">你的等级</span><span id="lv">Lv.1</span></div>
+    <div class="hud-item"><span class="label">成长</span><span id="exp">0/6</span></div>
+    <div class="hud-item"><span class="label">吃鱼数</span><span id="eat">0</span></div>
+    <div class="hud-item"><span class="label">🤖AI等级</span><span id="ailv" style="color:#ce93d8">-</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="640" height="480"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    <span class="key">鼠标/触摸</span>游动 · P2用<span class="key">WASD</span> · 大鱼红色名牌·AI紫色名牌
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="newBtn">🔄 再来一局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var SIZE=[10,14,19,25,32,40,50,62]; // Lv1-8半径
+  var FISHI=['🐟','🐠','🐡','🦈','🐙','🦐','🦀','🐬'];
+  var fishes,players,mx,my,eatCnt,over,tick,bubbles,duo,enemyAI,allyAI;
+  function mkFish(lv,x,y,kind){
+   return {lv:lv,x:x,y:y,r:SIZE[lv-1],sp:.9+Math.random()*1.1,dir:Math.random()<.5?1:-1,
+    tx:null,ty:null,kind:kind||'npc',name:null,eaten:0};
+  }
+  function init(){
+   fishes=[];players=[{lv:1,x:W/2,y:H/2,r:SIZE[0],exp:0,dead:false,cls:'p1',name:'你'}];
+   if(duo)players.push({lv:1,x:W/2,y:H/2+40,r:SIZE[0],exp:0,dead:false,cls:'p2',name:'P2',keys:{}});
+   if(allyAI){var a={lv:1,x:80,y:80,r:SIZE[0],exp:0,dead:false,cls:'ally',name:allyAI.name,ai:1};players.push(a);}
+   if(enemyAI){var e=mkFish(1,Math.random()*W,Math.random()*H,'enemyAI');e.name=enemyAI.name;e.exp=0;e.skill=enemyAI.skill;fishes.push(e);}
+   for(var i=0;i<14;i++)spawnNPC();
+   mx=W/2;my=H/2;eatCnt=0;over=false;tick=0;bubbles=[];
+   updHud();
+  }
+  function begin(info){duo=info.duo;enemyAI=info.enemy;allyAI=info.ally;init();}
+  function spawnNPC(){
+   var lv=1+Math.floor(Math.random()*7);
+   var edge=Math.floor(Math.random()*4);
+   var x=edge===0?-40:edge===1?W+40:Math.random()*W;
+   var y=edge===2?-40:edge===3?H+40:Math.random()*H;
+   fishes.push(mkFish(lv,x,y,'npc'));
+  }
+  function grow(p){
+   p.exp++;
+   if(p.exp>=p.lv+5&&p.lv<8){p.lv++;p.exp=0;p.r=SIZE[p.lv-1];SFX.levelUp();
+    if(p.cls==='p1')toast('升级! Lv.'+p.lv+' '+(p.lv===8?'🦈海域霸主!':'能吃更大的了'));
+    if(p.lv>=8&&!over)winGame(p);}
+   updHud();
+  }
+  function updHud(){
+   var p=players[0];
+   document.getElementById('lv').textContent='Lv.'+p.lv+(duo&&players[1]?' | P2:Lv'+players[1].lv:'');
+   document.getElementById('exp').textContent=p.exp+'/'+(p.lv+5);
+   document.getElementById('eat').textContent=eatCnt;
+   var e=fishes.filter(function(f){return f.kind==='enemyAI';})[0];
+   document.getElementById('ailv').textContent=e?('Lv.'+e.lv):'无AI';
+  }
+  function winGame(p){
+   over=true;Site.winGame('Lv.'+players[0].lv+' 吃'+eatCnt+'条');
+   if(enemyAI){var e=fishes.filter(function(f){return f.kind==='enemyAI';})[0];
+    if(e)Site.aiScore(e.lv*10+e.eaten);}
+   SFX.win();toast('🏆 '+p.name+' 成为海域霸主!');
+  }
+  function dieGame(p){
+   p.dead=true;SFX.hurt();
+   if(p.cls==='p1'&&!over){
+    over=true;Site.loseGame();
+    if(enemyAI){var e=fishes.filter(function(f){return f.kind==='enemyAI';})[0];if(e)Site.aiScore(e.lv*10+e.eaten);}
+    toast('💀 你被吃掉了... Lv.'+p.lv+' 吃了'+eatCnt+'条');
+   } else if(!over)toast(p.name+' 被吃了!');
+  }
+  function step(){
+   tick++;
+   if(tick%50===0&&fishes.filter(function(f){return f.kind==='npc';}).length<16)spawnNPC();
+   // NPC行为
+   fishes.forEach(function(f){
+    if(f.kind==='npc'){
+     if(f.tx===null||tick%90===0){f.tx=Math.random()*W;f.ty=Math.random()*H;}
+     moveTo(f,f.tx,f.ty,f.sp*.6);
+    }else if(f.kind==='enemyAI'){
+     // 敌AI: 找能吃的最近目标(含玩家!)
+     var tgt=null,bd=1e9;
+     players.forEach(function(p){if(!p.dead&&p.lv<f.lv){var d=Math.hypot(p.x-f.x,p.y-f.y);if(d<bd){bd=d;tgt=p;}}});
+     fishes.forEach(function(o){if(o!==f&&o.lv<f.lv){var d=Math.hypot(o.x-f.x,o.y-f.y);if(d<bd*.9){bd=d;tgt=o;}}});
+     moveTo(f,tgt?tgt.x:W/2,tgt?tgt.y:H/2,f.sp*(tgt?1.1:.5)*f.skill);
+     f.eaten=f.eaten||0;
+    }
+   });
+   // 玩家
+   players.forEach(function(p){
+    if(p.dead)return;
+    if(p.cls==='p1')moveTo(p,mx,my,2.6);
+    else if(p.cls==='p2'){
+     var dx=(p.keys.d?1:0)-(p.keys.a?1:0),dy=(p.keys.s?1:0)-(p.keys.w?1:0);
+     p.x+=dx*2.4;p.y+=dy*2.4;
+     if(dx)p.dir=dx>0?1:-1;
+    }else if(p.ai){ // 友AI: 帮吃小鱼
+     var tgt=null,bd=1e9;
+     fishes.forEach(function(o){if(o.lv<=p.lv){var d=Math.hypot(o.x-p.x,o.y-p.y);if(d<bd){bd=d;tgt=o;}}});
+     moveTo(p,tgt?tgt.x:p.x,tgt?tgt.y:p.y,2.2);
+    }
+    if(p.x<p.r)p.x=p.r;if(p.x>W-p.r)p.x=W-p.r;
+    if(p.y<p.r)p.y=p.r;if(p.y>H-p.r)p.y=H-p.r;
+   });
+   // 吃与被吃
+   players.forEach(function(p){
+    if(p.dead)return;
+    for(var i=fishes.length-1;i>=0;i--){
+     var f=fishes[i];
+     if(f.lv<p.lv&&Math.hypot(f.x-p.x,f.y-p.y)<p.r+f.r*.4){
+      fishes.splice(i,1);grow(p);
+      if(p.cls==='p1'){eatCnt++;SFX.coin();}
+      else if(p.cls==='ally'){eatCnt++;p.exp2=1;}
+      else if(p.ai){grow(p);}
+     }else if(f.lv>p.lv&&Math.hypot(f.x-p.x,f.y-p.y)<f.r+p.r*.3){
+      if(f.kind==='enemyAI'&&f.lv>p.lv+0){dieGame(p);}
+      else if(f.kind!=='enemyAI'){dieGame(p);}
+     }else if(f.kind==='enemyAI'&&f.lv>p.lv&&Math.hypot(f.x-p.x,f.y-p.y)<f.r+p.r+80){
+      // 追杀中的AI吃了玩家判定在上面; AI之间不吃
+     }
+    }
+   });
+   // AI吃NPC成长
+   fishes.forEach(function(f){
+    if(f.kind!=='enemyAI')return;
+    for(var i=fishes.length-1;i>=0;i--){
+     var o=fishes[i];
+     if(o!==f&&o.kind==='npc'&&o.lv<f.lv&&Math.hypot(o.x-f.x,o.y-f.y)<f.r+o.r*.4){
+      fishes.splice(i,1);f.exp++;f.eaten++;
+      if(f.exp>=f.lv+5&&f.lv<8){f.lv++;f.exp=0;f.r=SIZE[f.lv-1];}
+     }
+    }
+   });
+   fishes=fishes.filter(function(f){return f.x>-120&&f.x<W+120&&f.y>-120&&f.y<H+120||f.kind==='enemyAI';});
+   if(tick%20===0)bubbles.push({x:Math.random()*W,y:H+10,r:2+Math.random()*4});
+   bubbles.forEach(function(b){b.y-=1.2;});
+   bubbles=bubbles.filter(function(b){return b.y>-10;});
+   if(tick%15===0)updHud();
+  }
+  function moveTo(o,tx,ty,sp){
+   var dx=tx-o.x,dy=ty-o.y,d=Math.hypot(dx,dy);
+   if(d>4){o.x+=dx/d*sp;o.y+=dy/d*sp;if(Math.abs(dx)>2)o.dir=dx>0?1:-1;}
+  }
+  function drawFish(o,emoji,color,name){
+   ctx.save();ctx.translate(o.x,o.y);ctx.scale(o.dir,1);
+   ctx.beginPath();ctx.arc(0,0,o.r,0,7);
+   ctx.fillStyle=color;ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+   ctx.strokeStyle='#00000066';ctx.lineWidth=2;ctx.stroke();
+   // 尾巴
+   ctx.beginPath();ctx.moveTo(-o.r*.9,0);ctx.lineTo(-o.r*1.5,-o.r*.55);ctx.lineTo(-o.r*1.5,o.r*.55);ctx.closePath();
+   ctx.fillStyle=color;ctx.fill();ctx.stroke();
+   // 眼睛
+   ctx.beginPath();ctx.arc(o.r*.4,-o.r*.25,Math.max(2,o.r*.16),0,7);ctx.fillStyle='#fff';ctx.fill();
+   ctx.beginPath();ctx.arc(o.r*.45,-o.r*.25,Math.max(1,o.r*.08),0,7);ctx.fillStyle='#000';ctx.fill();
+   ctx.restore();
+   if(emoji){
+    ctx.font=o.r*1.1+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(emoji,o.x,o.y+1);
+   }
+   if(name){
+    ctx.font='bold 12px monospace';ctx.textAlign='center';
+    ctx.fillStyle='#000';ctx.fillText(name,o.x+1,o.y-o.r-9);
+    ctx.fillStyle=o.cls==='enemyAI'||o.cls==='enemy'?'#ce93d8':(o.cls==='ally'?'#a5d6a7':'#ffd700');
+    ctx.fillText(name,o.x,o.y-o.r-10);
+   }
+  }
+  function draw(){
+   // 水
+   var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0d47a1');g.addColorStop(1,'#02606f');
+   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+   // 光柱
+   ctx.fillStyle='rgba(255,255,255,.05)';
+   for(var l=0;l<4;l++)ctx.fillRect(60+l*160+Math.sin(tick*.01+l)*20,0,34,H);
+   // 气泡
+   ctx.strokeStyle='rgba(255,255,255,.35)';
+   bubbles.forEach(function(b){ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.stroke();});
+   // 海草
+   ctx.strokeStyle='#2e7d32';ctx.lineWidth=4;
+   for(var s=0;s<6;s++){var bx=s*110+30;ctx.beginPath();ctx.moveTo(bx,H);
+    ctx.quadraticCurveTo(bx+Math.sin(tick*.02+s)*14,H-30,bx,H-58);ctx.stroke();}
+   // NPC/AI鱼
+   fishes.forEach(function(f){
+    var col=f.kind==='enemyAI'?'#7b1fa2':(f.lv>players[0].lv?'#c62828':f.lv<players[0].lv?'#4dd0e1':'#ffca28');
+    drawFish(f,f.kind==='enemyAI'?null:FISHI[(f.lv-1)%8],col,f.kind==='enemyAI'?('🤖'+f.name):null);
+   });
+   // 玩家
+   players.forEach(function(p){
+    if(p.dead)return;
+    drawFish(p,p.cls==='p1'?'🐟':p.cls==='p2'?'🐠':'🐬',
+     p.cls==='p1'?'#ffb300':p.cls==='p2'?'#29b6f6':'#66bb6a',p.name);
+   });
+   if(over){
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 28px monospace';ctx.textAlign='center';
+    ctx.fillText(players[0].dead?'💀 被吃掉了...':'🏆 海域霸主!',W/2,H/2-6);
+    ctx.font='14px monospace';
+    ctx.fillText('Lv.'+players[0].lv+' · 吃了'+eatCnt+'条 · 点「再来一局」',W/2,H/2+24);
+   }
+  }
+  function loop(){ if(!over)step(); draw(); requestAnimationFrame(loop); }
+  canvas.addEventListener('mousemove',function(ev){
+   var r=canvas.getBoundingClientRect();
+   mx=(ev.clientX-r.left)*(W/r.width);my=(ev.clientY-r.top)*(H/r.height);
+  });
+  canvas.addEventListener('touchmove',function(ev){
+   ev.preventDefault();
+   var r=canvas.getBoundingClientRect();
+   mx=(ev.touches[0].clientX-r.left)*(W/r.width);my=(ev.touches[0].clientY-r.top)*(H/r.height);
+  },{passive:false});
+  window.addEventListener('keydown',function(ev){
+   var p2=players&&players[1];if(!p2)return;
+   if(ev.code==='KeyW')p2.keys.w=1;if(ev.code==='KeyA')p2.keys.a=1;
+   if(ev.code==='KeyS')p2.keys.s=1;if(ev.code==='KeyD')p2.keys.d=1;
+  });
+  window.addEventListener('keyup',function(ev){
+   var p2=players&&players[1];if(!p2)return;
+   if(ev.code==='KeyW')p2.keys.w=0;if(ev.code==='KeyA')p2.keys.a=0;
+   if(ev.code==='KeyS')p2.keys.s=0;if(ev.code==='KeyD')p2.keys.d=0;
+  });
+  document.getElementById('newBtn').onclick=function(){SFX.click();Site.beginGame('🐟 大鱼吃小鱼',{duo:true},begin);};
+  function toast(t){var e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';document.body.appendChild(e);}e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show');},2200);}
+  var loopOn=false;
+  Site.beginGame('🐟 大鱼吃小鱼',{duo:true},function(info){begin(info);if(!loopOn){loopOn=true;loop();}});
+})();
+</script>
+</body>
+</html>

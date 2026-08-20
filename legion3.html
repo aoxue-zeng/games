@@ -35,6 +35,14 @@ body{margin:0;background:#0a0a12;color:#fff;font-family:'VT323',monospace;overfl
 .opt.hero .hs{display:block;font-size:7px;color:#9ab;margin-top:3px;line-height:1.5;}
 .sect{font-family:'Press Start 2P',monospace;font-size:10px;margin:14px 0 6px;color:#ffd700;}
 #toast{position:absolute;top:48px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);border:2px solid #ffd700;padding:5px 14px;font-size:19px;border-radius:6px;display:none;z-index:15;white-space:nowrap;}
+#shop{position:absolute;inset:0;background:rgba(0,0,0,.74);display:none;align-items:center;justify-content:center;z-index:22;padding:10px;}
+.shop-grid{display:grid;grid-template-columns:repeat(2,200px);gap:8px;max-height:56vh;overflow-y:auto;justify-content:center;}
+.sitem{background:#22304a;border:2px solid #4a6080;border-radius:8px;padding:7px 9px;text-align:left;cursor:pointer;font-family:'VT323',monospace;font-size:17px;line-height:1.25;color:#fff;}
+.sitem:hover{border-color:#ffd700;}
+.sitem.no{opacity:.45;}
+.sitem .sp{color:#ffd700;}
+.sitem .sd{color:#9ab;font-size:14px;}
+.scat{font-family:'Press Start 2P',monospace;font-size:9px;color:#ffd700;margin:8px 0 4px;}
 .vs{font-family:'Press Start 2P',monospace;font-size:12px;color:#fff;margin:0 4px;}
 </style>
 </head>
@@ -44,6 +52,7 @@ body{margin:0;background:#0a0a12;color:#fff;font-family:'VT323',monospace;overfl
 <div id="hud"></div>
 <div id="bar"></div>
 <div id="toast"></div>
+<div id="shop"><div class="panel" id="shopPanel" style="max-width:460px;"></div></div>
 <div id="over"><div class="panel" id="opanel"></div></div>
 </div>
 <script>
@@ -92,11 +101,52 @@ var K={
  eh:{hp:230,dmg:16,range:92,rate:36,sp:1.7,melee:0,r:11},
  em:{hp:46,dmg:7,range:24,rate:28,sp:1.55,melee:1,r:7}
 };
+// ===== 商店：永久强化(可进化) + 材料卷轴 + 合成台 =====
+var SHOP=[
+ {id:'wpn',i:'⚔️',n:'武器强化',d:'英雄伤害+20%（永久）',cost:120,inc:60,max:5,perm:1,
+  evo:{n:'炎狱魔刃',cost:400,d:'伤害再+80%',i:'🔥'}},
+ {id:'arm',i:'🛡️',n:'护甲强化',d:'生命上限+15%并治疗（永久）',cost:100,inc:50,max:5,perm:1,
+  evo:{n:'不朽龙鳞甲',cost:380,d:'血量再+50%，受伤-20%',i:'🐲'}},
+ {id:'boot',i:'👟',n:'疾速之靴',d:'英雄移速+15%（永久）',cost:80,inc:40,max:3,perm:1,
+  evo:{n:'风神之靴',cost:300,d:'移速再+35%',i:'🌪️'}},
+ {id:'amulet',i:'💰',n:'金币护符',d:'被动收入+2金/5秒（永久）',cost:150,inc:70,max:3,perm:1,
+  evo:{n:'点金之手',cost:350,d:'被动x2.5，击杀金+30%',i:'🤑'}},
+ {id:'regen',i:'❤️',n:'再生吊坠',d:'英雄每2秒回1血（永久）',cost:130,inc:60,max:3,perm:1,
+  evo:{n:'凤凰之心',cost:320,d:'每秒回3血',i:'🪶'}},
+ {id:'potion',i:'🧪',n:'治疗药水',d:'立即回复150生命',cost:60,inc:15,max:0},
+ {id:'bombx',i:'💣',n:'集束炸弹',d:'全场敌人受60伤',cost:100,inc:20,max:0},
+ {id:'hour',i:'🕐',n:'时间沙漏',d:'立即重置技能+大招冷却',cost:90,inc:20,max:0},
+ {id:'repair',i:'🧱',n:'城墙修复',d:'我方主城回复150血',cost:80,inc:20,max:0},
+ {id:'mercs',i:'👥',n:'雇佣兵队',d:'立即召唤3名队友',cost:220,inc:30,max:0}
+];
+var MATS=[
+ {id:'scale',i:'🐉',n:'龙鳞',cost:40,inc:5},
+ {id:'dust',i:'✨',n:'魔尘',cost:25,inc:3},
+ {id:'holy',i:'💧',n:'圣水',cost:30,inc:4},
+ {id:'mys',i:'🪙',n:'秘银锭',cost:55,inc:8}
+];
+var SCROLLS=[
+ {id:'flame',i:'📜',n:'炎龙卷轴',cost:150,d:'解锁配方：炎龙吐息器'},
+ {id:'phoenix',i:'📜',n:'凤凰卷轴',cost:180,d:'解锁配方：凤凰羽毛'},
+ {id:'titan',i:'📜',n:'泰坦卷轴',cost:170,d:'解锁配方：泰坦战鼓'},
+ {id:'fortune',i:'📜',n:'财神卷轴',cost:130,d:'解锁配方：财神秘匣'},
+ {id:'slayer',i:'📜',n:'屠龙卷轴',cost:260,d:'解锁配方：龙魂大剑(永久)'}
+];
+var RECIPES=[
+ {id:'flamethrower',i:'🔥',n:'炎龙吐息器',scroll:'flame',need:{scale:8,dust:5},once:1,d:'全屏敌人250伤+敌塔150伤'},
+ {id:'phoenixfeather',i:'🪶',n:'凤凰羽毛',scroll:'phoenix',need:{holy:10,scale:4},once:1,d:'英雄满血+6秒无敌'},
+ {id:'titandrum',i:'🥁',n:'泰坦战鼓',scroll:'titan',need:{mys:6,dust:8},once:1,d:'全军攻击+50%持续30秒'},
+ {id:'fortunecase',i:'💰',n:'财神秘匣',scroll:'fortune',need:{mys:3,dust:3},once:1,d:'立刻获得500金'},
+ {id:'dragonsword',i:'⚔',n:'龙魂大剑',scroll:'slayer',need:{scale:15,mys:8},once:0,d:'永久：伤害+80%攻速+20%'}
+];
+var upg={wpn:0,arm:0,boot:0,amulet:0,regen:0},shopBought={};
+var evo={wpn:0,arm:0,boot:0,amulet:0,regen:0};
+var mats={},scrollsOwn={},crafted={},dragonSword=0,armyBuff=0,shopTab=0;
 var grid,zones,bases,units,towers,bullets,parts,strikzs,floats,pickups,gold,mode,selT,hero,tick,espT,ultCD,combo,comboT,kills,running,over,paused,diff,mx,my,curDiff='normal',curMap=0,blueN=2,redN=2,curHero=0,heroLv=1,skillCD=0,enhT=0,invT=0,invisT=0,rageT=0,curMode='siege',waveN=0,waveT=0,idc=0;
 // ===== 音效 =====
 var AC=null;
 function snd(f,d,t,v){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();var o=AC.createOscillator(),g=AC.createGain();o.type=t||'square';o.frequency.value=f;o.connect(g);g.connect(AC.destination);var T=AC.currentTime;g.gain.setValueAtTime(v||.1,T);g.gain.exponentialRampToValueAtTime(.001,T+(d||.1));o.start(T);o.stop(T+(d||.12));}catch(e){}}
-var SFX={shoot:function(){snd(900,.05,'square',.04);},boom:function(){snd(70,.3,'sawtooth',.13);},hit:function(){snd(180,.05,'sawtooth',.06);},place:function(){snd(520,.08,'triangle',.13);},gold:function(){snd(1300,.05,'sine',.08);},click:function(){snd(620,.04,'square',.07);},lose:function(){snd(140,.6,'sawtooth',.16);},ult:function(){snd(110,.45,'sawtooth',.2);},win:function(){snd(660,.13,'triangle',.12);setTimeout(function(){snd(880,.14,'triangle',.12);},140);setTimeout(function(){snd(1100,.2,'triangle',.12);},280);},lvl:function(){snd(523,.1,'square',.15);setTimeout(function(){snd(784,.1,'square',.15);},90);setTimeout(function(){snd(1047,.18,'square',.15);},180);},heal:function(){snd(700,.15,'sine',.12);setTimeout(function(){snd(1050,.2,'sine',.12);},120);},tp:function(){snd(400,.06,'triangle',.12);setTimeout(function(){snd(1400,.1,'triangle',.12);},60);}};
+var SFX={error:function(){snd(200,.15,"sawtooth",.2);setTimeout(function(){snd(150,.15,"sawtooth",.2);},80);},unlock:function(){snd(784,.08,"triangle",.2);setTimeout(function(){snd(1047,.08,"triangle",.2);},60);setTimeout(function(){snd(1568,.15,"triangle",.2);},120);},select:function(){snd(880,.1,'square',.2);setTimeout(function(){snd(1320,.08,'square',.15);},60);},shoot:function(){snd(900,.05,'square',.04);},boom:function(){snd(70,.3,'sawtooth',.13);},hit:function(){snd(180,.05,'sawtooth',.06);},place:function(){snd(520,.08,'triangle',.13);},gold:function(){snd(1300,.05,'sine',.08);},click:function(){snd(620,.04,'square',.07);},lose:function(){snd(140,.6,'sawtooth',.16);},ult:function(){snd(110,.45,'sawtooth',.2);},win:function(){snd(660,.13,'triangle',.12);setTimeout(function(){snd(880,.14,'triangle',.12);},140);setTimeout(function(){snd(1100,.2,'triangle',.12);},280);},lvl:function(){snd(523,.1,'square',.15);setTimeout(function(){snd(784,.1,'square',.15);},90);setTimeout(function(){snd(1047,.18,'square',.15);},180);},heal:function(){snd(700,.15,'sine',.12);setTimeout(function(){snd(1050,.2,'sine',.12);},120);},tp:function(){snd(400,.06,'triangle',.12);setTimeout(function(){snd(1400,.1,'triangle',.12);},60);},coin:function(){snd(1300,.06,'sine',.12);setTimeout(function(){snd(1760,.1,'sine',.1);},70);},levelUp:function(){snd(523,.1,'square',.15);setTimeout(function(){snd(659,.1,'square',.15);},90);setTimeout(function(){snd(784,.12,'square',.15);},180);setTimeout(function(){snd(1047,.2,'square',.15);},300);}};
 function toast(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(function(){e.style.display='none';},2400);}
 function floatTxt(px,py,txt,col){floats.push({x:px,y:py,txt:txt,col:col||'#ffd700',life:60});}
 // ===== 地图生成 =====
@@ -117,7 +167,7 @@ function wall(px,py){var cx=Math.floor(px/CELL),cy=Math.floor(py/CELL);if(cx<0||
 function towerAt(px,py){for(var i=0;i<towers.length;i++){var t=towers[i];if(Math.abs(t.x-px)<CELL*.8&&Math.abs(t.y-py)<CELL*.8)return t;}return null;}
 function mkU(x,y,team,kind){var k=K[kind];var u={id:++idc,x:x,y:y,team:team,kind:kind,hp:k.hp,maxhp:k.hp,dmg:k.dmg,range:k.range,rate:k.rate,cd:Math.random()*k.rate,sp:k.sp,melee:k.melee,r:k.r,tx:null,ty:null,slow:0,bt:0};return u;}
 function lvMul(){return 1+(heroLv-1)*.12;}
-function heroMaxHp(){var d=HERODEFS[curHero];return Math.round(d.hp*(1+(heroLv-1)*.15));}
+function heroMaxHp(){var d=HERODEFS[curHero];return Math.round(d.hp*(1+(heroLv-1)*.15)*(1+.15*upg.arm)*(evo.arm?1.5:1));}
 function start(){
  diff=DIFF[curDiff];genMap();
  var hd=HERODEFS[curHero];
@@ -127,6 +177,8 @@ function start(){
  gold=250+(redN-blueN)*150;
  mode='move';selT=0;tick=0;espT=120;ultCD=0;combo=0;comboT=0;kills=0;over=false;paused=false;running=true;
  heroLv=1;skillCD=0;enhT=0;invT=0;invisT=0;rageT=0;waveN=0;waveT=1800;
+ upg={wpn:0,arm:0,boot:0,amulet:0,regen:0};shopBought={};
+ evo={wpn:0,arm:0,boot:0,amulet:0,regen:0};mats={};scrollsOwn={};crafted={};dragonSword=0;armyBuff=0;shopTab=0;
  hero=mkU(bases[0].x+30,bases[0].y,'blue','hero');
  hero.kind='hero';hero.def=hd;hero.maxhp=hd.hp;hero.hp=hd.hp;hero.dmg=hd.dmg;hero.range=hd.range;hero.rate=hd.rate;hero.sp=hd.sp;hero.melee=hd.melee;hero.r=11;
  units.push(hero);
@@ -139,6 +191,7 @@ function start(){
 function moveU(u){
  if(u.slow>0)u.slow--;var sp=u.sp*(u.slow>0?.45:1);
  if(inZone(u.x,u.y,'ice'))sp*=1.4;
+ if(u===hero)sp*=1+.15*upg.boot+(evo.boot?.35:0);
  if(inZone(u.x,u.y,'mud'))sp*=.55;
  if(u.tx!==null){var dx=u.tx-u.x,dy=u.ty-u.y,d=Math.hypot(dx,dy);
   if(d<3){u.tx=null;u.ty=null;}else{
@@ -170,9 +223,12 @@ function findTgt(u,range){
  return null;
 }
 function actU(u){
- if(u.cd>0)u.cd--;var rg=u.range,lm=(u===hero)?lvMul():1;
+ if(u.cd>0)u.cd--;
+ var rg=u.range,lm=(u===hero)?lvMul()*(1+.2*upg.wpn)*(evo.wpn?1.8:1)*(dragonSword?1.8:1):1;
+ if(u.team==='blue'&&armyBuff>0)lm*=1.5;
  if(u===hero)rg=Math.round(rg*(1+(heroLv-1)*.04));
  var rt=u.rate;if(u===hero&&rageT>0)rt=Math.round(rt*.5);
+ if(u===hero&&dragonSword)rt=Math.round(rt*.8);
  var t=findTgt(u,rg);
  if(t&&u.cd<=0){u.cd=rt;fire(u,t,Math.round(u.dmg*lm*(u===hero&&enhT>0?2:1)),u.melee?'melee':'shot');}
 }
@@ -184,6 +240,7 @@ function fire(f,t,dmg,kind){
 function hit(t,dmg,from){
  if(!t||t.hp<=0||over)return;
  if(t===hero&&invT>0){floats.push({x:t.x,y:t.y-18,txt:'圣盾!',col:'#4dd0e1',life:30});return;}
+ if(t===hero&&evo.arm)dmg=Math.round(dmg*.8);
  if(curMode==='defense'&&t===bases[1])return; // 无敌主城
  t.hp-=dmg;
  parts.push({x:t.x+(Math.random()-.5)*(t.r||10),y:t.y+(Math.random()-.5)*(t.r||10),life:10,col:t.isTower?'#ffcc00':'#ff5050',r:3});
@@ -201,8 +258,8 @@ function hit(t,dmg,from){
   }
   if(from&&from.team==='blue'&&t.team==='red'){
    if(t.kind==='eh'){
-    var rew=Math.round(60*diff.gold);
-    var extra=Math.round((40+15*heroLv)*(from===hero?2:1));
+    var rew=Math.round(60*diff.gold*(evo.amulet?1.3:1));
+    var extra=Math.round((40+15*heroLv)*(from===hero?2:1)*(evo.amulet?1.3:1));
     gold+=rew+extra;kills++;combo++;comboT=150;
     SFX.gold();SFX.lvl();
     floatTxt(t.x,t.y-24,'+'+rew+'金','#ffd700');
@@ -214,7 +271,7 @@ function hit(t,dmg,from){
      toast((from===hero?'🗡️ 你亲手击杀':'🔵 我方击杀')+'敌方英雄！奖金'+rew+' + 额外'+extra+' · 升级 Lv.'+heroLv+'！');
     } else toast('击杀敌方英雄！+'+(rew+extra)+'金');
    } else {
-    var rew2=Math.round(8*diff.gold);gold+=rew2;kills++;
+    var rew2=Math.round(8*diff.gold*(evo.amulet?1.3:1));gold+=rew2;kills++;
     SFX.gold();floatTxt(t.x,t.y-20,'+'+rew2+'金','#ffd700');
    }
   }
@@ -345,7 +402,7 @@ function tryBuildT(u,team){
 // ===== 主更新 =====
 function upd(){
  if(!running||over||paused)return;tick++;
- if(tick%50===0)gold+=Math.round(5*diff.gold);
+ if(tick%50===0)gold+=Math.round(5*diff.gold)+Math.round(2*upg.amulet*(evo.amulet?2.5:1));
  if(comboT>0){comboT--;if(comboT===0)combo=0;}
  if(ultCD>0)ultCD--;
  if(skillCD>0)skillCD--;
@@ -370,6 +427,8 @@ function upd(){
  if(curMode!=='defense'&&ehAlive<redN&&tick%240===0)units.push(mkU(bases[1].x+(Math.random()-.5)*30,bases[1].y,'red','eh'));
  if(alAlive<blueN-1&&tick%300===0){units.push(mkU(bases[0].x-10,bases[0].y-24,'blue','ally'));toast('🔵 增援队友抵达！');}
  if(hero._dead){hero._rt--;if(hero._rt<=0){hero._dead=false;hero.hp=hero.maxhp;hero.x=bases[0].x+20;hero.y=bases[0].y;toast('英雄复活！');}}
+ if(upg.regen>0&&tick%(evo.regen?60:120)===0&&!hero._dead)hero.hp=Math.min(hero.maxhp,hero.hp+upg.regen*(evo.regen?3:1));
+ if(armyBuff>0){armyBuff--;if(armyBuff===0)toast('🥁 泰坦战鼓效果结束');}
  bases.forEach(function(b){if(b.hp>0&&b.hp<b.maxhp&&!(curMode==='defense'&&b===bases[1]))b.hp=Math.min(b.maxhp,b.hp+.06);});
  units.forEach(function(u){if(u.hp>0&&!u._dead){ai(u);moveU(u);actU(u);}});
  bases.forEach(actBase);
@@ -498,6 +557,7 @@ function buildBar(){var b=document.getElementById('bar');b.innerHTML='';
  addBtn('💥大招','',function(){if(ultCD>0){toast('大招冷却中');return;}ultCD=600;units.forEach(function(u){if(u.team==='red'&&u.hp>0)hit(u,90,hero);});towers.forEach(function(t){if(t.team==='red')hit(t,60,hero);});if(curMode!=='defense')hit(bases[1],60,hero);SFX.ult();for(var i=0;i<20;i++)parts.push({x:Math.random()*W,y:Math.random()*H,life:25,col:'#ffaa00',r:8,big:1});toast('💥 全屏轰炸！');});
  var hd=HERODEFS[curHero];
  addBtn(hd.icon+'技能','',function(){if(skillCD>0){toast('技能冷却中 '+Math.ceil(skillCD/60)+'s');return;}if(hd.skill.instant){castSkill(hero.x,hero.y);}else{mode='skill';SFX.click();toast('点击地图释放：'+hd.skill.n);selBar();}},'skill');
+ addBtn('🛒商店','',function(){toggleShop();},'skill');
  addBtn('⏸暂停','',function(){paused=!paused;SFX.click();},'small');
 }
 function addBtn(label,cost,fn,cls){var e=document.createElement('button');e.className='btn'+(cls?' '+cls:'');e.innerHTML=label+(cost?'<br><span class="c">'+cost+'</span>':'');e.onclick=fn;document.getElementById('bar').appendChild(e);return e;}
@@ -508,7 +568,173 @@ function hudUpd(){
  var bs=document.getElementById('bar').children;
  if(bs[7])bs[7].innerHTML=skillCD>0?hd.icon+'技能<br><span class="c">'+Math.ceil(skillCD/60)+'s</span>':hd.icon+hd.skill.n+'<br><span class="c">就绪</span>';
  if(bs[6])bs[6].innerHTML=ultCD>0?'💥大招<br><span class="c">'+Math.ceil(ultCD/60)+'s</span>':'💥大招<br><span class="c">就绪</span>';
+ if(bs[8])bs[8].innerHTML='🛒商店<br><span class="c">'+gold+'金';
 }
+// ===== 商店 =====
+function shopCost(it){return it.cost+it.inc*(shopBought[it.id]||0);}
+function toggleShop(force){
+ var sp=document.getElementById('shop');
+ var show=force!==undefined?force:sp.style.display!=='flex';
+ if(show&&(!running||over))return;
+ sp.style.display=show?'flex':'none';
+ paused=show;
+ if(show){renderShop();SFX.click();}
+}
+function matNeedHtml(need){
+ return Object.keys(need).map(function(k){
+  var m=MATS.filter(function(z){return z.id===k;})[0];
+  return m.i+m.n+' <b style="color:'+(mats[k]>=need[k]?'#4caf50':'#e53935')+'">'+(mats[k]||0)+'/'+need[k]+'</b>';
+ }).join(' · ');
+}
+function renderShop(){
+ var p=document.getElementById('shopPanel');
+ var tabs=['⚙️强化·进化','🎒材料·卷轴','🧪合成台'];
+ var html='<h1 style="color:#ffd700;">🛒 战地商店</h1><p style="font-size:17px;">💰<b style="color:#ffd700;">'+gold+'</b>（打开时自动暂停）</p>';
+ html+='<div>'+tabs.map(function(t,i){return '<span class="opt'+(shopTab===i?' sel':'')+'" data-tab="'+i+'">'+t+'</span>';}).join('')+'</div>';
+ if(shopTab===0){ // 强化+进化
+  html+='<div class="scat">⚙️ 永久强化（满级后可进化神器）</div><div class="shop-grid">';
+  SHOP.filter(function(s){return s.perm;}).forEach(function(s){
+   var lv=upg[s.id]||0,maxed=s.max&&lv>=s.max,cost=shopCost(s),evolved=evo[s.id];
+   var canEvolve=maxed&&s.evo&&!evolved;
+   var line=s.i+' <b>'+s.n+'</b>'+(s.max?' <span class="sd">Lv.'+lv+'/'+s.max+'</span>':'')+'<br><span class="sd">'+s.d+'</span><br>';
+   if(evolved){line+='<span class="sp" style="color:#ff8fa3;">已进化✨'+s.evo.n+'</span>';}
+   else if(canEvolve){line+='<span class="sp" style="color:#ff8fa3;">可进化 '+s.evo.i+s.evo.n+' 💰'+s.evo.cost+'</span>';}
+   else line+='<span class="sp">💰'+cost+'</span>';
+   var no=evolved||(maxed&&!s.evo)||(canEvolve&&gold<s.evo.cost)||(!maxed&&gold<cost);
+   var attr=canEvolve?('evo:'+s.id):s.id;
+   html+='<div class="sitem'+(no?' no':'')+'" data-buy="'+attr+'">'+line+'</div>';
+  });
+  html+='</div><div class="scat">🎒 消耗品</div><div class="shop-grid">';
+  SHOP.filter(function(s){return !s.perm;}).forEach(function(s){
+   var cost=shopCost(s);
+   html+='<div class="sitem'+(gold<cost?' no':'')+'" data-buy="'+s.id+'">'+s.i+' <b>'+s.n+'</b><br><span class="sd">'+s.d+'</span><br><span class="sp">💰'+cost+'</span></div>';
+  });
+  html+='</div>';
+ }else if(shopTab===1){ // 材料+卷轴
+  html+='<div class="scat">⛏️ 合成材料（合成台要囤很多）</div><div class="shop-grid">';
+  MATS.forEach(function(m){
+   var cost=shopCost(m);
+   html+='<div class="sitem'+(gold<cost?' no':'')+'" data-buy="mat:'+m.id+'">'+m.i+' <b>'+m.n+'</b> ×'+(mats[m.id]||0)+'<br><span class="sp">💰'+cost+'（越买越贵）</span></div>';
+  });
+  html+='</div><div class="scat">📜 卷轴铺（买卷轴=解锁配方）</div><div class="shop-grid">';
+  SCROLLS.forEach(function(s){
+   var owned=scrollsOwn[s.id];
+   html+='<div class="sitem'+(owned||gold<s.cost?' no':'')+'" data-buy="'+(owned?'':'scr:'+s.id)+'">'+s.i+' <b>'+s.n+'</b><br><span class="sd">'+s.d+'</span><br><span class="sp">'+(owned?'✔ 已解锁':'💰'+s.cost)+'</span></div>';
+  });
+  html+='</div>';
+ }else{ // 合成台
+  html+='<div class="scat">🧪 卷轴配方：集齐材料即可合成（产物大多很强且一次性）</div><div class="shop-grid" style="grid-template-columns:1fr;">';
+  RECIPES.forEach(function(r){
+   var unlocked=scrollsOwn[r.scroll],done=r.once?0:dragonSword;
+   var matOk=Object.keys(r.need).every(function(k){return (mats[k]||0)>=r.need[k];});
+   var can=unlocked&&matOk&&!done;
+   html+='<div class="sitem'+(can?'':' no')+'" data-craft="'+r.id+'">'+r.i+' <b>'+r.n+'</b>'+(r.once?' <span class="sd">一次性</span>':' <span class="sd">永久神器</span>')+
+    '<br><span class="sd">📜'+(unlocked?'✔':'✘')+' · '+matNeedHtml(r.need)+'</span>'+
+    '<br><span class="sd">效果：'+r.d+'</span><br><span class="sp">'+(done?'已拥有':'🔨 合成')+'</span></div>';
+  });
+  html+='</div><div class="scat">🎁 已合成（点击使用）</div><div class="shop-grid">';
+  var any=false;
+  Object.keys(crafted).forEach(function(k){
+   if(!crafted[k])return;any=true;
+   var r=RECIPES.filter(function(z){return z.id===k;})[0];if(!r)return;
+   html+='<div class="sitem" data-use="'+k+'">'+r.i+' <b>'+r.n+'</b> ×'+crafted[k]+'<br><span class="sd">点击使用</span></div>';
+  });
+  if(!any)html+='<div class="sitem no">空空如也，先去合成吧</div>';
+  html+='</div>';
+ }
+ html+='<br><button class="pbtn" id="shopClose">✅ 关闭并继续</button>';
+ p.innerHTML=html;
+ p.querySelectorAll('[data-tab]').forEach(function(el){el.addEventListener('click',function(){shopTab=+el.dataset.tab;SFX.click();renderShop();});});
+ p.querySelectorAll('[data-buy]').forEach(function(el){el.addEventListener('click',function(){buyShop(el.dataset.buy);});});
+ p.querySelectorAll('[data-craft]').forEach(function(el){el.addEventListener('click',function(){craftItem(el.dataset.craft);});});
+ p.querySelectorAll('[data-use]').forEach(function(el){el.addEventListener('click',function(){useItem(el.dataset.use);});});
+ document.getElementById('shopClose').onclick=function(){toggleShop(false);};
+}
+function evolve(id){
+ var s=SHOP.filter(function(z){return z.id===id;})[0];
+ if(!s||!s.evo||evo[id])return;
+ if((upg[id]||0)<s.max){toast('需要 '+s.n+' Lv.'+s.max+' 才能进化！');return;}
+ if(gold<s.evo.cost){SFX.error();toast('进化需要 '+s.evo.cost+' 金！');return;}
+ gold-=s.evo.cost;evo[id]=1;
+ if(id==='arm'){var old=hero.maxhp,nm=heroMaxHp();hero.maxhp=nm;hero.hp=Math.min(nm,hero.hp+(nm-old));}
+ SFX.win();toast('✨ 进化成功！'+s.evo.i+' '+s.evo.n+'：'+s.evo.d+'！');
+ for(var i=0;i<16;i++)parts.push({x:hero.x+(Math.random()-.5)*80,y:hero.y+(Math.random()-.5)*80,life:30,col:'#ff8fa3',r:6,big:1});
+ hudUpd();renderShop();
+}
+function buyShop(id){
+ if(id.indexOf('evo:')===0){evolve(id.slice(4));return;}
+ if(id.indexOf('mat:')===0){
+  var m=MATS.filter(function(z){return z.id===id.slice(4);})[0];
+  var mc=shopCost(m);
+  if(gold<mc){SFX.error();toast('金币不足！');return;}
+  gold-=mc;shopBought[m.id]=(shopBought[m.id]||0)+1;mats[m.id]=(mats[m.id]||0)+1;
+  SFX.coin();toast(m.i+' '+m.n+' +1（现有'+mats[m.id]+'）');hudUpd();renderShop();return;
+ }
+ if(id.indexOf('scr:')===0){
+  var sc=SCROLLS.filter(function(z){return z.id===id.slice(4);})[0];
+  if(scrollsOwn[sc.id])return;
+  if(gold<sc.cost){SFX.error();toast('金币不足！');return;}
+  gold-=sc.cost;scrollsOwn[sc.id]=1;shopTab=2;
+  SFX.unlock();toast(sc.i+' '+sc.n+'！配方已解锁，去合成台看看');hudUpd();renderShop();return;
+ }
+ var s=SHOP.filter(function(z){return z.id===id;})[0];
+ if(!s)return;
+ var lv=upg[id]||0;
+ if(s.max&&lv>=s.max){SFX.error();return;}
+ var cost=shopCost(s);
+ if(gold<cost){SFX.error();toast('金币不足！打怪赚钱再来～');return;}
+ gold-=cost;shopBought[id]=(shopBought[id]||0)+1;
+ if(s.perm){
+  upg[id]=lv+1;
+  if(id==='arm'){ // 护甲：提升上限并按差值治疗
+   var old=hero.maxhp,nm=heroMaxHp();hero.maxhp=nm;hero.hp=Math.min(nm,hero.hp+(nm-old));
+  }
+  SFX.levelUp();toast(s.i+' '+s.n+' Lv.'+(lv+1)+'！（永久强化）');
+ }else{
+  if(id==='potion'){hero.hp=Math.min(hero.maxhp,hero.hp+150);SFX.heal();toast('🧪 回复150生命！');}
+  else if(id==='bombx'){units.forEach(function(u){if(u.team==='red'&&u.hp>0)hit(u,60,hero);});towers.forEach(function(t){if(t.team==='red')hit(t,40,hero);});for(var i=0;i<14;i++)parts.push({x:Math.random()*W,y:Math.random()*H,life:25,col:'#ffaa00',r:7,big:1});SFX.boom();toast('💣 集束炸弹引爆全场！');}
+  else if(id==='hour'){skillCD=0;ultCD=0;SFX.unlock();toast('🕐 技能和大招冷却已重置！');}
+  else if(id==='repair'){bases[0].hp=Math.min(bases[0].maxhp,bases[0].hp+150);SFX.heal();toast('🧱 主城修复+150！');}
+  else if(id==='mercs'){for(var m=0;m<3;m++)units.push(mkU(bases[0].x+(Math.random()-.5)*50,bases[0].y-20,'blue','ally'));SFX.place();toast('👥 雇佣兵队登场！');}
+ }
+ hudUpd();renderShop();
+}
+function craftItem(rid){
+ var r=RECIPES.filter(function(z){return z.id===rid;})[0];
+ if(!r)return;
+ if(!scrollsOwn[r.scroll]){toast('需要先购买对应卷轴！');return;}
+ if(!r.once&&dragonSword){toast('龙魂大剑已拥有！');return;}
+ var lack=Object.keys(r.need).filter(function(k){return (mats[k]||0)<r.need[k];});
+ if(lack.length){toast('材料不足：还差 '+matNeedHtml(r.need));SFX.error();return;}
+ Object.keys(r.need).forEach(function(k){mats[k]-=r.need[k];});
+ if(!r.once){ // 永久神器直接生效
+  dragonSword=1;SFX.win();toast('⚔ 龙魂大剑铸成！伤害+80% 攻速+20%（永久）！');
+  for(var i=0;i<20;i++)parts.push({x:hero.x+(Math.random()-.5)*100,y:hero.y+(Math.random()-.5)*100,life:35,col:'#ffd700',r:7,big:1});
+ }else{
+  crafted[rid]=(crafted[rid]||0)+1;
+  SFX.levelUp();toast('🔨 合成成功！'+r.i+' '+r.n+' ×'+crafted[rid]+'（在下方点击使用）');
+ }
+ hudUpd();renderShop();
+}
+function useItem(rid){
+ var r=RECIPES.filter(function(z){return z.id===rid;})[0];
+ if(!r||!crafted[rid]){return;}
+ crafted[rid]--;
+ if(rid==='flamethrower'){
+  units.forEach(function(u){if(u.team==='red'&&u.hp>0)hit(u,250,hero);});
+  towers.forEach(function(t){if(t.team==='red')hit(t,150,hero);});
+  for(var i=0;i<26;i++)parts.push({x:Math.random()*W,y:Math.random()*H,life:30,col:'#ff5722',r:9,big:1});
+  SFX.boom();SFX.ult();toast('🔥 炎龙吐息器！全场焚尽！');
+ }else if(rid==='phoenixfeather'){
+  hero.hp=hero.maxhp;invT=360;SFX.heal();SFX.win();toast('🪶 凤凰羽毛！满血+6秒无敌！');
+ }else if(rid==='titandrum'){
+  armyBuff=1800;SFX.win();toast('🥁 泰坦战鼓！全军攻击+50%（30秒）！');
+ }else if(rid==='fortunecase'){
+  gold+=500;SFX.coin();SFX.unlock();toast('💰 财神秘匣！+500金！');
+ }
+ hudUpd();renderShop();
+}
+
 // ===== 开始页 =====
 function startScreen(){
  var ov=document.getElementById('over'),p=document.getElementById('opanel');

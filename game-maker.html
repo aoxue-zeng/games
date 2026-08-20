@@ -67,7 +67,7 @@
   <p class="subtitle">选智能体，说想法，等待生成你的专属游戏！</p>
 
   <div class="maker-app">
-    <!-- 步骤指示 -->
+
     <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;font-family:'Press Start 2P',monospace;font-size:9px">
       <span id="step1" style="color:#ffd700">①选智能体</span>
       <span style="color:#555">→</span>
@@ -80,19 +80,16 @@
       <span id="step5" style="color:#555">⑤试玩</span>
     </div>
 
-    <!-- 步骤1: 选智能体 -->
     <div class="step active" id="s1">
       <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-align:center;margin-bottom:10px">🤖 选择你的制作智能体</h3>
       <div class="agent-grid" id="agentGrid"></div>
     </div>
 
-    <!-- 步骤2: 选类型 -->
     <div class="step" id="s2">
       <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4caf50;text-align:center;margin-bottom:10px">🎮 你想制作什么类型的游戏？</h3>
       <div class="type-grid" id="typeGrid"></div>
     </div>
 
-    <!-- 步骤3: 设参数 -->
     <div class="step" id="s3">
       <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4dd0e1;text-align:center;margin-bottom:10px">⚙️ 定制你的游戏</h3>
       <div class="param-row"><label>游戏名称</label><input type="text" id="pName" placeholder="给游戏取个名..." value=""></div>
@@ -103,14 +100,12 @@
       <div class="param-row"><label>收集物</label><select id="pItem"><option value="💰">💰 金币</option><option value="💎">💎 钻石</option><option value="⭐">⭐ 星星</option><option value="🍄">🍄 蘑菇</option><option value="🍎">🍎 苹果</option></select></div>
     </div>
 
-    <!-- 步骤4: 生成 -->
     <div class="step" id="s4">
       <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#ffd700;text-align:center;margin-bottom:10px">🔨 智能体正在制作...</h3>
       <div class="gen-bar"><div class="gen-bar-fill" id="genBar"></div></div>
       <div class="gen-log" id="genLog">> 启动智能体...<span class="cursor">▋</span></div>
     </div>
 
-    <!-- 步骤5: 试玩 -->
     <div class="step" id="s5">
       <h3 style="font-family:'Press Start 2P',monospace;font-size:12px;color:#4caf50;text-align:center;margin-bottom:10px">🎉 你的游戏做好了！试玩：</h3>
       <div style="text-align:center;margin-bottom:10px">
@@ -120,7 +115,6 @@
       <div style="text-align:center;margin-top:8px;color:#fff;font-size:14px" id="playHint"></div>
     </div>
 
-    <!-- 导航按钮 -->
     <div class="nav-btns">
       <button class="mc-btn" id="backBtn" style="display:none">← 上一步</button>
       <button class="mc-btn green" id="nextBtn">下一步 →</button>

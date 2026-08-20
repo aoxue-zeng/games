@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>？？？ · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { background:linear-gradient(160deg,#7db956 0%,#5da845 60%,#3f8c3a 100%); }
+  #gameCanvas { background:linear-gradient(#c5e8a0,#a8d57e); border:4px solid #5d8c3a; box-shadow:0 6px 0 #3a6124,0 0 40px #2f5e1f55; border-radius:12px; touch-action:manipulation; cursor:pointer; }
+  .key { display:inline-block; background:#e8f5d0; border:2px solid #3a6124; box-shadow: inset -2px -2px 0 0 #b5cc93, inset 2px 2px 0 0 #fff; padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav><a href="index.html">首页</a></nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🐑 羊了个羊·萌版</h1>
+  <p class="subtitle">三个一样就能消！第二关？祝你好运~(网红爆款致敬)</p>
+  <div class="hud" style="margin-top:16px;">
+    <div class="hud-item"><span class="label">关卡</span><span id="lvl">1</span></div>
+    <div class="hud-item"><span class="label">剩余</span><span id="left">0</span></div>
+    <div class="hud-item"><span class="label">道具</span><span id="items">🔄1 🧺1 ↩️1</span></div>
+    <div class="hud-item"><span class="label">广告复活</span><span id="ad">1</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:12px;"><canvas id="gameCanvas" width="500" height="560"></canvas></div>
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="btnShuffle">🔄 洗牌x1</button>
+    <button class="mc-btn" id="btnBasket">🧺 移出3格</button>
+    <button class="mc-btn" id="btnUndo">↩️ 撤销</button>
+    <button class="mc-btn green" id="btnNew">🔄 重开</button>
+    <a href="index.html" class="mc-btn">← 返回</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var TS=46,BOARD_Y=20,SLOT_Y=H-78;
+  var KINDS=['🐑','🌾','🥕','🌳','🐖','🐄','🌻','🌽'];
+  var tiles,slots,lvl,over,win,items,adRev,undoQ,frame,shakeT;
+  function init(){
+   lvl=1;over=false;win=false;items={shuf:1,basket:1,undo:1};adRev=1;
+   buildLevel();
+  }
+  function buildLevel(){
+   slots=[];undoQ=[];frame=0;shakeT=0;
+   tiles=[];
+   var kinds=lvl===1?4:6;
+   var layers=lvl===1?3:5;
+   var groups=lvl===1?8:14; // 组数(每组3个同种)
+   var pool=[];
+   for(var g=0;g<groups;g++){
+    var k=KINDS[g%kinds];
+    pool.push(k,k,k);
+   }
+   // 打乱
+   for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=pool[i];pool[i]=pool[j];pool[j]=t;}
+   // 按层铺开(层间错位)
+   var idx=0;
+   for(var L=0;L<layers&&idx<pool.length;L++){
+    var cnt=Math.min(pool.length-idx,L===layers-1?pool.length-idx:Math.ceil(pool.length/layers));
+    for(var c=0;c<cnt;c++){
+     var px=30+(L%2)*TS*0.5+Math.random()*(W-TS*2-30);
+     var py=BOARD_Y+L*26+Math.random()*(SLOT_Y-BOARD_Y-layers*26-40);
+     tiles.push({t:pool[idx++],x:px,y:py,l:L,dead:false,id:Math.random()});
+    }
+   }
+   updHud();
+  }
+  function updHud(){
+   document.getElementById('lvl').textContent=lvl;
+   document.getElementById('left').textContent=tiles.filter(t=>!t.dead).length+slots.length;
+   document.getElementById('items').textContent='🔄'+items.shuf+' 🧺'+items.basket+' ↩️'+items.undo;
+   document.getElementById('ad').textContent=adRev;
+  }
+  function covered(t){
+   // 是否被更高层的tile压住
+   for(var i=0;i<tiles.length;i++){
+    var o=tiles[i];
+    if(o===t||o.dead||o.l<=t.l)continue;
+    if(Math.abs(o.x-t.x)<TS*0.8&&Math.abs(o.y-t.y)<TS*0.8)return true;
+   }
+   return false;
+  }
+  function pickTile(mx,my){
+   var best=null;
+   for(var i=0;i<tiles.length;i++){
+    var t=tiles[i];
+    if(t.dead)continue;
+    if(mx>=t.x&&mx<=t.x+TS&&my>=t.y&&my<=t.y+TS){
+     if(!best||t.l>best.l)best=t;
+    }
+   }
+   if(best&&covered(best))return null;
+   return best;
+  }
+  function tap(mx,my){
+   if(over)return;
+   var t=pickTile(mx,my);
+   if(!t)return;
+   t.dead=true;
+   undoQ.push({t:t});
+   slots.push(t.t);
+   SFX.drop();
+   // 消除
+   var counts={};
+   slots.forEach(function(s){counts[s]=(counts[s]||0)+1;});
+   var removed=false;
+   for(var k in counts){
+    if(counts[k]>=3){
+     var n=3;
+     slots=slots.filter(function(s){if(s===k&&n>0){n--;return false;}return true;});
+     removed=true;
+    }
+   }
+   if(removed){SFX.combo();floats.push({x:W/2,y:SLOT_Y-30,t:'三连消!',c:'#e65100',life:44});}
+   updHud();
+   // 胜: 全消+槽空
+   if(!slots.length&&!tiles.filter(function(x){return !x.dead;}).length){
+    levelUp();return;
+   }
+   // 败: 槽满7
+   if(slots.length>=7){
+    var c2={};slots.forEach(function(s){c2[s]=(c2[s]||0)+1;});
+    if(!Object.values(c2).some(function(v){return v>=3;}))gameOver();
+   }
+  }
+  function levelUp(){
+   if(lvl>=2){ // 通关
+    over=true;win=true;
+    Site.winGame('第'+lvl+'关');localStorage.setItem('sheep_clear',Date.now());
+    toast('🏆 竟然通关了?! 你是万中无一的牧羊人!');SFX.win();
+    return;
+   }
+   lvl++;SFX.levelUp();
+   toast('第1关过了! 迎接地狱第2关吧😈');
+   buildLevel();
+  }
+  function gameOver(){
+   over=true;win=false;
+   Site.loseGame();
+   toast('槽满了! 别灰心,全国99%的人都卡在这~');SFX.lose();
+  }
+  // 道具
+  function shuffle(){
+   if(!items.shuf||over)return toast('洗牌道具用完了!');
+   items.shuf--;
+   var alive=tiles.filter(function(t){return !t.dead;});
+   var ks=alive.map(function(t){return t.t;});
+   for(var i=ks.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=ks[i];ks[i]=ks[j];ks[j]=tmp;}
+   alive.forEach(function(t,i2){t.t=ks[i2];});
+   SFX.unlock();updHud();toast('🔄 场上牌全部洗乱!');
+  }
+  function basket(){
+   if(!items.basket||over)return toast('移出道具用完了!');
+   var alive=tiles.filter(function(t){return !t.dead;});
+   if(alive.length<3)return toast('场上牌不足3张');
+   items.basket--;
+   for(var i=0;i<3&&alive.length;i++){
+    var t=alive.shift();t.dead=true;undoQ.push({t:t});
+   }
+   SFX.select();updHud();toast('🧺 移出了3张(放回牌堆)');
+  }
+  function undo(){
+   if(!items.undo||over||!undoQ.length)return toast('撤销用完了/没有可撤销');
+   items.undo--;
+   var u=undoQ.pop();
+   u.t.dead=false;
+   var idx=slots.lastIndexOf(u.t.t);
+   if(idx>=0)slots.splice(idx,1);
+   SFX.select();updHud();
+  }
+  var floats=[];
+  function toast(t){var e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';document.body.appendChild(e);}e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove('show');},2200);}
+  // ===== 绘制 =====
+  function drawTile(t){
+   var c=covered(t);
+   ctx.save();
+   ctx.translate(t.x+TS/2,t.y+TS/2);
+   // 阴影块
+   ctx.fillStyle=c?'#00000033':'#00000022';
+   ctx.beginPath();ctx.roundRect?ctx.roundRect(-TS/2+3,-TS/2+4,TS,TS,10):ctx.rect(-TS/2+3,-TS/2+4,TS,TS);ctx.fill();
+   var g=ctx.createLinearGradient(0,-TS/2,0,TS/2);
+   if(c){g.addColorStop(0,'#c9d6b0');g.addColorStop(1,'#9db184');}
+   else{g.addColorStop(0,'#ffffff');g.addColorStop(1,'#e6f0d2');}
+   ctx.fillStyle=g;
+   ctx.beginPath();ctx.roundRect?ctx.roundRect(-TS/2,-TS/2,TS,TS,10):ctx.rect(-TS/2,-TS/2,TS,TS);ctx.fill();
+   ctx.strokeStyle='#3a6124';ctx.lineWidth=c?1.5:2.5;
+   ctx.stroke();
+   ctx.globalAlpha=c?0.55:1;
+   ctx.font='26px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.fillText(t.t,0,2);
+   ctx.restore();
+  }
+  function draw(){
+   frame++;
+   ctx.clearRect(0,0,W,H);
+   ctx.save();
+   if(shakeT>0){shakeT--;ctx.translate((Math.random()-.5)*4,(Math.random()-.5)*4);}
+   // 背景草地格纹
+   for(var gy=0;gy<SLOT_Y;gy+=28)for(var gx=0;gx<W;gx+=28){
+    ctx.fillStyle=((gx+gy)/28)%2?'#b8dc90':'#aeda86';
+    ctx.fillRect(gx,gy,28,28);
+   }
+   // tiles按层序绘制
+   tiles.filter(function(t){return !t.dead;}).sort(function(a,b){return a.l-b.l;}).forEach(drawTile);
+   // 槽
+   ctx.fillStyle='#00000044';
+   ctx.beginPath();ctx.roundRect?ctx.roundRect(14,SLOT_Y,W-28,58,14):ctx.rect(14,SLOT_Y,W-28,58);ctx.fill();
+   ctx.strokeStyle='#3a6124';ctx.lineWidth=3;ctx.stroke();
+   for(var s=0;s<7;s++){
+    var sx=24+s*68;
+    ctx.strokeStyle='#ffffff88';ctx.lineWidth=1.5;
+    ctx.strokeRect(sx,SLOT_Y+9,60,40);
+    if(slots[s]){
+     ctx.font='26px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+     ctx.fillText(slots[s],sx+30,SLOT_Y+30);
+    }
+   }
+   floats=floats.filter(function(f){return f.life>0;});
+   floats.forEach(function(f){
+    f.life--;f.y-=.8;
+    ctx.globalAlpha=Math.min(1,f.life/22);
+    ctx.font='bold 20px monospace';ctx.textAlign='center';
+    ctx.fillStyle=f.c;ctx.fillText(f.t,f.x,f.y);
+    ctx.globalAlpha=1;
+   });
+   if(over){
+    ctx.fillStyle='rgba(20,40,10,.55)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 30px monospace';ctx.textAlign='center';
+    ctx.fillText(win?'🏆 通关!':'💀 槽满了',W/2,H/2-30);
+    ctx.font='14px monospace';
+    ctx.fillText(win?'你是万中无一的牧羊人':'点「重开」或去首页喂宠物回血',W/2,H/2+6);
+   }
+   ctx.restore();
+   requestAnimationFrame(draw);
+  }
+  canvas.addEventListener('click',function(ev){
+   var r=canvas.getBoundingClientRect();
+   tap((ev.clientX-r.left)*(W/r.width),(ev.clientY-r.top)*(H/r.height));
+  });
+  canvas.addEventListener('touchend',function(ev){
+   ev.preventDefault(); // 防止合成click双触发
+   var r=canvas.getBoundingClientRect();
+   var t0=ev.changedTouches[0];
+   tap((t0.clientX-r.left)*(W/r.width),(t0.clientY-r.top)*(H/r.height));
+  });
+  document.getElementById('btnShuffle').onclick=shuffle;
+  document.getElementById('btnBasket').onclick=basket;
+  document.getElementById('btnUndo').onclick=undo;
+  document.getElementById('btnNew').onclick=function(){SFX.click();Site.beginGame('🐑 羊了个羊·萌版',{},init);};
+  // ===== 满级解锁校验 =====
+  if(window.Site){
+   var p=Site.pet();
+   if(!p||p.level<(Site.PET_MAX||10)){
+    document.body.innerHTML='<div class="container center" style="padding-top:120px">'+
+     '<div style="font-size:80px">🐑</div>'+
+     '<h1 style="color:#e8f5d0;font-size:22px;">...</h1>'+
+     '<p style="color:#aed581;font-size:14px;">羊群去了很远的草原。</p>'+
+     '<a href="index.html" class="mc-btn" style="margin-top:20px">← 返回</a></div>';
+    return;
+   }
+   Site.beginGame('🐑 羊了个羊·萌版',{},init);
+  }else init();
+  draw();
+})();
+</script>
+</body>
+</html>

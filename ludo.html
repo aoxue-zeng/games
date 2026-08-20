@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞行棋 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #gameCanvas { background:#f5e9d0; touch-action:none; cursor:pointer; image-rendering:pixelated; }
+  .key { display:inline-block; background:var(--mc-panel); border:2px solid #000; box-shadow: inset -2px -2px 0 0 var(--mc-shadow), inset 2px 2px 0 0 var(--mc-highlight); padding:3px 8px; font-family:'Press Start 2P',monospace; font-size:10px; margin:0 2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="ludo.html">飞行棋</a>
+    <a href="snakes.html">蛇梯棋</a>
+    <a href="checkers.html">跳棋</a>
+    <a href="reversi.html">黑白棋</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">✈️ 飞行棋</h1>
+  <p class="subtitle">掷6起飞 · 同色跳4格 · 撞机送回机场 · 精确点数到家！</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">回合</span><span id="turnTxt">你的回合</span></div>
+    <div class="hud-item"><span class="label">骰子</span><span id="diceTxt">-</span></div>
+    <div class="hud-item"><span class="label">✈到家</span><span id="homeTxt">0/4</span></div>
+    <div class="hud-item"><span class="label">吃机</span><span id="capTxt">0</span></div>
+    <div class="hud-item"><span class="label">战绩</span><span id="recTxt">0-0</span></div>
+  </div>
+  <div class="game-stage" style="margin-top:14px;"><canvas id="gameCanvas" width="540" height="540"></canvas></div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:15px;margin-top:12px;">
+    <span class="key">掷6</span>起飞并再掷一次 · <span class="key">同色格</span>向前跳4格 · <span class="key">⭐格</span>安全不可被撞 · 落在别机格上把它撞回机场！
+  </p>
+  <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn gold" id="rollBtn">🎲 掷骰子</button>
+    <button class="mc-btn green" id="newBtn">🔄 新对局</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height,CELL=W/15;
+  var COLS=['#e53935','#43a047','#fdd835','#1e88e5']; // 红绿黄蓝
+  var NAMES=['你(红)','绿AI','黄AI','蓝AI'];
+  var HANGS=[[[1,1]],[[10,1]],[[10,10]],[[1,10]]]; // 机库左上角(格)
+  var SAFE={};
+  // 52格环
+  var RING=[];
+  (function(){var x,y;
+   for(x=1;x<=5;x++)RING.push([x,6]);
+   for(y=5;y>=0;y--)RING.push([6,y]);
+   RING.push([7,0]);
+   for(y=0;y<=5;y++)RING.push([8,y]);
+   for(x=9;x<=14;x++)RING.push([x,6]);
+   RING.push([14,7]);
+   for(x=14;x>=9;x--)RING.push([x,8]);
+   for(y=9;y<=14;y++)RING.push([8,y]);
+   RING.push([7,14]);
+   for(y=14;y>=9;y--)RING.push([6,y]);
+   for(x=5;x>=0;x--)RING.push([x,8]);
+   RING.push([0,7]);RING.push([0,6]);
+  })();
+  var STARTS=[0,13,26,39];
+  [0,13,26,39,8,21,34,47].forEach(function(i){SAFE[i]=1;});
+  var HOMES=[
+   [[1,7],[2,7],[3,7],[4,7],[5,7]],
+   [[7,1],[7,2],[7,3],[7,4],[7,5]],
+   [[13,7],[12,7],[11,7],[10,7],[9,7]],
+   [[7,13],[7,12],[7,11],[7,10],[7,9]]
+  ];
+  var planes,cur,dice,phase,movable,picks,caps,sixChain,anim,record={w:0,l:0};
+  function cellOf(pi,pos){
+   if(pos<=50)return RING[(STARTS[pi]+pos)%52];
+   if(pos<=55)return HOMES[pi][pos-51];
+   return [7,7];
+  }
+  function px(c){return (c+0.5)*CELL;}
+  function init(){
+   planes=[];
+   for(var p=0;p<4;p++){var arr=[];for(var i=0;i<4;i++)arr.push({pos:-1,done:false});planes.push(arr);}
+   cur=0;dice=0;phase='idle';movable=[];picks=null;caps=0;sixChain=0;
+   if(anim)clearInterval(anim);anim=null;
+   record.w=parseInt(localStorage.getItem('ludo_w')||'0');record.l=parseInt(localStorage.getItem('ludo_l')||'0');
+   updateHud();
+  }
+  function homeCount(pi){return planes[pi].filter(function(a){return a.done;}).length;}
+  function updateHud(){
+   document.getElementById('turnTxt').textContent=phase==='over'?('🏆 '+NAMES[cur]+'获胜!'):(NAMES[cur]+(cur===0?(phase==='rolled'?' · 选要动的✈':' · 点骰子'):' 思考中'));
+   document.getElementById('diceTxt').textContent=dice||'-';
+   document.getElementById('homeTxt').textContent=homeCount(0)+'/4';
+   document.getElementById('capTxt').textContent=caps;
+   document.getElementById('recTxt').textContent=record.w+'-'+record.l;
+   document.getElementById('rollBtn').style.display=(cur===0&&phase==='idle')?'':'none';
+  }
+  function toast(t){var e=document.getElementById('toast')||document.createElement('div');e.id='toast';e.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#000;color:#ffd700;padding:8px 18px;border:2px solid #ffd700;z-index:99;font-size:14px;display:none';document.body.appendChild(e);e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(function(){e.style.display='none';},2000);if(window.SFX&&SFX.select)SFX.select();}
+  // 可动性
+  function canMove(pi,pl,d){return pl.pos===-1?d===6:(pl.pos+d<=56);}
+  function computeMovable(pi,d){
+   var out=[];planes[pi].forEach(function(pl,i){if(!pl.done&&canMove(pi,pl,d))out.push(i);});return out;
+  }
+  function roll(){
+   if(phase!=='idle')return;
+   dice=1+Math.floor(Math.random()*6);
+   SFX.click();
+   if(dice===6){SFX.coin();sixChain++;}else sixChain=0;
+   phase='rolled';updateHud();
+   var mv=computeMovable(cur,dice);
+   if(!mv.length){
+    toast(NAMES[cur]+' 掷'+dice+' 无机可动');phase='idle';
+    setTimeout(nextTurn,900);updateHud();return;
+   }
+   if(cur===0){
+    if(mv.length===1){setTimeout(function(){doMove(0,mv[0]);},450);}
+    else{movable=mv;toast('掷'+dice+'! 点击要移动的✈');}
+   }else{
+    setTimeout(function(){doMove(cur,aiPick(mv));},650);
+   }
+   updateHud();
+  }
+  function nextTurn(){
+   if(phase==='over')return;
+   var extra=(dice===6&&sixChain<3);
+   if(!extra){cur=(cur+1)%4;sixChain=0;}
+   dice=0;phase='idle';movable=[];updateHud();
+   if(cur!==0)setTimeout(roll,800);
+  }
+  // 移动核心
+  function doMove(pi,idx){
+   var pl=planes[pi][idx];
+   phase='anim';movable=[];updateHud();
+   var from=pl.pos;
+   if(from===-1){ // 起飞
+    SFX.place();pl.pos=0;
+    draw();afterLand(pi,pl,true);return;
+   }
+   var target=from+dice,step=0;
+   anim=setInterval(function(){
+    step++;pl.pos=from+step;SFX.move();draw();
+    if(step>=dice){clearInterval(anim);anim=null;afterLand(pi,pl,false);}
+   },140);
+  }
+  function afterLand(pi,pl,launched){
+   var more=[];
+   if(pl.pos===56){ // 到家
+    pl.done=true;SFX.levelUp();toast(NAMES[pi]+' 一架✈安全到家!');
+    if(homeCount(pi)===4){gameOver(pi);return;}
+   }else if(pl.pos<=50){
+    var g=(STARTS[pi]+pl.pos)%52;
+    // 吃子
+    if(!SAFE[g]){
+     var got=0;
+     for(var e=0;e<4;e++){
+      if(e===pi)continue;
+      planes[e].forEach(function(ep){
+       if(ep.pos>=0&&ep.pos<=50&&!ep.done&&(STARTS[e]+ep.pos)%52===g){ep.pos=-1;got++;
+        if(pi===0){caps++;SFX.hit();}
+       }
+      });
+     }
+     if(got){toast((pi===0?'你':'AI')+' 撞落对方'+got+'架✈! 再掷一次');sixChain=Math.max(sixChain,1);dice=6;phase='idle';updateHud();setTimeout(nextTurn,700);draw();return;}
+    }
+    // 同色跳4
+    if(!launched&&g%4===pi&&g!==STARTS[pi]&&pl.pos+4<=50&&!pl.done){
+     SFX.jump();toast('同色格! ✈向前跳4格');
+     setTimeout(function(){
+      pl.pos+=4;draw();
+      // 跳完也可能吃子
+      var g2=(STARTS[pi]+pl.pos)%52;
+      if(!SAFE[g2]){
+       var got2=0;
+       for(var e2=0;e2<4;e2++){
+        if(e2===pi)continue;
+        planes[e2].forEach(function(ep2){if(ep2.pos>=0&&ep2.pos<=50&&!ep2.done&&(STARTS[e2]+ep2.pos)%52===g2){ep2.pos=-1;got2++;if(pi===0){caps++;SFX.hit();}}});
+       }
+       if(got2)toast('跳跃撞落对方✈! 再掷一次');
+       if(got2){sixChain=Math.max(sixChain,1);dice=6;phase='idle';setTimeout(nextTurn,700);updateHud();draw();return;}
+      }
+      finishMove();
+     },350);
+     draw();return;
+    }
+   }
+   finishMove();
+  }
+  function finishMove(){phase='idle';setTimeout(nextTurn,500);updateHud();draw();}
+  function gameOver(pi){
+   phase='over';updateHud();
+   if(pi===0){record.w++;localStorage.setItem('ludo_w',record.w);SFX.win();toast('🏆 你赢了! 4架✈全部到家!');}
+   else{record.l++;localStorage.setItem('ludo_l',record.l);SFX.lose();toast('💀 '+NAMES[pi]+' 先到家了...');}
+   updateHud();
+  }
+  // AI
+  function aiPick(mv){
+   var best=mv[0],bs=-1e9;
+   mv.forEach(function(i){
+    var pl=planes[cur][i],sc=Math.random()*8;
+    var t=pl.pos===-1?0:pl.pos+dice;
+    if(t===56)sc+=200;
+    if(pl.pos===-1)sc+=55+(planes[cur].filter(function(a){return a.pos===-1;}).length)*6;
+    if(t>50&&t<56)sc+=45;
+    if(t<=50){
+     var g=(STARTS[cur]+t)%52;
+     if(SAFE[g])sc+=35;
+     var danger=0;
+     for(var e=0;e<4;e++){
+      if(e===cur)continue;
+      planes[e].forEach(function(ep){
+       if(ep.pos>=0&&ep.pos<=50&&!ep.done){
+        var eg=(STARTS[e]+ep.pos)%52,behind=(g-eg+52)%52;
+        if(behind>=1&&behind<=6&&!SAFE[g])danger++;
+       }
+      });
+     }
+     sc-=danger*26;
+     // 吃子奖励
+     if(!SAFE[g]){
+      for(var e2=0;e2<4;e2++){
+       if(e2===cur)continue;
+       planes[e2].forEach(function(ep2){if(ep2.pos>=0&&ep2.pos<=50&&!ep2.done&&(STARTS[e2]+ep2.pos)%52===g)sc+=130;});
+      }
+     }
+     if(g%4===cur&&g!==STARTS[cur]&&t+4<=50)sc+=28;
+    }
+    sc+=(pl.pos>0?pl.pos:0)*0.3;
+    if(sc>bs){bs=sc;best=i;}
+   });
+   return best;
+  }
+  // ===== 绘制 =====
+  function draw(){
+   ctx.clearRect(0,0,W,H);
+   // 底纹
+   ctx.fillStyle='#f5e9d0';ctx.fillRect(0,0,W,H);
+   // 机库
+   for(var p=0;p<4;p++)drawHangar(p);
+   // 环格
+   RING.forEach(function(c,i){
+    var x=c[0]*CELL,y=c[1]*CELL,col=COLS[i%4];
+    ctx.fillStyle=col;ctx.fillRect(x,y,CELL,CELL);
+    ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,CELL-2,CELL-2);
+    if(i===STARTS[i%4]){ // 起飞格箭头
+     ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+     ctx.fillText('▲',x+CELL/2,y+CELL/2+1);
+    }
+    if(SAFE[i]&&i%13!==0){ctx.fillStyle='rgba(255,255,255,.9)';ctx.font='bold 16px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x+CELL/2,y+CELL/2+1);}
+   });
+   // 终点跑道
+   HOMES.forEach(function(h,pi){
+    h.forEach(function(c){
+     var x=c[0]*CELL,y=c[1]*CELL;
+     ctx.fillStyle=COLS[pi];ctx.globalAlpha=.75;ctx.fillRect(x,y,CELL,CELL);ctx.globalAlpha=1;
+     ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,CELL-2,CELL-2);
+    });
+   });
+   // 中央终点 + 骰子
+   drawCenter();
+   // 高亮可选
+   if(cur===0&&phase==='rolled'&&movable.length){
+    var pulse=2+Math.abs(Math.sin(Date.now()/200))*3;
+    movable.forEach(function(i){
+     var pl=planes[0][i];
+     var c=pl.pos===-1?hangarSpot(0,i):cellOf(0,pl.pos);
+     ctx.beginPath();ctx.arc(px(c[0]),px(c[1]),CELL*.44+pulse,0,7);
+     ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+     ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+    });
+   }
+   // 棋子
+   for(var q=0;q<4;q++){
+    planes[q].forEach(function(pl,i){
+     var c=pl.pos===-1?hangarSpot(q,i):cellOf(q,pl.pos);
+     drawPlane(px(c[0]),px(c[1]),q,pl.done);
+    });
+   }
+   requestAnimationFrame(draw);
+  }
+  function drawHangar(p){
+   var hg=HANGS[p][0],x=hg[0]*CELL,y=hg[1]*CELL,s=CELL*5;
+   ctx.fillStyle=COLS[p];ctx.globalAlpha=.28;ctx.fillRect(x,y,s,s);ctx.globalAlpha=1;
+   ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.strokeRect(x,y,s,s);
+   ctx.globalAlpha=.55;ctx.lineWidth=10;ctx.strokeRect(x+5,y+5,s-10,s-10);ctx.globalAlpha=1;
+  }
+  function hangarSpot(p,i){
+   var hg=HANGS[p][0];
+   var dx=(i%2)*2.6+1.2,dy=Math.floor(i/2)*2.6+1.2;
+   return [hg[0]+dx,hg[1]+dy];
+  }
+  function drawCenter(){
+   var x=6*CELL,y=6*CELL,s=CELL*3;
+   ctx.fillStyle='#fff';ctx.fillRect(x,y,s,s);
+   ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.strokeRect(x,y,s,s);
+   // 四色三角
+   var cx=x+s/2,cy=y+s/2;
+   var tris=[[[x,y],[cx,cy],[x,y+s],0],[[x,y],[x+s,y],[cx,cy],1],[[x+s,y],[x+s,y+s],[cx,cy],2],[[x,y+s],[x+s,y+s],[cx,cy],3]];
+   tris.forEach(function(t){
+    ctx.beginPath();ctx.moveTo(t[0][0],t[0][1]);ctx.lineTo(t[1][0],t[1][1]);ctx.lineTo(t[2][0],t[2][1]);ctx.closePath();
+    ctx.fillStyle=COLS[t[3]];ctx.globalAlpha=.8;ctx.fill();ctx.globalAlpha=1;ctx.stroke();
+   });
+   // 骰子
+   var ds=52,dx=cx-ds/2,dy=cy-ds/2;
+   ctx.fillStyle='#fff';ctx.fillRect(dx,dy,ds,ds);
+   ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.strokeRect(dx,dy,ds,ds);
+   ctx.fillStyle='#000';
+   var m=[[],[5],[3,7],[1,5,9],[1,3,7,9],[1,3,5,7,9],[1,3,4,6,7,9]][dice-1]||[];
+   m.forEach(function(n){
+    var r=Math.floor((n-1)/3),c=(n-1)%3;
+    ctx.beginPath();ctx.arc(dx+10+c*16,dy+10+r*16,4.5,0,7);ctx.fill();
+   });
+   if(cur===0&&phase==='idle'){
+    var pulse=Math.abs(Math.sin(Date.now()/250));
+    ctx.strokeStyle='rgba(255,215,0,'+(0.5+pulse*0.5)+')';ctx.lineWidth=4;
+    ctx.strokeRect(dx-4,dy-4,ds+8,ds+8);
+   }
+  }
+  function drawPlane(x,y,p,done){
+   ctx.save();ctx.translate(x,y);
+   ctx.beginPath();ctx.arc(0,0,CELL*.38,0,7);
+   ctx.fillStyle=COLS[p];ctx.fill();
+   ctx.lineWidth=2.5;ctx.strokeStyle=done?'#ffd700':'#fff';ctx.stroke();
+   ctx.lineWidth=1;ctx.strokeStyle='#000';ctx.stroke();
+   // 小飞机三角
+   ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(6,6);ctx.lineTo(-6,6);ctx.closePath();
+   ctx.fillStyle='rgba(255,255,255,.95)';ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+   ctx.restore();
+  }
+  // 交互
+  canvas.addEventListener('click',function(ev){
+   var r=canvas.getBoundingClientRect();
+   var mx=(ev.clientX-r.left)*(W/r.width),my=(ev.clientY-r.top)*(H/r.height);
+   if(cur===0&&phase==='idle'){
+    // 点中央骰子=掷骰
+    if(mx>6*CELL&&mx<9*CELL&&my>6*CELL&&my<9*CELL){roll();return;}
+    return;
+   }
+   if(cur===0&&phase==='rolled'&&movable.length){
+    movable.forEach(function(i){
+     var pl=planes[0][i];
+     var c=pl.pos===-1?hangarSpot(0,i):cellOf(0,pl.pos);
+     if(Math.hypot(mx-px(c[0]),my-px(c[1]))<CELL*.6){SFX.select();doMove(0,i);}
+    });
+   }
+  });
+  document.getElementById('rollBtn').onclick=roll;
+  document.getElementById('newBtn').onclick=function(){SFX.click();init();};
+  init();draw();
+  setTimeout(function(){toast('掷到6才能起飞! 祝好运~');},600);
+})();
+</script>
+</body>
+</html>
