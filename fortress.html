@@ -483,7 +483,7 @@
 
   // ===== 玩家输入移动 =====
   function playerInput(){
-    if(!myPlayer.alive)return;
+    if(!myPlayer||!myPlayer.alive)return;
     var dx=0,dy=0;
     // 方向键移动（A键改为按住瞄准，左移用←；W/S/D保留辅助）
     if(keys['w']||keys['arrowup'])dy-=1;
@@ -822,7 +822,7 @@
       ctx.textAlign='left';
     }
     // 死亡/重生
-    if(!myPlayer.alive){
+    if(myPlayer&&!myPlayer.alive){
       ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,H/2-40,W,80);
       ctx.fillStyle='#e53935';ctx.font='bold 24px monospace';ctx.textAlign='center';
       ctx.fillText('💀 阵亡 · '+Math.ceil(myPlayer.respawn/60)+'秒后重生',W/2,H/2+8);ctx.textAlign='left';

@@ -43,7 +43,7 @@
 var c=document.getElementById('gc'),x=c.getContext('2d'),W=480,H=600;
 var best=parseInt(localStorage.getItem('breakoutEvoBest')||'0',10);
 document.getElementById('best').textContent=best;
-var paddle,balls,bricks,drops,lasers,parts,score,level,lives,started,over,mx,fx,eLevel,boss;
+var paddle={x:220,w:90,h:12,y:440},balls=[],bricks=[],drops=[],lasers=[],parts=[],score=0,level=1,lives=3,started=false,over=false,mx=220,fx={},eLevel=1,boss=null;
 // 砖块类型: 0普通1硬2钢3爆炸4移动5治疗
 var BTYPE=[
  {c:'#4caf50',hp:1,pts:10},

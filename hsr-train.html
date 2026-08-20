@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>？？？ · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<style>
+  body { background:#0a0818; }
+  #gameCanvas { background:#100b26; border:3px solid #4a3a8a; box-shadow:0 0 44px #8f6bff33; border-radius:8px; }
+  .abtn { display:inline-block; margin-top:10px; padding:8px 22px; background:#5a4a9a; color:#fff; border:2px solid #000; font-size:15px; cursor:pointer; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav><a href="index.html">首页</a></nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:30px;">🚄 ？？？</h1>
+  <p class="subtitle">开拓之旅，永无止境。↑↓切换轨道，接乘客、捡燃料、躲裂界造物！</p>
+  <div class="hud">
+    <div class="hud-item"><span class="label">里程</span><span id="hDist">0</span></div>
+    <div class="hud-item"><span class="label">燃料</span><span id="hFuel">100</span></div>
+    <div class="hud-item"><span class="label">乘客</span><span id="hPass">0</span></div>
+    <div class="hud-item"><span class="label">车厢耐久</span><span id="hHp">3</span></div>
+  </div>
+  <canvas id="gameCanvas" width="960" height="540"></canvas>
+  <button class="abtn" id="startBtn">🚄 发车！</button>
+  <p style="color:#7a8ca8;font-size:12px;">↑/↓ 或 W/S 切换轨道 · 到站即得🍫</p>
+</div>
+<script>
+(function(){
+'use strict';
+var cv=document.getElementById('gameCanvas'),ctx=cv.getContext('2d');
+var W=cv.width||960,H=cv.height||540;
+function sfx(n){try{if(window.SFX&&SFX[n])SFX[n]();}catch(e){}}
+var store={get:function(k,d){try{var v=localStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return d;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+var LANES=[150,260,370];
+var state='menu',dist,fuel,pass,hp,lane,obs,picks,stars,t,spawnT,best=store.get('htr_best',0);
+var els={};['hDist','hFuel','hPass','hHp'].forEach(function(id){els[id]=document.getElementById(id);});
+function start(){
+ dist=0;fuel=100;pass=0;hp=3;lane=1;obs=[];picks=[];t=0;spawnT=0;
+ stars=[];for(var i=0;i<50;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:1+Math.random()*3});
+ state='play';upd();
+}
+function laneUp(){if(state==='play'&&lane>0){lane--;sfx('move');}}
+function laneDown(){if(state==='play'&&lane<2){lane++;sfx('move');}}
+function upd(){
+ if(state!=='play'){return;}
+ t++;dist+=0.25;
+ fuel-=0.03;
+ if(fuel<=0){fuel=0;over('燃料耗尽, 列车停在星海中…');return;}
+ spawnT--;
+ if(spawnT<=0){
+  spawnT=40+Math.floor(Math.random()*50);
+  var l=Math.floor(Math.random()*3);
+  if(Math.random()<0.55)obs.push({x:W+40,y:LANES[l],r:20,kind:Math.random()<0.5?'monster':'rock'});
+  else picks.push({x:W+40,y:LANES[l],r:14,kind:Math.random()<0.5?'fuel':'pass'});
+ }
+ var i,o,ty=LANES[lane];
+ obs.forEach(function(o){o.x-=4.5;});
+ picks.forEach(function(p){p.x-=4.5;});
+ for(i=obs.length-1;i>=0;i--){
+  o=obs[i];
+  if(o.x<-60){obs.splice(i,1);continue;}
+  if(o.x<190&&o.x>110&&Math.abs(o.y-ty)<40){
+   obs.splice(i,1);hp--;sfx('hurt');
+   if(hp<=0){over('裂界造物撞穿了车厢！');return;}
+  }
+ }
+ for(i=picks.length-1;i>=0;i--){
+  var p=picks[i];
+  if(p.x<-60){picks.splice(i,1);continue;}
+  if(p.x<190&&p.x>110&&Math.abs(p.y-ty)<40){
+   picks.splice(i,1);
+   if(p.kind==='fuel'){fuel=Math.min(100,fuel+30);sfx('coin');}
+   else{pass++;sfx('gem');}
+  }
+ }
+ if(dist>=1000){
+  state='win';
+  var rew=3+pass;
+  try{if(window.Site&&Site.gain)Site.gain(rew);}catch(e){}
+  if(dist>best){best=Math.floor(dist);store.set('htr_best',best);}
+  sfx('win');
+ }
+ hud();
+}
+function over(msg){state='over';sfx('lose');}
+function hud(){
+ if(!els.hDist)return;
+ els.hDist.textContent=Math.floor(dist)+'km';
+ els.hFuel.textContent=Math.ceil(fuel);
+ els.hPass.textContent=pass;
+ els.hHp.textContent='❤'.repeat(Math.max(0,hp))||'—';
+}
+function draw(){
+ ctx.fillStyle='#100b26';ctx.fillRect(0,0,W,H);
+ if(stars)stars.forEach(function(s){
+  s.x-=s.s;if(s.x<0)s.x=W;
+  ctx.fillStyle='rgba(255,255,255,'+(s.s/4)+')';
+  ctx.fillRect(s.x,s.y,2,2);
+ });
+ // 轨道
+ LANES.forEach(function(y){
+  ctx.strokeStyle='#3a2f6a';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(0,y+34);ctx.lineTo(W,y+34);ctx.stroke();
+ });
+ if(state==='menu'){
+  ctx.fillStyle='#cfc3ff';ctx.font='bold 26px monospace';ctx.textAlign='center';
+  ctx.fillText('🚄 星穹列车 · 开拓之旅',W/2,H/2-20);
+  ctx.font='15px monospace';ctx.fillStyle='#8f86b8';
+  ctx.fillText('↑↓ 切轨 · 接乘客 · 捡燃料 · 躲造物 · 1000km 到站',W/2,H/2+16);
+  return;
+ }
+ var ty=LANES[lane];
+ // 障碍/拾取
+ obs.forEach(function(o){
+  if(o.kind==='monster'){
+   ctx.fillStyle='#7a3a8a';
+   ctx.beginPath();ctx.arc(o.x,o.y,18,0,7);ctx.fill();
+   ctx.fillStyle='#ff5b8a';ctx.fillRect(o.x-8,o.y-4,5,5);ctx.fillRect(o.x+3,o.y-4,5,5);
+  }else{
+   ctx.fillStyle='#5a5a7a';
+   ctx.beginPath();ctx.moveTo(o.x,o.y-18);ctx.lineTo(o.x+16,o.y+12);ctx.lineTo(o.x-16,o.y+12);ctx.closePath();ctx.fill();
+  }
+ });
+ picks.forEach(function(p){
+  if(p.kind==='fuel'){
+   ctx.fillStyle='#ffd54f';ctx.fillRect(p.x-8,p.y-10,16,20);
+   ctx.fillStyle='#000';ctx.font='11px monospace';ctx.textAlign='center';ctx.fillText('燃',p.x,p.y+4);
+  }else{
+   ctx.fillStyle='#7fd9ff';ctx.beginPath();ctx.arc(p.x,p.y,11,0,7);ctx.fill();
+   ctx.fillStyle='#041008';ctx.font='11px monospace';ctx.textAlign='center';ctx.fillText('客',p.x,p.y+4);
+  }
+ });
+ // 列车
+ ctx.fillStyle='#8f6bff';
+ ctx.fillRect(120,ty-26,90,40);
+ ctx.fillStyle='#cfc3ff';
+ ctx.fillRect(132,ty-16,22,14);ctx.fillRect(164,ty-16,22,14);
+ ctx.fillStyle='#3a2f6a';ctx.fillRect(210,ty-12,26,10);
+ ctx.fillStyle='#ffd54f';
+ for(var k2=0;k2<3;k2++){ctx.beginPath();ctx.arc(120-8-k2*10,ty+26,4+k2*2,0,7);ctx.fill();}
+ if(state==='win'){
+  ctx.fillStyle='#000a';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ffd54f';ctx.font='bold 30px monospace';ctx.textAlign='center';
+  ctx.fillText('🏁 到站！乘客'+pass+'名 · 全站+🍫',W/2,H/2);
+  ctx.fillStyle='#cfc3ff';ctx.font='14px monospace';
+  ctx.fillText('按 R 再跑一趟',W/2,H/2+30);
+ }else if(state==='over'){
+  ctx.fillStyle='#000a';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ff8f8f';ctx.font='bold 28px monospace';ctx.textAlign='center';
+  ctx.fillText('💀 旅程中断 · '+Math.floor(dist)+'km · 乘客'+pass,W/2,H/2);
+  ctx.fillStyle='#cfc3ff';ctx.font='14px monospace';
+  ctx.fillText('按 R 再跑一趟',W/2,H/2+30);
+ }
+}
+var last=0;
+function loop(ts){
+ requestAnimationFrame(loop);
+ var dt=Math.min(0.05,(ts-last)/1000||0.016);last=ts;
+ if(state==='play')upd();
+ draw();
+}
+requestAnimationFrame(loop);
+if(document.addEventListener){
+ document.addEventListener('keydown',function(ev){
+  var k=(ev.key||'').toLowerCase();
+  if(k==='arrowup'||k==='w'){ev.preventDefault&&ev.preventDefault();laneUp();}
+  else if(k==='arrowdown'||k==='s'){ev.preventDefault&&ev.preventDefault();laneDown();}
+  else if((k==='r'||k===' ')&&state!=='play')start();
+ });
+}
+var sb=document.getElementById('startBtn');if(sb)sb.onclick=start;
+hud();
+})();
+</script>
+</body>
+</html>

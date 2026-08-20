@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>狙击对决 · 两军对峙 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<style>
+  body { background:#0a0806; }
+  #gameCanvas { background:#120c08; touch-action:none; border:3px solid #4a2a10; box-shadow:0 0 44px #ff6a0033, inset 0 0 60px #1a0e04; border-radius:8px; cursor:crosshair; }
+  .key { display:inline-block; background:#2a1c0c; border:2px solid #000; border-bottom-color:#000; padding:1px 6px; font-family:monospace; font-size:11px; color:#ffd54f; margin:0 2px; border-radius:3px; }
+  .panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#1a120acc; border:3px solid #ff8f2b; box-shadow:0 0 40px #ff6a0088; padding:20px 28px; border-radius:10px; text-align:center; z-index:10; min-width:320px; max-height:86%; overflow:auto; }
+  .panel h2 { color:#fff; text-shadow:2px 2px 0 #000; margin:0 0 10px; }
+  .panel p { color:#d8c8b0; font-size:13px; margin:6px 0; }
+  .panel .big { font-size:18px; color:#ffd54f; text-shadow:2px 2px 0 #000; }
+  .abtn { display:inline-block; margin-top:10px; padding:8px 22px; background:#c96a1a; color:#fff; border:2px solid #000; border-bottom-color:#300; font-size:15px; cursor:pointer; border-radius:4px; }
+  .abtn:hover { background:#ff8f2b; }
+  .abtn:disabled { background:#555; cursor:default; }
+  #skillPanel .sk { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#2a1c0c; border:2px solid #4a2a10; padding:6px 10px; margin:5px 0; border-radius:6px; font-size:12.5px; color:#e8d8c0; text-align:left; }
+  .sk b { color:#ffd54f; }
+  .sk button { background:#3b6fd4; color:#fff; border:2px solid #000; padding:3px 10px; cursor:pointer; border-radius:3px; font-size:11px; }
+  .sk button:disabled { background:#444; cursor:default; }
+  .sk.owned { border-color:#ffd54f; }
+  #wpanel { position:absolute; right:10px; bottom:10px; text-align:right; z-index:5; }
+  .wslot { background:#1a1200cc; border:2px solid #4a2a10; border-radius:6px; padding:4px 10px; margin-top:4px; font-size:12px; color:#b8a888; }
+  .wslot.on { border-color:#ffd54f; color:#fff; box-shadow:0 0 12px #ffd54f55; }
+  .wslot .nm { font-size:14px; font-weight:bold; color:#fff; }
+  #feed { position:absolute; top:60px; left:50%; transform:translateX(-50%); text-align:center; z-index:5; pointer-events:none; }
+  #feed div { color:#ffd54f; text-shadow:1px 1px 0 #000; font-size:13px; margin:2px 0; }
+  #toast { position:fixed; top:110px; left:50%; transform:translateX(-50%); background:#000c; color:#ffd54f; border:2px solid #ff8f2b; padding:6px 16px; border-radius:6px; z-index:99; font-size:14px; display:none; }
+  #wrap { position:relative; display:inline-block; }
+  .hid { display:none !important; }
+  .skl { color:#7fd9ff; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="scope-paint.html">🎯画瞄准镜</a>
+    <a href="starfall.html">星穹弹幕</a>
+    <a href="shooter.html">射击</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎯 狙击对决 · 两军对峙</h1>
+  <p class="subtitle">我方平台 VS 敌方平台，中间岩浆相隔！掩体蹲伏 · 技能树 · 床上重生 · 夜袭敌营！</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">生命</span><span id="hpNum">100</span></div>
+    <div class="hud-item"><span class="label">波次</span><span id="waveN">0</span></div>
+    <div class="hud-item"><span class="label">残敌</span><span id="leftN">0</span></div>
+    <div class="hud-item"><span class="label">💰资金</span><span id="moneyN">¥10000</span></div>
+    <div class="hud-item"><span class="label">技能点</span><span class="skl" id="skPts">0</span></div>
+    <div class="hud-item"><span class="label">击杀</span><span id="killN">0</span></div>
+    <div class="hud-item"><span class="label">🕐</span><span id="clockN">白天</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="bestN">1</span></div>
+  </div>
+  <div id="wrap">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    <div id="feed"></div>
+    <div id="wpanel">
+      <div class="wslot" id="ws0"><span class="nm">— 狙击槽 —</span> <span id="w0i">空手</span></div>
+      <div class="wslot on" id="ws1"><span class="nm">— 手枪槽 —</span> <span id="w1i">P226 初始佩枪</span></div>
+    </div>
+    <div class="panel" id="menuPanel">
+      <h2>🎯 狙击对决 · 两军对峙</h2>
+      <p class="big">你和敌人各据一方平台，中间是滚烫岩浆！</p>
+      <p style="text-align:left;font-size:12.5px;line-height:2;color:#d8c8b0;">
+        <span class="key">W</span><span class="key">S</span> 前后 · <span class="key">Q</span><span class="key">D</span> 平移 · <b>鼠标</b> 转视角<br>
+        <span class="key">左键</span> 开枪 · <span class="key">右键</span> 上弹 · <span class="key">C</span> 蹲下躲掩体后<br>
+        <span class="key">A</span>/<span class="key">1</span>/滑轮 换枪 · <span class="key">E</span> 捡枪 · <span class="key">G</span> 丢枪<br>
+        <span class="key">&lt;</span>+<span class="key">&gt;</span> 买子弹 · <span class="key">T</span> 技能树 · <span class="key">B</span> 床边: 设重生/夜晚睡觉<br>
+        狙击一枪一个 · 手枪越好打得越少 · 杀敌得技能点<br>
+        🌙 晚上: 敌人打盹可<b>偷袭</b>(击杀+1点), 或回床上<b>睡觉</b>回血<br>
+        💀 阵亡后在床重生 · 瞄准敌人显示血条 · 通关一波全站+🍫
+      </p>
+      <button class="abtn" id="startBtn">开 战</button>
+      <p style="margin-top:8px;color:#a89880;">需键鼠 · 去隔壁页亲自画你的瞄准镜！</p>
+    </div>
+    <div class="panel hid" id="interPanel">
+      <h2>✔ 第 <span id="iWave">1</span> 波肃清！</h2>
+      <p>奖励入账：<span class="big" id="iMoney">+¥1800</span> · 全站体力 <span class="big">+🍫×3</span></p>
+      <p>趁间隙捡枪换装 · <span class="key">T</span> 技能树 · <span class="key">&lt;</span>+<span class="key">&gt;</span> 买弹！</p>
+      <button class="abtn" id="nextBtn">下一波（N）</button>
+    </div>
+    <div class="panel hid" id="overPanel">
+      <h2>☠ 你倒下了…但你在床上醒来！</h2>
+      <p>第 <span class="big" id="oWave">1</span> 波 · 击杀 <span class="big" id="oKill">0</span> 人 · 阵亡 <span class="big" id="oDeath">0</span> 次</p>
+      <p id="oBest" style="color:#ffd54f;"></p>
+      <button class="abtn" id="reBtn">继续战斗（在床边重生）</button>
+    </div>
+    <div class="panel hid" id="skillPanel">
+      <h2>🌳 技能树（T 关闭）</h2>
+      <p>技能点: <span class="big" id="skPts2">0</span> · 每击杀+1 · 夜袭击杀+2</p>
+      <div id="skList"></div>
+    </div>
+  </div>
+  <p style="color:#a89880;font-size:12px;margin-top:10px;">🔥岩浆隔开两岸 · 黄点=地上枪 · 红点=敌人 · 红虚线=对方正在瞄准你！</p>
+</div>
+<div id="toast"></div>
+<script>
+(function(){
+'use strict';
+// ===== 狙击对决·两军对峙: 射线投射 + 岩浆对峙 + 蹲伏掩体 + 技能树 + 床重生/夜袭 =====
+var cv=document.getElementById('gameCanvas'),ctx=cv.getContext('2d');
+var W=cv.width||960,H=cv.height||540;
+function sfx(n){try{if(window.SFX&&SFX[n])SFX[n]();}catch(e){}}
+var store={
+ get:function(k,d){try{var v=localStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return d;}},
+ set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+};
+
+// ===== 武器库: 狙击一枪一个; 手枪越好打得越少(发) =====
+var GUNS={
+ mosin:  {name:'莫辛纳甘', cls:'sniper',dmg:999,mag:5, rel:2.6,rate:1.5,fov:26,sway:1.0,           cost:200,buy:5, icon:'🔫',col:'#c8a165',desc:'老兵栓动狙'},
+ m700:   {name:'M700警狙', cls:'sniper',dmg:999,mag:5, rel:2.3,rate:1.25,fov:22,sway:0.8,          cost:260,buy:5, icon:'🎯',col:'#7ea6d9',desc:'警用高精狙'},
+ svd:    {name:'SVD连狙',  cls:'sniper',dmg:999,mag:10,rel:3.0,rate:0.5, fov:20,sway:1.25,         cost:320,buy:10,icon:'⚡',col:'#d9a67e',desc:'半自动连发'},
+ awm:    {name:'AWM重狙',  cls:'sniper',dmg:999,mag:5, rel:2.8,rate:1.7, fov:15,sway:0.6,pierce:1, cost:420,buy:5, icon:'❄',col:'#9fd9e8',desc:'穿一层掩体'},
+ barrett:{name:'巴雷特',   cls:'sniper',dmg:999,mag:4, rel:3.4,rate:2.0, fov:16,sway:0.85,pierce:1,cost:520,buy:4, icon:'💥',col:'#8fb3d9',desc:'反器材巨炮'},
+ vss:    {name:'VSS静音',  cls:'sniper',dmg:999,mag:10,rel:2.4,rate:0.55,fov:21,sway:0.9,  silent:1,cost:380,buy:10,icon:'🤫',col:'#9cd9a6',desc:'开枪不惊敌'},
+ p226:   {name:'P226初始', cls:'pistol',dmg:22, mag:12,rel:1.6,rate:0.34,                       cost:50, buy:24,icon:'🔫',col:'#9aa5b5',desc:'5发一个'},
+ viper:  {name:'蝰蛇双持', cls:'pistol',dmg:30, mag:16,rel:1.8,rate:0.22,                       cost:80, buy:24,icon:'🐍',col:'#a6d98f',desc:'4发·射速快'},
+ deagle: {name:'沙漠之鹰', cls:'pistol',dmg:38, mag:7, rel:2.0,rate:0.5,                        cost:120,buy:14,icon:'🦅',col:'#d9c07e',desc:'3发一个'},
+ gold:   {name:'黄金左轮', cls:'pistol',dmg:55, mag:6, rel:2.2,rate:0.7,                        cost:180,buy:12,icon:'🌟',col:'#ffd54f',desc:'2发一个'},
+ doom:   {name:'灭绝者手炮',cls:'pistol',dmg:120,mag:5, rel:2.6,rate:0.9,                       cost:300,buy:10,icon:'☄',col:'#ff8f6b',desc:'1发一个!'}
+};
+var SNIPERS=['mosin','m700','svd','awm','barrett','vss'];
+var PISTOLS=['viper','deagle','gold','doom'];
+
+// ===== 技能树: 1/2/3点不等 =====
+var SKILLS=[
+ {id:'steady', name:'稳手',   cost:1, desc:'镜头摆动 -50%'},
+ {id:'quick',  name:'快装',   cost:1, desc:'上弹时间 -35%'},
+ {id:'sprint', name:'疾行',   cost:1, desc:'移动速度 +25%'},
+ {id:'eagle',  name:'鹰眼',   cost:2, desc:'瞄准容差 +50% · 视野更放大'},
+ {id:'scout',  name:'侦察',   cost:2, desc:'瞄准敌人时透视显示血条+距离'},
+ {id:'tough',  name:'重生强化',cost:2, desc:'重生时生命 50→85'},
+ {id:'pierce', name:'穿甲',   cost:3, desc:'子弹可穿 2 层掩体'},
+ {id:'mag',    name:'大弹匣', cost:3, desc:'所有弹匣容量 ×1.5'},
+ {id:'rich',   name:'富甲',   cost:3, desc:'波次奖励 +60%'},
+ {id:'owl',    name:'夜枭',   cost:2, desc:'夜视(夜晚不黑) · 夜袭击杀再+1点'}
+];
+
+// ===== 地图32x32: 敌方平台(北) | 岩浆海+中央大桥 | 我方平台(南), 全场外圈空气墙 =====
+var MW=32,MH=32,EMPTY=0,WALL=1,AIRW=2,CRATE=3,LAVA=4;
+var map=[];
+function cell(x,y){return(x<0||y<0||x>=MW||y>=MH)?WALL:map[(y|0)*MW+(x|0)];}
+(function buildMap(){
+ var x,y;
+ for(y=0;y<MH;y++)for(x=0;x<MW;x++){
+  var v=WALL;
+  if(y>=7&&y<=13&&x>=8&&x<=23)v=EMPTY;          // 敌方平台(北)
+  else if(y>=19&&y<=24&&x>=8&&x<=23)v=EMPTY;    // 我方平台(南)
+  else if(y>=14&&y<=18&&x>=8&&x<=23)v=LAVA;     // 岩浆海
+  map[y*MW+x]=v;
+ }
+ // 中央大桥(宽2格)横跨岩浆, 两边可互通
+ for(y=14;y<=18;y++){map[y*MW+15]=EMPTY;map[y*MW+16]=EMPTY;}
+ // 全场外圈空气墙(长城围栏)
+ for(x=7;x<=24;x++){map[6*MW+x]=AIRW;map[25*MW+x]=AIRW;}
+ for(y=7;y<=24;y++){map[y*MW+7]=AIRW;map[y*MW+24]=AIRW;}
+ // 掩体: 前线+散布(避开桥与出生直通车线)
+ var covers=[[10,20],[22,20],[13,22],[19,22],[10,11],[22,11],[13,9],[19,9],[12,13],[20,13]];
+ covers.forEach(function(cv2){map[cv2[1]*MW+cv2[0]]=CRATE;});
+})();
+var BED={x:10.5,y:23.5};       // 我方床(重生点)
+var ECOVS=[[10,11],[22,11],[13,9],[19,9],[12,13],[20,13]]; // 敌方掩体位
+
+// ===== 状态 =====
+var P={x:16,y:21.5,a:-Math.PI/2,pitch:0,hp:100,alive:true,crouch:false,mov:0};
+var slots=[null,{k:'p226',mag:12}],cur=1;
+var ammo={sniper:0,pistol:48};
+var groundGuns=[],enemies=[],allies=[],tracers=[],parts=[];
+var wave=0,money=10000,kills=0,deaths=0,best=store.get('sniper_best2',1);
+var skPts=0,skills={};
+var state='menu',interT=0,fireCd=0,reloadT=0,muzzle=0,hitmark=0,hurtT=0,swayT=0,paused=false;
+var respawnAt={x:BED.x,y:BED.y};
+var dayLen=110,timeOfDay=0.12; // 0~1: <0.5白天 0.5-0.6黄昏 0.6-0.95夜 0.95+黎明
+function isNight(){return timeOfDay>=0.6&&timeOfDay<0.95;}
+var keys={};
+var els={};
+['hpNum','waveN','leftN','moneyN','skPts','killN','clockN','bestN','w0i','w1i','ws0','ws1','feed','menuPanel','interPanel','overPanel','skillPanel','iWave','iMoney','oWave','oKill','oDeath','oBest','toast','skList','skPts2','nextBtn'].forEach(function(id){els[id]=document.getElementById(id);});
+var toastT=null;
+function toast(t){var e=els.toast;if(!e)return;e.textContent=t;e.style.display='block';if(toastT)clearTimeout(toastT);toastT=setTimeout(function(){e.style.display='none';},1700);}
+function feed(t){var e=els.feed;if(!e)return;var d=document.createElement('div');d.textContent=t;e.appendChild(d);if(e.children&&e.children.length>4)e.removeChild(e.children[0]);setTimeout(function(){if(d.parentNode&&d.parentNode.removeChild)d.parentNode.removeChild(d);},2600);}
+function gunOf(s){return s?GUNS[s.k]:null;}
+function curGun(){return gunOf(slots[cur]);}
+function magOf(k){return Math.floor(GUNS[k].mag*(skills.mag?1.5:1));}
+function relOf(g){return g.rel*(skills.quick?0.65:1);}
+// 自定义瞄准镜(scope-paint.html画的)
+var scopeImg={sniper:null,pistol:null};
+(function(){
+ ['sniper','pistol'].forEach(function(cls){
+  try{
+   var url=localStorage.getItem('scope_'+cls);
+   if(url&&url.indexOf('data:image')===0){
+    var img=new Image();
+    img.onload=function(){scopeImg[cls]=img;};
+    img.src=url;
+   }
+  }catch(e){}
+ });
+})();
+
+// ===== 视线: 岩浆低矮不挡弹; 掩体挡(可穿pierce层); 空气墙不挡 =====
+function losClear(x0,y0,x1,y1,pierce){
+ var dx=x1-x0,dy=y1-y0,dist=Math.sqrt(dx*dx+dy*dy);
+ if(dist<0.01)return true;
+ var steps=Math.ceil(dist*3),i,c,crossed=0;
+ for(i=1;i<steps;i++){
+  c=cell(x0+dx*i/steps,y0+dy*i/steps);
+  if(c===CRATE){crossed++;if(pierce&&crossed<=pierce)continue;return false;}
+  if(c===WALL)return false;
+ }
+ return true;
+}
+// 蹲伏判定: 掩体只挡"蹲伏目标"(站立可越掩体看到); 墙永远挡; pierce可穿掩体
+function shotBlocked(x0,y0,x1,y1,targetCrouch,pierce){
+ var dx=x1-x0,dy=y1-y0,dist=Math.sqrt(dx*dx+dy*dy);
+ if(dist<0.01)return false;
+ var steps=Math.ceil(dist*3),i,c,crossed=0;
+ for(i=1;i<steps;i++){
+  c=cell(x0+dx*i/steps,y0+dy*i/steps);
+  if(c===WALL)return true;
+  if(c===CRATE&&targetCrouch){crossed++;if(pierce&&crossed<=pierce)continue;return true;}
+ }
+ return false;
+}
+
+// ===== 波次 =====
+function spawnGround(n){
+ var tries=0;
+ while(groundGuns.length<n&&tries++<200){
+  var x=8+Math.floor(Math.random()*16),y=19+Math.floor(Math.random()*6);
+  if(cell(x,y)!==EMPTY)continue;
+  var k=Math.random()<0.42?SNIPERS[Math.floor(Math.random()*SNIPERS.length)]:PISTOLS[Math.floor(Math.random()*PISTOLS.length)];
+  groundGuns.push({x:x+0.5,y:y+0.5,k:k});
+ }
+}
+function startWave(){
+ wave++;
+ enemies=[];
+ var n=Math.min(3+wave,8),i;
+ for(i=0;i<n;i++){
+  var c=ECOVS[i%ECOVS.length];
+  var rush=(wave>=3&&i%3===0); // 高波次: 每第3个敌人走桥冲锋
+  enemies.push({x:c[0]+0.5+(Math.random()-0.5),y:c[1]+0.5,tx:c[0]+0.5,ty:c[1]+0.5,rush:rush,
+   hp:100,alive:true,st:isNight()?'sleep':'hide',t:0.8+Math.random()*2.2,aim:0,
+   aimNeed:Math.max(0.7,(2.5-wave*0.12)*(isNight()?2.2:1)),
+   dmg:Math.min(42,14+wave*2),lockX:0,lockY:0,peek:0,crouch:Math.random()<0.4});
+ }
+ // AI队友(我方平台上一起作战)
+ allies=[{x:10.5,y:20.5,peek:0,cd:2,name:'队友·阿磊'},{x:22.5,y:20.5,peek:0,cd:3,name:'队友·小夏'}];
+ spawnGround(6+Math.min(wave,4));
+ state='play';
+ renderSkills();updHud();
+}
+function endWave(){
+ var gain=Math.floor((1200+wave*600)*(skills.rich?1.6:1));
+ money+=gain;
+ if(wave>best){best=wave;store.set('sniper_best2',best);}
+ try{if(window.Site&&Site.gain)Site.gain(3);}catch(e){} // 全站+3巧克力(喂宠物)
+ state='inter';interT=0;
+ els.iWave.textContent=wave;els.iMoney.textContent='+¥'+gain;
+ els.interPanel.classList.remove('hid');
+ sfx('clear');updHud();
+}
+function nextWave(){els.interPanel.classList.add('hid');startWave();}
+function dieAndRespawn(){
+ deaths++;
+ state='over';
+ els.oWave.textContent=wave;els.oKill.textContent=kills;els.oDeath.textContent=deaths;
+ els.oBest.textContent=wave>=best?'🏅 新纪录：第'+best+'波！':'历史最佳：第'+best+'波';
+ els.overPanel.classList.remove('hid');
+ sfx('lose');updHud();
+}
+function respawn(){
+ P.x=respawnAt.x;P.y=respawnAt.y;P.hp=skills.tough?85:50;P.alive=true;P.crouch=false;
+ state='play';
+ els.overPanel.classList.add('hid');
+ toast('🛏 在床上醒来！HP '+P.hp);
+ feed('🛏 床重生 ×'+deaths);
+ updHud();
+}
+
+// ===== 枪械操作 =====
+function swapGun(){
+ if(!slots[0]||!slots[1]){toast('另一枪位是空的，先去捡(E)一把');sfx('error');return;}
+ cur=1-cur;fireCd=0.25;reloadT=0;sfx('click');updHud();
+}
+function dropGun(){
+ var s=slots[cur];if(!s){toast('这个枪位本来就空着');return;}
+ groundGuns.push({x:P.x,y:P.y,k:s.k});
+ slots[cur]=null;
+ toast('丢掉了 '+GUNS[s.k].name);
+ if(slots[1-cur])cur=1-cur;
+ sfx('drop');updHud();
+}
+function tryPickup(){
+ var bi=-1,bd=1.2,i,d;
+ for(i=0;i<groundGuns.length;i++){
+  d=Math.hypot(groundGuns[i].x-P.x,groundGuns[i].y-P.y);
+  if(d<bd){bd=d;bi=i;}
+ }
+ if(bi<0){toast('附近没有枪（黄色光柱处按E）');sfx('error');return;}
+ var g=groundGuns[bi],def=GUNS[g.k],idx=def.cls==='sniper'?0:1;
+ if(slots[idx])groundGuns.push({x:P.x,y:P.y,k:slots[idx].k});
+ slots[idx]={k:g.k,mag:magOf(g.k)};
+ groundGuns.splice(bi,1);
+ cur=idx;
+ toast('拾取 '+def.name+(def.cls==='sniper'?'（狙击·一枪一个）':'（'+def.desc+'）'));
+ feed('捡到 '+def.name+(def.cls==='sniper'?'(狙击)':'(手枪)'));
+ sfx('gem');updHud();
+}
+function reload(){
+ var s=slots[cur],g=gunOf(s);
+ if(!g){toast('空手没法上弹');return;}
+ if(reloadT>0)return;
+ if(s.mag>=magOf(s.k)){toast('弹匣是满的');return;}
+ if(ammo[g.cls]<=0){toast('子弹打光了！按 < + > 买');sfx('error');return;}
+ reloadT=relOf(g);sfx('rotate');
+}
+function finishReload(){
+ var s=slots[cur],g=gunOf(s);if(!g)return;
+ var need=magOf(s.k)-s.mag,take=Math.min(need,ammo[g.cls]);
+ s.mag+=take;ammo[g.cls]-=take;
+ sfx('click');updHud();
+}
+function buyAmmo(){
+ var g=curGun();
+ if(!g){toast('空手买什么弹');sfx('error');return;}
+ if(money<g.cost){toast('资金不足（还差¥'+(g.cost-money)+'）');sfx('error');return;}
+ money-=g.cost;ammo[g.cls]+=g.buy;
+ toast('购入 '+g.name+' 子弹 ×'+g.buy+'（-¥'+g.cost+'）');
+ feed('📦 '+g.name+' +'+g.buy+'发');
+ sfx('coin');updHud();
+}
+
+// ===== 技能树 =====
+function buySkill(id){
+ var sk=null,i;
+ for(i=0;i<SKILLS.length;i++)if(SKILLS[i].id===id)sk=SKILLS[i];
+ if(!sk)return false;
+ if(skills[id]){toast('已学会');return false;}
+ if(skPts<sk.cost){toast('技能点不足（杀敌得点）');sfx('error');return false;}
+ skPts-=sk.cost;skills[id]=true;
+ toast('🌳 学会【'+sk.name+'】'+sk.desc);
+ sfx('levelUp');renderSkills();updHud();
+ return true;
+}
+function renderSkills(){
+ var box=els.skList;if(!box)return;
+ var h='';
+ SKILLS.forEach(function(sk){
+  h+='<div class="sk'+(skills[sk.id]?' owned':'')+'"><span><b>'+sk.name+'</b> · '+sk.desc+'</span>'+
+   '<button data-sk="'+sk.id+'" '+(skills[sk.id]||skPts<sk.cost?'disabled':'')+'>'+(skills[sk.id]?'✓已学':sk.cost+'点')+'</button></div>';
+ });
+ box.innerHTML=h;
+ var btns=box.querySelectorAll?box.querySelectorAll('button'):[];
+ for(var i=0;i<btns.length;i++)(function(b){b.onclick=function(){buySkill(b.getAttribute('data-sk'));};})(btns[i]);
+}
+
+// ===== 床: 设重生点 / 夜晚睡觉 =====
+function nearBed(){return Math.hypot(P.x-BED.x,P.y-BED.y)<1.6;}
+function bedAction(){
+ if(!nearBed()){toast('床在我方平台后方的房间里（小地图🛏）');sfx('error');return;}
+ respawnAt={x:BED.x,y:BED.y};
+ if(isNight()){
+  timeOfDay=0.1; // 睡到天亮
+  P.hp=Math.min(100,P.hp+40);
+  enemies.forEach(function(e){if(e.alive&&e.st==='sleep')e.t+=2;});
+  toast('😴 睡到天亮！HP+40 · 重生点已设');
+  feed('🌅 一觉到天明');
+  sfx('win');
+ }else{
+  toast('🛏 重生点已设在床上（晚上回来可以睡觉回血）');
+  sfx('select');
+ }
+ updHud();
+}
+
+// ===== 开火 =====
+function angNorm(a){while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;}
+function tolMul(){return skills.eagle?1.5:1;}
+function shoot(){
+ if(state!=='play'||paused)return;
+ var s=slots[cur],g=gunOf(s);
+ if(!g){toast('空手！去捡把枪（E）');sfx('error');return;}
+ if(fireCd>0||reloadT>0)return;
+ if(s.mag<=0){toast('弹匣空了！右键上弹');sfx('error');reload();return;}
+ s.mag--;fireCd=g.rate;muzzle=0.07;hitmark=0;
+ if(g.cls==='sniper')sfx('boom');else sfx('shoot');
+ var tolA=((g.cls==='sniper'?0.028:0.05)+P.mov*0.02)*tolMul();
+ var tolP=((g.cls==='sniper'?0.055:0.075)+P.mov*0.02)*tolMul();
+ var swayAmp=(g.cls==='sniper'&&!keys['shift'])?g.sway*0.011*(skills.steady?0.5:1)*(isNight()&&!skills.owl?1.3:1):0;
+ var swayAng=Math.sin(swayT*1.7)*swayAmp+Math.cos(swayT*2.3)*swayAmp*0.6;
+ var pierce=(g.pierce||0)+(skills.pierce?1:0);
+ var hitI=-1,hitD=1e9,i,e,dx,dy,d,ang,pt;
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];if(!e.alive)continue;
+  dx=e.x-P.x;dy=e.y-P.y;d=Math.hypot(dx,dy);
+  ang=Math.abs(angNorm(Math.atan2(dy,dx)+swayAng-P.a));
+  pt=(1.0-1.6)/d;
+  if(Math.abs(ang)<tolA&&Math.abs(P.pitch-pt)<tolP&&d<hitD&&!shotBlocked(P.x,P.y,e.x,e.y,e.crouch&&e.st!=='aim',pierce)){hitI=i;hitD=d;}
+ }
+ var tx=P.x+Math.cos(P.a)*30,ty=P.y+Math.sin(P.a)*30;
+ if(hitI>=0){
+  var en=enemies[hitI];
+  en.hp-=g.dmg;tx=en.x;ty=en.y;
+  hitmark=0.18;sfx('hit');
+  for(i=0;i<8;i++)parts.push({x:en.x,y:en.y,vh:1.0+(Math.random()-0.5)*0.4,t:0.4,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,c:'#ff5b5b'});
+  if(en.hp<=0){
+   en.alive=false;
+   var pts=1;
+   if(isNight())pts+=1;             // 夜袭奖励
+   if(isNight()&&skills.owl)pts+=1;  // 夜枭再加成
+   skPts+=pts;kills++;
+   feed((isNight()?'🌙 夜袭 ':'')+(g.cls==='sniper'?'🎯 一枪一个: ':'🔫 击倒: ')+g.name+' +'+pts+'技能点');
+   if(!g.silent)enemies.forEach(function(o){if(o.alive){if(o.st==='sleep'){o.st='hide';o.t=0.4;}else if(o.st==='hide')o.t=Math.max(0.2,o.t-0.5);}});
+   sfx('explode');
+  }else if(!g.silent)enemies.forEach(function(o){if(o.alive&&o.st==='sleep'){o.st='hide';o.t=0.5;}});
+ }else if(!g.silent)enemies.forEach(function(o){if(o.alive&&o.st==='sleep'){o.st='hide';o.t=0.5;}});
+ tracers.push({x0:P.x,y0:P.y,x1:tx,y1:ty,t:0.09,c:g.col});
+ P.a+=0.006+(Math.random()-0.5)*0.004;
+ P.pitch-=0.012;
+ if(state==='play'&&enemies.every(function(e2){return!e2.alive;}))endWave();
+ updHud();
+}
+
+// ===== 敌方AI: 睡觉/躲藏→瞄准(红线)→开火→换位 =====
+function enemyFire(e){
+ var moved=Math.hypot(P.x-e.lockX,P.y-e.lockY);
+ if(moved>1.3)return false;
+ if(shotBlocked(e.x,e.y,P.x,P.y,P.crouch,0))return false;
+ return true;
+}
+function updEnemies(dt){
+ var i,e,alive=0;
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];if(!e.alive)continue;alive++;
+  if(e.st==='sleep'){
+   e.peek=Math.max(0,e.peek-dt);
+   if(!isNight()&&Math.random()<dt*0.3){e.st='hide';e.t=0.5+Math.random();}
+  }else if(e.st==='hide'){
+   e.t-=dt;e.peek=Math.max(0,e.peek-dt*2);
+   // 缓慢走向目标掩体(不再瞬移)
+   var mdx=e.tx-e.x,mdy=e.ty-e.y,md=Math.hypot(mdx,mdy);
+   if(md>0.15){var spd=e.rush?1.0:0.85;e.x+=mdx/md*spd*dt;e.y+=mdy/md*spd*dt;e.crouch=false;}
+   if(e.t<=0){
+    // 冲锋敌人: 沿大桥南下接近玩家
+    if(e.rush&&e.y<14){e.tx=15.5+Math.random();e.ty=19.5;}
+    else if(e.rush&&Math.hypot(e.x-P.x,e.y-P.y)>4){e.tx=P.x+(Math.random()-0.5)*3;e.ty=Math.max(19.2,P.y-1.5+(Math.random()-0.5));}
+    e.st='aim';e.aim=0;e.lockX=P.x;e.lockY=P.y;
+   }
+  }else if(e.st==='aim'){
+   e.aim+=dt;e.peek=Math.min(1,e.peek+dt*3);
+   if(e.aim>=e.aimNeed){
+    e.st='fire';e.t=0.12;
+    tracers.push({x0:e.x,y0:e.y,x1:e.lockX,y1:e.lockY,t:0.12,c:'#ff3b3b'});
+    sfx('shoot');
+    if(enemyFire(e)){
+     P.hp-=e.dmg;hurtT=0.5;sfx('hurt');
+     if(P.hp<=0&&state==='play'){P.hp=0;dieAndRespawn();return;}
+    }else feed('💨 对方开枪落空！');
+   }
+  }else if(e.st==='fire'){
+   e.t-=dt;
+   if(e.t<=0){
+    e.st='hide';e.t=0.9+Math.random()*1.8;
+    if(Math.random()<0.4){ // 换掩体(走过去, 不瞬移)
+     var c=ECOVS[Math.floor(Math.random()*ECOVS.length)];
+     e.tx=c[0]+0.5+(Math.random()-0.5);e.ty=c[1]+0.5;e.crouch=Math.random()<0.5;
+    }
+   }
+  }
+ }
+ if(state==='play'&&alive===0)endWave();
+}
+
+// ===== AI队友: 我方平台掩体后, 探头向敌人射击 =====
+function updAllies(dt){
+ var i,a;
+ for(i=0;i<allies.length;i++){
+  a=allies[i];
+  a.cd-=dt;
+  a.peek=a.cd>1.4?Math.max(0,a.peek-dt*2):Math.min(1,a.peek+dt*2.5);
+  if(a.cd<=0){
+   a.cd=3.6+Math.random()*2.2;
+   // 找一个可打的敌人
+   var tgt=-1,td=1e9,j;
+   for(j=0;j<enemies.length;j++){
+    var en2=enemies[j];
+    if(!en2.alive)continue;
+    var d2=Math.hypot(en2.x-a.x,en2.y-a.y);
+    if(d2<td&&!shotBlocked(a.x,a.y,en2.x,en2.y,en2.crouch&&en2.st!=='aim',0)){tgt=j;td=d2;}
+   }
+   if(tgt>=0){
+    var en3=enemies[tgt];
+    tracers.push({x0:a.x,y0:a.y,x1:en3.x,y1:en3.y,t:0.09,c:'#7fd9ff'});
+    sfx('shoot');
+    en3.hp-=18;
+    if(en3.hp<=0){
+     en3.alive=false;
+     feed('🤝 '+a.name+' 击倒一名敌人!');
+     if(!enemies.some(function(x){return x.alive;}))endWave();
+    }
+   }
+  }
+ }
+}
+
+// ===== 移动(各留本方平台, 空气墙+岩浆不可越) =====
+function passable(c){return c===EMPTY;}
+function tryMove(nx,ny){
+ var r=0.28;
+ if(passable(cell(nx+r,P.y))&&passable(cell(nx-r,P.y)))P.x=nx;
+ if(passable(cell(P.x,ny+r))&&passable(cell(P.x,ny-r)))P.y=ny;
+}
+
+// ===== 投影与渲染 =====
+function drawGunShape(k,x,y,s){ // 画枪的侧面轮廓(不用图标)
+ var g=GUNS[k],sn=g.cls==='sniper';
+ var bl=sn?s*1.6:s*0.95;
+ ctx.fillStyle=g.col;
+ ctx.fillRect(x-bl/2,y-s*0.08,bl,s*0.16);              // 枪管
+ ctx.fillRect(x-bl*0.18,y-s*0.17,bl*0.46,s*0.36);      // 机匣
+ ctx.fillStyle='#3a2c1c';
+ if(sn)ctx.fillRect(x-bl/2-s*0.26,y-s*0.06,s*0.3,s*0.24); // 枪托(狙击)
+ else ctx.fillRect(x-bl*0.3,y+s*0.1,s*0.22,s*0.4);        // 握把(手枪)
+ ctx.fillStyle='#1a1a1a';
+ if(sn)ctx.fillRect(x+bl*0.06,y-s*0.36,s*0.52,s*0.15);    // 瞄准镜
+ else ctx.fillRect(x+bl*0.02,y-s*0.28,s*0.3,s*0.1);
+ ctx.fillStyle=g.col;
+ ctx.fillRect(x+bl*0.06,y+s*0.19,s*0.18,s*(sn?0.22:0.12));// 弹匣
+ if(g.pierce){ctx.fillStyle='#fff';ctx.fillRect(x-bl/2,y-s*0.03,bl*0.85,2);} // 穿甲白线
+ if(g.silent){ctx.fillStyle='#9cd9a6';ctx.fillRect(x-bl/2,y+s*0.1,bl*0.5,3);} // 消音绿条
+}
+function curFov(){
+ var g=curGun();
+ var f=(g&&g.cls==='sniper')?g.fov:66;
+ if(skills.eagle&&g&&g.cls==='sniper')f=Math.max(10,f*0.8);
+ return f;
+}
+function projS(z,s,h,fovTan){
+ if(z<0.05)return null;
+ var halfW=W/2,f=halfW/fovTan;
+ var vertF=f*(H/W)*1.2;
+ return {x:halfW-s/z*f,y:H/2-(h-1.6)/z*vertF+P.pitch*H*2.2,z:z};
+}
+function toLocal(wx,wy){
+ var dx=wx-P.x,dy=wy-P.y,ca=Math.cos(-P.a),sa=Math.sin(-P.a);
+ return {z:dx*ca-dy*sa,s:dx*sa+dy*ca};
+}
+function render(){
+ var g=curGun(),zoomed=g&&g.cls==='sniper';
+ var fovTan=Math.tan(curFov()*Math.PI/360);
+ var night=isNight(),dark=night&&!skills.owl;
+ // 天空(随昼夜变色)
+ var skyTop=dark?'#05060f':night?'#0a0d1c':'#2a4a7a';
+ var skyBot=dark?'#0a0c18':night?'#1a1f38':'#7ab8e8';
+ if(timeOfDay>=0.5&&timeOfDay<0.6){skyTop='#3a2a3a';skyBot='#e8935a';} // 黄昏
+ if(timeOfDay>=0.95){skyTop='#1a2a4a';skyBot='#e8b06a';} // 黎明
+ var sky=ctx.createLinearGradient(0,0,0,H/2);
+ sky.addColorStop(0,skyTop);sky.addColorStop(1,skyBot);
+ ctx.fillStyle=sky;ctx.fillRect(0,0,W,H/2);
+ if(!dark){
+  ctx.fillStyle='#fff';
+  for(var s2=0;s2<40;s2++){
+   var sx=(s2*211.7+P.a*160)%W;if(sx<0)sx+=W;
+   ctx.globalAlpha=night?0.6:0.3;
+   ctx.fillRect(sx,(s2*97)%140+10,2,2);
+  }
+  ctx.globalAlpha=1;
+ }
+ // 地面
+ var fl=ctx.createLinearGradient(0,H/2,0,H);
+ fl.addColorStop(0,'#233043');fl.addColorStop(1,'#101724');
+ ctx.fillStyle=fl;ctx.fillRect(0,H/2,W,H/2);
+ // 墙体DDA
+ var halfW=W/2,f=halfW/fovTan;
+ var col;
+ for(col=0;col<W;col+=2){
+  var cx=2*col/W-1,ra=P.a+Math.atan(cx*fovTan);
+  var rdx=Math.cos(ra),rdy=Math.sin(ra);
+  var mx=P.x,my=P.y,dxX=rdx===0?1e30:Math.abs(1/rdx),dyY=rdy===0?1e30:Math.abs(1/rdy);
+  var stX,stY,sdX,sdY;
+  if(rdx<0){stX=-1;sdX=(P.x-Math.floor(P.x))*dxX;}else{stX=1;sdX=(Math.floor(P.x)+1-P.x)*dxX;}
+  if(rdy<0){stY=-1;sdY=(P.y-Math.floor(P.y))*dyY;}else{stY=1;sdY=(Math.floor(P.y)+1-P.y)*dyY;}
+  var side=0,tile=0,dist=0,guard=0;
+  while(guard++<64){
+   if(sdX<sdY){dist=sdX;sdX+=dxX;mx+=stX;side=0;}
+   else{dist=sdY;sdY+=dyY;my+=stY;side=1;}
+   tile=cell(Math.floor(mx),Math.floor(my));
+   if(tile!==EMPTY)break;
+  }
+  if(tile===EMPTY)continue;
+  var hgt=tile===AIRW?2.8:tile===CRATE?1.1:tile===LAVA?1.0:3.4;
+  var yT=H/2-f*hgt/dist+P.pitch*H*2.2,yB=H/2+f*1.6/dist+P.pitch*H*2.2;
+  var wallX=side===0?P.y+dist*rdy:P.x+dist*rdx;wallX-=Math.floor(wallX);
+  var sh=side===1?0.72:1,rC,gC,bC;
+  if(tile===WALL){rC=70;gC=62;bC=54;}
+  else if(tile===CRATE){rC=140;gC=98;bC=56;}
+  else if(tile===LAVA){
+   var flick=0.75+Math.sin(swayT*7+wallX*20)*0.25;
+   rC=255*flick;gC=110*flick;bC=20*flick;
+  }else{rC=40;gC=120;bC=180;}
+  ctx.fillStyle='rgb('+Math.floor(rC*sh)+','+Math.floor(gC*sh)+','+Math.floor(bC*sh)+')';
+  ctx.globalAlpha=tile===AIRW?0.4:1;
+  ctx.fillRect(col,yT,2,yB-yT);
+  ctx.globalAlpha=tile===AIRW?0.9:0.35;
+  if(tile===AIRW){ // 长城式围栏: 砖纹+垛口
+   ctx.fillStyle=wallX<0.5?'#8a7550':'#6e5c3e';
+   ctx.fillRect(col,yT,2,yB-yT);
+   ctx.fillStyle='#5a4a30';
+   if(wallX>0.15&&wallX<0.35)ctx.fillRect(col,yT,2,(yB-yT)*0.18);
+   if(wallX>0.65&&wallX<0.85)ctx.fillRect(col,yT,2,(yB-yT)*0.18);
+   ctx.fillStyle='rgba(0,0,0,0.35)';
+   if(wallX>0.45&&wallX<0.55)ctx.fillRect(col,yT+(yB-yT)*0.5,2,(yB-yT)*0.5);
+  }
+  else if(tile===CRATE){ctx.fillStyle='#000';if(wallX<0.12||wallX>0.88)ctx.fillRect(col,yT,2,yB-yT);}
+  else if(tile===LAVA){ctx.fillStyle='#ffe08a';if((Math.floor(wallX*8)%3)===0)ctx.fillRect(col,yT+(yB-yT)*0.5,2,(yB-yT)*0.2);}
+  else{ctx.fillStyle='#3a3026';if((Math.floor(wallX*4)%2)===0)ctx.fillRect(col,yT+(yB-yT)*0.33,2,(yB-yT)*0.34);}
+  ctx.globalAlpha=1;
+  var fog=Math.min(0.5,dist*0.026);
+  ctx.fillStyle='rgba(10,15,26,'+fog+')';ctx.fillRect(col,yT,2,yB-yT);
+ }
+ // 精灵: 敌人/地面枪/床
+ var sp=[],i,e;
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];if(!e.alive)continue;
+  sp.push({t:'en',e:e,d:Math.hypot(e.x-P.x,e.y-P.y)});
+ }
+ for(i=0;i<groundGuns.length;i++){
+  var gg=groundGuns[i];
+  sp.push({t:'gun',g:gg,d:Math.hypot(gg.x-P.x,gg.y-P.y)});
+ }
+ sp.push({t:'bed',g:BED,d:Math.hypot(BED.x-P.x,BED.y-P.y)});
+ for(i=0;i<allies.length;i++){
+  var al=allies[i];
+  sp.push({t:'ally',a:al,d:Math.hypot(al.x-P.x,al.y-P.y)});
+ }
+ sp.sort(function(a,b){return b.d-a.d;});
+ // 瞄准中的敌人(血条用)
+ var aimIdx=-1,aimD2=1e9;
+ var g2=curGun();
+ var tolA2=((g2&&g2.cls==='sniper'?0.03:0.055))*tolMul();
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];if(!e.alive)continue;
+  var lc=toLocal(e.x,e.y);
+  if(lc.z>0.5){
+   var pr0=projS(lc.z,lc.s,1.0,fovTan);
+   if(pr0&&Math.abs(pr0.x-W/2)<tolA2*W&&lc.z<aimD2){aimIdx=i;aimD2=lc.z;}
+  }
+ }
+ for(i=0;i<sp.length;i++){
+  var o=sp[i];
+  var loc=toLocal(o.t==='en'?o.e.x:(o.t==='ally'?o.a.x:o.g.x),o.t==='en'?o.e.y:(o.t==='ally'?o.a.y:o.g.y));
+  var hgt2=o.t==='en'?1.0:0.5;
+  var pr=projS(loc.z,loc.s,hgt2,fovTan);
+  if(!pr||pr.z>30)continue;
+  if(o.t==='gun'){
+   var def=GUNS[o.g.k],sz=Math.max(9,120/pr.z);
+   // 光柱信标(远处也醒目)
+   ctx.globalAlpha=0.18+0.1*Math.sin(swayT*3+o.g.x);
+   ctx.fillStyle=def.col;
+   ctx.fillRect(pr.x-sz*0.3,pr.y-300,sz*0.6,300);
+   ctx.globalAlpha=0.5;
+   ctx.fillRect(pr.x-sz*0.1,pr.y-300,sz*0.2,300);
+   ctx.globalAlpha=1;
+   drawGunShape(o.g.k,pr.x,pr.y,sz);
+   ctx.font='bold '+Math.max(11,sz*0.4)+'px monospace';ctx.textAlign='center';
+   ctx.fillStyle='#fff';
+   ctx.fillText(def.name+(def.cls==='sniper'?'·狙击':'·手枪'),pr.x,pr.y-sz*0.85);
+   ctx.fillStyle=def.col;
+   ctx.font=Math.max(9,sz*0.3)+'px monospace';
+   ctx.fillText(def.desc,pr.x,pr.y+sz*0.55);
+  }else if(o.t==='bed'){
+   var sz3=Math.max(8,110/pr.z);
+   ctx.fillStyle='#c96a6a';ctx.fillRect(pr.x-sz3*0.5,pr.y-sz3*0.15,sz3,sz3*0.18);
+   ctx.fillStyle='#fff';ctx.font=Math.max(9,sz3*0.5)+'px monospace';ctx.textAlign='center';
+   ctx.fillText('🛏',pr.x,pr.y-sz3*0.18);
+  }else if(o.t==='ally'){
+   var al2=o.a,asz=Math.max(12,200/Math.hypot(al2.x-P.x,al2.y-P.y));
+   var ap=projS(toLocal(al2.x,al2.y).z,toLocal(al2.x,al2.y).s,1.0,fovTan);
+   if(ap&&ap.z<30){
+    var aris=0.4+al2.peek*0.6;
+    ctx.globalAlpha=0.95;
+    ctx.fillStyle='#2a4d8f';
+    ctx.fillRect(ap.x-asz*0.16,ap.y-asz*0.62*aris,asz*0.32,asz*0.62*aris);
+    ctx.fillStyle='#9fd0ff';
+    ctx.beginPath();ctx.arc(ap.x,ap.y-asz*0.62*aris,asz*0.11,0,7);ctx.fill();
+    ctx.fillStyle='#7fd9ff';
+    ctx.font=Math.max(9,asz*0.22)+'px monospace';ctx.textAlign='center';
+    ctx.fillText(al2.name,ap.x,ap.y-asz*0.75);
+    if(al2.peek>0.6){ctx.strokeStyle='#7fd9ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ap.x,ap.y-asz*0.45);ctx.lineTo(ap.x,ap.y-asz*0.75);ctx.stroke();}
+    ctx.globalAlpha=1;
+   }
+  }else{
+   e=o.e;
+   var sleeping=e.st==='sleep';
+   var sz2=Math.max(10,340/pr.z),peek=0.35+e.peek*0.65;
+   var rise=sleeping?0.45:peek;
+   ctx.globalAlpha=dark?(sleeping?0.5:0.85):1;
+   ctx.fillStyle='#4a3020';
+   ctx.fillRect(pr.x-sz2*0.16,pr.y-sz2*0.62*rise,sz2*0.32,sz2*0.62*rise);
+   ctx.fillStyle=e.st==='aim'?'#ff5b5b':'#8a6a4a';
+   ctx.beginPath();ctx.arc(pr.x,pr.y-sz2*0.62*rise,sz2*0.11,0,7);ctx.fill();
+   if(sleeping){
+    ctx.fillStyle='#9fd9ff';ctx.font=Math.max(8,sz2*0.16)+'px monospace';ctx.textAlign='center';
+    ctx.fillText('zZ',pr.x+sz2*0.2,pr.y-sz2*0.7-((swayT*20)%14));
+   }
+   if(e.st==='aim'){
+    ctx.fillStyle='#ff3b3b';ctx.globalAlpha=(0.3+e.aim/e.aimNeed*0.7);
+    ctx.beginPath();ctx.arc(pr.x,pr.y-sz2*0.62*rise,sz2*(0.12+e.aim/e.aimNeed*0.1),0,7);ctx.fill();
+   }
+   ctx.globalAlpha=1;
+   // 瞄准血条(或侦察技能)
+   if(i===aimIdx||skills.scout){
+    var bw=Math.max(26,sz2*0.7),bx=pr.x-bw/2,by=pr.y-sz2*0.78;
+    ctx.fillStyle='#000a';ctx.fillRect(bx-1,by-1,bw+2,7);
+    ctx.fillStyle='#3ddc6a';ctx.fillRect(bx,by,bw*Math.max(0,e.hp)/100,5);
+    ctx.fillStyle='#fff';ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillText(Math.max(0,Math.ceil(e.hp))+' · '+pr.z.toFixed(0)+'m',pr.x,by-3);
+   }
+  }
+ }
+ // 激光瞄准线
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];
+  if(!e.alive||e.st!=='aim')continue;
+  var a1=projS.apply(null,[toLocal(e.x,e.y).z,toLocal(e.x,e.y).s,1.0,fovTan]);
+  var l2=toLocal(e.lockX,e.lockY);
+  var a2=projS(l2.z,l2.s,1.6,fovTan);
+  if(a1&&a2&&a1.z>0.1&&a2.z>0.1){
+   ctx.strokeStyle='rgba(255,59,59,'+(0.25+e.aim/e.aimNeed*0.6)+')';
+   ctx.lineWidth=1.5;ctx.setLineDash([6,6]);
+   ctx.beginPath();ctx.moveTo(a1.x,a1.y);ctx.lineTo(a2.x,a2.y);ctx.stroke();
+   ctx.setLineDash([]);
+  }
+ }
+ // 曳光弹
+ for(i=0;i<tracers.length;i++){
+  var tr=tracers[i];
+  var t2=toLocal(tr.x1,tr.y1);
+  var p2=projS(t2.z,t2.s,1.6,fovTan);
+  if(p2&&p2.z>0.1){
+   ctx.strokeStyle=tr.c;ctx.globalAlpha=tr.t/0.12*0.8;ctx.lineWidth=2;
+   ctx.beginPath();ctx.moveTo(W/2,H*0.62);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+   ctx.globalAlpha=1;
+  }
+ }
+ // 粒子
+ for(i=0;i<parts.length;i++){
+  var pp=parts[i],l3=toLocal(pp.x,pp.y);
+  var pj=projS(l3.z,l3.s,pp.vh,fovTan);
+  if(pj&&pj.z>0.1){ctx.fillStyle=pp.c;ctx.globalAlpha=pp.t/0.4;ctx.fillRect(pj.x,pj.y,3,3);ctx.globalAlpha=1;}
+ }
+ // 夜幕
+ if(dark){
+  ctx.fillStyle='rgba(2,4,14,0.55)';ctx.fillRect(0,0,W,H);
+ }
+ // 枪口火光
+ if(muzzle>0){
+  ctx.fillStyle='rgba(255,220,120,'+muzzle*9+')';
+  ctx.beginPath();ctx.arc(W/2+18,H*0.62,14+muzzle*160,0,7);ctx.fill();
+ }
+ // 瞄准镜: 优先用你在画板画的!
+ var crossY=H/2;
+ if(zoomed){
+  var cx2=W/2,cy2=H/2+P.pitch*H*2.2,sw=swayT*g.sway*8*(keys['shift']||skills.steady?0.15:0.4);
+  cx2+=Math.sin(swayT*1.7)*sw;cy2+=Math.cos(swayT*2.3)*sw*0.7;
+  ctx.fillStyle='rgba(0,0,0,0.92)';
+  ctx.beginPath();ctx.rect(0,0,W,H);ctx.arc(cx2,cy2,H*0.38,0,7,true);ctx.fill();
+  ctx.strokeStyle='#0f0';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(cx2,cy2,H*0.38,0,7);ctx.stroke();
+  if(scopeImg.sniper){
+   ctx.drawImage(scopeImg.sniper,cx2-H*0.34,cy2-H*0.34,H*0.68,H*0.68);
+  }else{
+   ctx.strokeStyle='rgba(0,255,80,0.85)';
+   ctx.beginPath();
+   ctx.moveTo(cx2-H*0.36,cy2);ctx.lineTo(cx2-H*0.04,cy2);
+   ctx.moveTo(cx2+H*0.04,cy2);ctx.lineTo(cx2+H*0.36,cy2);
+   ctx.moveTo(cx2,cy2-H*0.34);ctx.lineTo(cx2,cy2-H*0.04);
+   ctx.moveTo(cx2,cy2+H*0.04);ctx.lineTo(cx2,cy2+H*0.34);
+   ctx.stroke();
+   ctx.fillStyle='rgba(0,255,80,0.9)';ctx.fillRect(cx2-1,cy2-1,3,3);
+  }
+ }else{
+  if(scopeImg.pistol){
+   ctx.drawImage(scopeImg.pistol,W/2-40,crossY-40,80,80);
+  }else{
+   var sp2=4+P.mov*10+fireCd*30;
+   ctx.strokeStyle='#9fd0ff';ctx.lineWidth=2;
+   ctx.beginPath();
+   ctx.moveTo(W/2-sp2-8,crossY);ctx.lineTo(W/2-sp2,crossY);
+   ctx.moveTo(W/2+sp2,crossY);ctx.lineTo(W/2+sp2+8,crossY);
+   ctx.moveTo(W/2,crossY-sp2-8);ctx.lineTo(W/2,crossY-sp2);
+   ctx.moveTo(W/2,crossY+sp2);ctx.lineTo(W/2,crossY+sp2+8);
+   ctx.stroke();
+   ctx.fillStyle='#9fd0ff';ctx.fillRect(W/2-1,crossY-1,2,2);
+  }
+ }
+ if(hitmark>0){
+  ctx.strokeStyle='rgba(255,255,255,'+hitmark*5+')';ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(W/2-10,crossY-10);ctx.lineTo(W/2-4,crossY-4);
+  ctx.moveTo(W/2+10,crossY-10);ctx.lineTo(W/2+4,crossY-4);
+  ctx.moveTo(W/2-10,crossY+10);ctx.lineTo(W/2-4,crossY+4);
+  ctx.moveTo(W/2+10,crossY+10);ctx.lineTo(W/2+4,crossY+4);
+  ctx.stroke();
+ }
+ if(hurtT>0){
+  var vg=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.75);
+  vg.addColorStop(0,'rgba(255,0,0,0)');vg.addColorStop(1,'rgba(255,0,0,'+hurtT*0.7+')');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+ }
+ if(reloadT>0){
+  ctx.fillStyle='#ffd54f';ctx.font='bold 16px monospace';ctx.textAlign='center';
+  ctx.fillText('⏳ 上弹中…',W/2,H*0.68);
+ }
+ if(P.crouch){
+  ctx.fillStyle='#9fd9ff';ctx.font='bold 13px monospace';ctx.textAlign='center';
+  ctx.fillText('⬇ 蹲伏中',W/2,H*0.72);
+ }
+ // 小地图
+ var ms=104,mx0=W-ms-8,my0=8,sc=ms/32;
+ ctx.fillStyle='rgba(8,14,26,0.8)';ctx.fillRect(mx0,my0,ms,ms);
+ ctx.strokeStyle='#3b6fd4';ctx.strokeRect(mx0,my0,ms,ms);
+ ctx.strokeStyle='rgba(60,180,255,0.5)';
+ ctx.strokeRect(mx0+8*sc,my0+7*sc,16*sc,7*sc);
+ ctx.strokeRect(mx0+8*sc,my0+19*sc,16*sc,6*sc);
+ ctx.fillStyle='#ff6a00';ctx.fillRect(mx0+8*sc,my0+15*sc,16*sc,3*sc);
+ ctx.fillStyle='#ffd54f';
+ for(i=0;i<groundGuns.length;i++)ctx.fillRect(mx0+groundGuns[i].x*sc-1,my0+groundGuns[i].y*sc-1,3,3);
+ ctx.font='9px monospace';ctx.fillText('🛏',mx0+BED.x*sc-4,my0+BED.y*sc+3);
+ for(i=0;i<enemies.length;i++){
+  e=enemies[i];if(!e.alive)continue;
+  ctx.fillStyle=e.st==='aim'?'#ff3b3b':e.st==='sleep'?'#7a8ab0':'#d96b6b';
+  ctx.beginPath();ctx.arc(mx0+e.x*sc,my0+e.y*sc,2.5,0,7);ctx.fill();
+ }
+ ctx.fillStyle='#7fff9f';
+ ctx.beginPath();ctx.arc(mx0+P.x*sc,my0+P.y*sc,3,0,7);ctx.fill();
+ ctx.strokeStyle='#7fff9f';
+ ctx.beginPath();ctx.moveTo(mx0+P.x*sc,my0+P.y*sc);
+ ctx.lineTo(mx0+P.x*sc+Math.cos(P.a)*7,my0+P.y*sc+Math.sin(P.a)*7);ctx.stroke();
+}
+
+// ===== HUD =====
+function updHud(){
+ if(!els.hpNum)return;
+ els.hpNum.textContent=Math.max(0,Math.ceil(P.hp));
+ els.waveN.textContent=wave;
+ els.leftN.textContent=enemies.filter(function(e){return e.alive;}).length;
+ els.moneyN.textContent='¥'+money;
+ els.skPts.textContent=skPts;
+ els.killN.textContent=kills;
+ els.clockN.textContent=isNight()?'🌙深夜':(timeOfDay>=0.5&&timeOfDay<0.6?'🌇黄昏':(timeOfDay>=0.95?'🌅黎明':'☀白天'));
+ els.bestN.textContent=best;
+ var s0=slots[0],s1=slots[1];
+ els.w0i.textContent=s0?'【狙击】'+GUNS[s0.k].name+' '+s0.mag+'/'+magOf(s0.k)+' 弹'+ammo.sniper:'空手（捡把狙击）';
+ els.w1i.textContent=s1?'【手枪】'+GUNS[s1.k].name+' '+s1.mag+'/'+magOf(s1.k)+' 弹'+ammo.pistol:'空手';
+ els.ws0.classList[cur===0?'add':'remove']('on');
+ els.ws1.classList[cur===1?'add':'remove']('on');
+ if(els.skPts2)els.skPts2.textContent=skPts;
+}
+
+// ===== 主循环 =====
+var last=0;
+function loop(ts){
+ requestAnimationFrame(loop);
+ var dt=Math.min(0.05,(ts-last)/1000||0.016);last=ts;
+ if(paused)return;
+ swayT+=dt;
+ timeOfDay=(timeOfDay+dt/dayLen)%1;
+ if(muzzle>0)muzzle-=dt;
+ if(hitmark>0)hitmark-=dt;
+ if(hurtT>0)hurtT-=dt;
+ var i;
+ for(i=tracers.length-1;i>=0;i--){tracers[i].t-=dt;if(tracers[i].t<=0)tracers.splice(i,1);}
+ for(i=parts.length-1;i>=0;i--){parts[i].t-=dt;parts[i].x+=parts[i].vx*dt;parts[i].y+=parts[i].vy*dt;if(parts[i].t<=0)parts.splice(i,1);}
+ if(state==='play'){
+  if(fireCd>0)fireCd-=dt;
+  if(reloadT>0){reloadT-=dt;if(reloadT<=0)finishReload();}
+  var sp3=(keys['shift']?2.2:3.4)*(skills.sprint?1.25:1)*(P.crouch?0.6:1)*dt,mvx=0,mvy=0;
+  if(keys['w']||keys['arrowup']){mvx+=Math.cos(P.a)*sp3;mvy+=Math.sin(P.a)*sp3;}
+  if(keys['s']||keys['arrowdown']){mvx-=Math.cos(P.a)*sp3;mvy-=Math.sin(P.a)*sp3;}
+  if(keys['q']||keys['arrowleft']){mvx+=Math.cos(P.a-Math.PI/2)*sp3;mvy+=Math.sin(P.a-Math.PI/2)*sp3;}
+  if(keys['d']||keys['arrowright']){mvx+=Math.cos(P.a+Math.PI/2)*sp3;mvy+=Math.sin(P.a+Math.PI/2)*sp3;}
+  if(mvx||mvy)tryMove(P.x+mvx,P.y+mvy);
+  P.mov=P.mov+((mvx||mvy)?(1-P.mov):-P.mov)*Math.min(1,dt*8);
+  if(P.mov<0)P.mov=0;if(P.mov>1)P.mov=1;
+  updEnemies(dt);
+  updAllies(dt);
+  updHud();
+ }else if(state==='inter'){
+  interT+=dt;
+  if(interT>4.5)nextWave();
+ }
+ render();
+}
+requestAnimationFrame(loop);
+
+// ===== 输入 =====
+var locked=false;
+function lockNow(){try{if(cv.requestPointerLock)cv.requestPointerLock();}catch(e){}}
+if(cv.addEventListener){
+ cv.addEventListener('click',function(){
+  if(state==='menu'||state==='over'){return;}
+  if(!locked){lockNow();return;}
+  shoot();
+ });
+ cv.addEventListener('contextmenu',function(ev){if(ev.preventDefault)ev.preventDefault();reload();});
+ document.addEventListener('pointerlockchange',function(){locked=document.pointerLockElement===cv;});
+ document.addEventListener('mousemove',function(ev){
+  if(!locked)return;
+  var zf=curFov()/66;
+  P.a+=ev.movementX*0.0022*zf;
+  P.pitch-=ev.movementY*0.0016*zf;
+  if(P.pitch>0.8)P.pitch=0.8;if(P.pitch<-0.8)P.pitch=-0.8;
+ });
+ document.addEventListener('mousedown',function(ev){
+  if(locked&&ev.button===2)reload();
+  if(locked&&ev.button===1&&ev.preventDefault)ev.preventDefault();
+ });
+ document.addEventListener('wheel',function(){if(locked)swapGun();},{passive:true});
+ document.addEventListener('keydown',function(ev){
+  var k=(ev.key||'').toLowerCase();
+  keys[k]=true;
+  if(k==='escape'){paused=!paused;toast(paused?'⏸ 已暂停':'▶ 继续');return;}
+  if(state==='menu'&&(k===' '||k==='enter')){restart();return;}
+  if(state==='over'&&(k==='r'||k==='enter')){respawn();return;}
+  if(state==='inter'&&k==='n'){nextWave();return;}
+  if(k==='t'){els.skillPanel.classList[els.skillPanel.classList.contains('hid')?'remove':'add']('hid');renderSkills();return;}
+  if(state!=='play'||paused)return;
+  if(k==='a'||k==='1')swapGun();
+  else if(k==='g')dropGun();
+  else if(k==='e')tryPickup();
+  else if(k==='b')bedAction();
+  else if(k==='c'||k==='control'){P.crouch=!P.crouch;toast(P.crouch?'⬇ 蹲下(躲掩体后)':'⬆ 起立');}
+  else if(k==='r')reload();
+  else if(k==='<'&&keys['>'])buyAmmo();
+  else if(k==='>'&&keys['<'])buyAmmo();
+ });
+ document.addEventListener('keyup',function(ev){keys[(ev.key||'').toLowerCase()]=false;});
+}
+function restart(){
+ P.x=16;P.y=21.5;P.hp=100;P.alive=true;P.a=-Math.PI/2;P.pitch=0;P.crouch=false;
+ slots=[null,{k:'p226',mag:12}];cur=1;ammo={sniper:0,pistol:48};
+ groundGuns=[];tracers=[];parts=[];wave=0;money=10000;kills=0;deaths=0;skPts=0;skills={};
+ timeOfDay=0.12;respawnAt={x:BED.x,y:BED.y};
+ els.overPanel.classList.add('hid');els.menuPanel.classList.add('hid');els.interPanel.classList.add('hid');
+ // 全站体力: 开局消耗1点(不足时Site会弹提示, 本地仍可玩)
+ try{if(window.Site&&Site.spend)Site.spend(1);}catch(e){}
+ startWave();
+}
+var sb=document.getElementById('startBtn');if(sb)sb.onclick=restart;
+var nb=els.nextBtn;if(nb)nb.onclick=nextWave;
+var rb=document.getElementById('reBtn');if(rb)rb.onclick=respawn;
+renderSkills();updHud();
+})();
+</script>
+</body>
+</html>

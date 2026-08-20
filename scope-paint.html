@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>瞄准镜画板 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<style>
+  body { background:#08130a; }
+  #paintCanvas { background:#0b1f10; border:3px solid #2f7a3f; box-shadow:0 0 34px #3ddc6a44; border-radius:8px; cursor:crosshair; touch-action:none; }
+  .pal { display:inline-block; width:30px; height:30px; border:3px solid #000; border-radius:5px; cursor:pointer; margin:2px; vertical-align:middle; }
+  .pal.on { outline:3px solid #fff; }
+  .bbtn { background:#1c3a24; color:#cfe; border:2px solid #000; border-bottom-color:#000; padding:6px 14px; font-size:13px; cursor:pointer; border-radius:4px; margin:2px; }
+  .bbtn:hover { background:#2f7a3f; }
+  .slotbtn { background:#22303f; color:#fff; border:2px solid #000; padding:8px 16px; cursor:pointer; border-radius:4px; font-size:14px; margin:2px; }
+  .slotbtn.on { background:#3ddc6a; color:#041008; font-weight:bold; }
+  .hint { color:#8fae96; font-size:12px; line-height:1.9; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="sniper.html">🎯狙击对决</a>
+    <a href="scope-paint.html">画瞄准镜</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🎨 瞄准镜画板</h1>
+  <p class="subtitle">亲手画你的狙击镜/手枪镜准星——保存后去《狙击对决》直接换上！</p>
+  <div style="margin:10px 0;">
+    <button class="slotbtn on" id="slotSniper">🎯 狙击镜</button>
+    <button class="slotbtn" id="slotPistol">🔫 手枪镜</button>
+  </div>
+  <canvas id="paintCanvas" width="360" height="360"></canvas>
+  <div style="margin:10px 0;" id="palette"></div>
+  <div>
+    <button class="bbtn" id="brushBtn">✏ 画笔</button>
+    <button class="bbtn" id="eraseBtn">🧽 橡皮</button>
+    <button class="bbtn" id="clearBtn">🗑 清空</button>
+    <button class="bbtn" id="saveBtn">💾 保存并装备</button>
+    <button class="bbtn" id="loadBtn">📂 读取已存</button>
+  </div>
+  <p class="hint" style="margin-top:12px;">
+    画在正中的准星会套进狙击镜圆框 / 手枪准星框里 · 绿色是默认镜颜色，但你想画粉色骷髅也行!<br>
+    保存后打开 <a href="sniper.html" style="color:#7fd9ff;">狙击对决</a> —— 开镜就是你画的模样。左键画 · 右键擦。
+  </p>
+</div>
+<script>
+(function(){
+'use strict';
+var cv=document.getElementById('paintCanvas'),ctx=cv.getContext('2d');
+var W=cv.width||960,H=cv.height||540;
+var slot='sniper';
+var COLORS=['#3ddc6a','#9fd0ff','#ffd54f','#ff5b5b','#ffffff','#ff8fd9','#8f6bff','#00e5ff','#000000'];
+var color=COLORS[0],erase=false,size=3;
+var drawing=false,lx=-1,ly=-1;
+var pal=document.getElementById('palette');
+var btns=[];
+COLORS.forEach(function(c,i){
+ var b=document.createElement('span');
+ b.className='pal'+(i===0?' on':'');
+ b.style.background=c;
+ b.onclick=function(){
+  color=c;erase=false;
+  btns.forEach(function(x){x.classList.remove('on');});
+  b.classList.add('on');
+  try{if(window.SFX)SFX.select();}catch(e){}
+ };
+ pal.appendChild(b);btns.push(b);
+});
+function grid(){
+ ctx.fillStyle='#0b1f10';ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle='#123d1c';ctx.lineWidth=1;
+ ctx.beginPath();
+ ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);
+ ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);
+ ctx.stroke();
+ ctx.strokeStyle='#1d5a2c';
+ ctx.beginPath();ctx.arc(W/2,H/2,W*0.36,0,7);ctx.stroke();
+ ctx.fillStyle='#2f7a3f88';
+ ctx.beginPath();ctx.arc(W/2,H/2,4,0,7);ctx.fill();
+}
+function key(){return 'scope_'+slot;}
+function save(){
+ try{
+  localStorage.setItem(key(),cv.toDataURL());
+  toast('已保存'+(slot==='sniper'?'狙击镜':'手枪镜')+'！去狙击对决看看吧');
+  try{if(window.SFX)SFX.win();}catch(e){}
+ }catch(e){toast('保存失败: '+e.message);}
+}
+function load(){
+ try{
+  var url=localStorage.getItem(key());
+  if(!url){toast('还没画过呢');return;}
+  var img=new Image();
+  img.onload=function(){ctx.clearRect(0,0,W,H);ctx.drawImage(img,0,0,W,H);toast('已读取');};
+  img.src=url;
+ }catch(e){toast('读取失败');}
+}
+function toast(t){
+ var d=document.getElementById('_spt');
+ if(!d){d=document.createElement('div');d.id='_spt';d.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#000c;color:#7fd9ff;border:2px solid #3ddc6a;padding:6px 16px;border-radius:6px;z-index:99;font-size:13px';document.body.appendChild(d);}
+ d.textContent=t;d.style.display='block';
+ clearTimeout(d._t);d._t=setTimeout(function(){d.style.display='none';},1800);
+}
+function dot(x,y){
+ ctx.strokeStyle=erase?'#0b1f10':color;
+ ctx.lineWidth=erase?size*3:size;
+ ctx.lineCap='round';
+ if(lx<0){lx=x;ly=y;}
+ ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();
+ lx=x;ly=y;
+}
+function pos(ev){
+ var r=cv.getBoundingClientRect?cv.getBoundingClientRect():{left:0,top:0,width:W,height:H};
+ return {x:(ev.clientX-r.left)*(W/(r.width||W)),y:(ev.clientY-r.top)*(H/(r.height||H))};
+}
+if(cv.addEventListener){
+ cv.addEventListener('mousedown',function(ev){
+  drawing=true;lx=-1;
+  if(ev.preventDefault)ev.preventDefault();
+  var p=pos(ev);dot(p.x,p.y);
+ });
+ cv.addEventListener('mousemove',function(ev){if(drawing){var p=pos(ev);dot(p.x,p.y);}});
+ document.addEventListener('mouseup',function(){drawing=false;lx=-1;});
+ cv.addEventListener('touchstart',function(ev){if(ev.preventDefault)ev.preventDefault();drawing=true;lx=-1;if(ev.touches&&ev.touches[0]){var p=pos(ev.touches[0]);dot(p.x,p.y);}},{passive:false});
+ cv.addEventListener('touchmove',function(ev){if(ev.preventDefault)ev.preventDefault();if(drawing&&ev.touches&&ev.touches[0]){var p=pos(ev.touches[0]);dot(p.x,p.y);}},{passive:false});
+ document.addEventListener('touchend',function(){drawing=false;lx=-1;});
+ cv.addEventListener('contextmenu',function(ev){if(ev.preventDefault)ev.preventDefault();drawing=true;lx=-1;erase=true;});
+}
+var sb=document.getElementById('saveBtn');if(sb)sb.onclick=save;
+var lb=document.getElementById('loadBtn');if(lb)lb.onclick=load;
+var cb=document.getElementById('clearBtn');if(cb)cb.onclick=function(){grid();toast('已清空');};
+var bb=document.getElementById('brushBtn');
+var eb=document.getElementById('eraseBtn');
+if(bb)bb.onclick=function(){erase=false;toast('画笔');};
+if(eb)eb.onclick=function(){erase=true;toast('橡皮');};
+var sN=document.getElementById('slotSniper'),sP=document.getElementById('slotPistol');
+function setSlot(s){
+ slot=s;
+ if(sN&&sP){sN.classList[s==='sniper'?'add':'remove']('on');sP.classList[s==='pistol'?'add':'remove']('on');}
+ grid();load0();
+ toast(s==='sniper'?'编辑狙击镜':'编辑手枪镜');
+}
+function load0(){try{var url=localStorage.getItem(key());if(url){var img=new Image();img.onload=function(){ctx.drawImage(img,0,0,W,H);};img.src=url;}}catch(e){}}
+if(sN)sN.onclick=function(){setSlot('sniper');};
+if(sP)sP.onclick=function(){setSlot('pistol');};
+grid();load0();
+})();
+</script>
+</body>
+</html>

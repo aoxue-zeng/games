@@ -50,7 +50,7 @@
 var c=document.getElementById('gc'),x=c.getContext('2d'),W=440,H=480,CS=20,GW=W/CS,GH=H/CS;
 var best=parseInt(localStorage.getItem('snakeEvoBest')||'0',10);
 document.getElementById('best').textContent=best;
-var snake,dir,nextDir,foods,walls,score,level,combo,comboT,dead,acc,last,effects,dashCd,started;
+var snake=[],dir={x:1,y:0},nextDir={x:1,y:0},foods=[],walls=[],score=0,level=1,combo=1,comboT=0,dead=false,acc=0,last=0,effects={ghost:0,x2:0,slow:0,dash:0},dashCd=0,started=false;
 var FOODS=[
  {i:'🍎',c:'#e53935',pts:10,grow:1,w:.5},
  {i:'🍇',c:'#8bc34a',pts:30,grow:2,w:.16},

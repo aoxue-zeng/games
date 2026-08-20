@@ -49,10 +49,11 @@
   var W=canvas.width,H=canvas.height,GROUND=232;
   var players,obstacles,frame,speed,dist,night,duo,enemyAI,allyAI,clouds,ended;
   function mkDino(x,color,name){return {x:x,y:GROUND,vy:0,duck:false,dead:false,score:0,color:color,name:name,blink:0};}
+  var enemyDino=null;
   function init(){
    players=[mkDino(90,'#535353','P1')];
    if(duo)players.push(mkDino(50,'#1565c0','P2'));
-   if(enemyAI){var a=mkDino(150,'#9c27b0','AI');a.ai=1;a.ghost=1;players.push(a);}
+   if(enemyAI){var a=mkDino(150,'#9c27b0','AI');a.ai=1;a.ghost=1;players.push(a);enemyDino=a;}
    if(allyAI){var b=mkDino(30,'#2e7d32','AI队友');b.ghost=1;b.ally=1;b.ai=1;players.push(b);}
    obstacles=[];frame=0;speed=6;dist=0;night=0;clouds=[];ended=false;
    for(var i=0;i<4;i++)clouds.push({x:Math.random()*W,y:30+Math.random()*70,s:.3+Math.random()*.5});
@@ -136,7 +137,7 @@
    ended=true;
    var my=Math.floor(players[0].score);
    var p2=duo&&players[1]?Math.floor(players[1].score):null;
-   var aiS=enemyAI?Math.floor((players[2].deathScore!==undefined?players[2].deathScore:players[2].score)*1.0):null;
+   var aiS=(enemyAI&&enemyDino)?Math.floor((enemyDino.deathScore!==undefined?enemyDino.deathScore:enemyDino.score)*1.0):null;
    var best=Math.max(my,p2||0);
    if(best>=500)Site.winGame('里程'+best);else Site.loseGame();
    if(enemyAI&&aiS!==null){

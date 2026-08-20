@@ -599,12 +599,15 @@
       m.innerHTML = '<div style="background:#0d1b2a;border:3px solid #ffd700;padding:26px 30px;max-width:660px;text-align:center;color:#fff;box-shadow:0 0 40px #000">' +
         '<h2 style="color:#ffd700;margin:0 0 6px">🐣 领养你的宠物！</h2>' +
         '<p style="color:#9ab;font-size:13px;margin:0 0 18px">赢游戏赚🍫巧克力喂它 · 每 ' + '' + '10×等级 块升一级 · 升级解锁漂浮 goodies</p>' +
-        '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' + cards + '</div></div>';
+        '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' + cards + '</div>' +
+        '<div style="margin-top:16px"><button id="petLaterBtn" style="cursor:pointer;background:#22344e;border:2px solid #000;box-shadow:0 3px 0 #000;padding:8px 22px;color:#9ab;font-size:13px">稍后再说 ✕</button></div></div>';
       document.body.appendChild(m);
       m.querySelectorAll('[data-pet]').forEach(function (b) {
         b.onmouseenter = function () { if (window.SFX) SFX.select(); };
         b.onclick = function () { Site.adopt(b.dataset.pet); };
       });
+      var lb = m.querySelector && m.querySelector('#petLaterBtn');
+      if (lb) lb.onclick = function () { try { localStorage.setItem('aox_pet_later', '1'); } catch (e) { } m.remove(); };
     },
 
     energy: function () { return sget('choco_energy', 10); },
@@ -833,7 +836,8 @@
   Site.HIDDEN_GAMES = [
     { f: 'hsr.html', n: '星穹开拓·Q萌版', i: '🌌' },
     { f: 'genshin.html', n: '提瓦特Q萌远征', i: '🌪️' },
-    { f: 'sheep.html', n: '羊了个羊·萌版', i: '🐑' }
+    { f: 'sheep.html', n: '羊了个羊·萌版', i: '🐑' },
+    { f: 'hsr-train.html', n: '星穹列车·跑酷', i: '🚄' }
   ];
   function initHiddenZone() {
     if (!Site.petIsMax()) return; // 未满级: 完全不渲染, 一点提示都没有
@@ -852,7 +856,7 @@
     initPetLikes();
     initHiddenZone();
     try { Site.visitLog(); } catch (e) {}
-    if (!Site.pet() && /index\.html?$|\/$|^$/.test(location.pathname.split('/').pop() || 'index.html')) {
+    if (!Site.pet() && !localStorage.getItem('aox_pet_later') && /index\.html?$|\/$|^$/.test(location.pathname.split('/').pop() || 'index.html')) {
       setTimeout(function () { Site.petChooseModal(); }, 800);
     }
   }

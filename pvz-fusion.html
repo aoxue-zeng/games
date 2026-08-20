@@ -87,6 +87,8 @@
 <script src="mobile.js"></script>
 <script src="shared.js"></script>
 <script>
+function toast(t){var e=document.getElementById("pvzToast");if(!e){e=document.createElement("div");e.id="pvzToast";e.style.cssText="position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#000c;color:#8bc34a;border:2px solid #8bc34a;padding:6px 16px;border-radius:6px;z-index:99;font-size:14px;display:none";document.body.appendChild(e);}e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(function(){e.style.display="none";},2600);}
+
 (function(){
   var canvas=document.getElementById('gameCanvas');
   var ctx=canvas.getContext('2d');

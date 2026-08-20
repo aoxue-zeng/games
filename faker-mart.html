@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伪人超市 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<style>
+  body { background:#0a0e14; }
+  #gameCanvas { background:#16202e; touch-action:none; border:3px solid #2a4058; box-shadow:0 0 40px #3ddc6a22; border-radius:8px; cursor:crosshair; }
+  .key { display:inline-block; background:#1c2a3c; border:2px solid #000; padding:1px 6px; font-family:monospace; font-size:11px; color:#7fd9ff; margin:0 2px; border-radius:3px; }
+  .panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#0e1622ee; border:3px solid #3ddc6a; box-shadow:0 0 40px #3ddc6a55; padding:20px 26px; border-radius:10px; text-align:center; z-index:10; min-width:330px; max-height:88%; overflow:auto; }
+  .panel h2 { color:#fff; text-shadow:2px 2px 0 #000; margin:0 0 8px; }
+  .panel p { color:#b8c8d8; font-size:13px; margin:6px 0; }
+  .big { font-size:18px; color:#ffd54f; }
+  .abtn { display:inline-block; margin:6px 4px; padding:8px 20px; background:#2f7a3f; color:#fff; border:2px solid #000; font-size:14px; cursor:pointer; border-radius:4px; }
+  .abtn:hover { background:#3ddc6a; color:#041008; }
+  .abtn:disabled { background:#444; cursor:default; }
+  #toast { position:fixed; top:100px; left:50%; transform:translateX(-50%); background:#000c; color:#7fd9ff; border:2px solid #3ddc6a; padding:6px 16px; border-radius:6px; z-index:99; font-size:13px; display:none; }
+  #wrap { position:relative; display:inline-block; }
+  #feed { position:absolute; top:56px; left:10px; text-align:left; z-index:5; pointer-events:none; }
+  #feed div { color:#cfe8ff; text-shadow:1px 1px 0 #000; font-size:12px; margin:2px 0; }
+  .hid { display:none !important; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="faker-mart.html">伪人超市</a>
+    <a href="sniper.html">狙击对决</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🛒 伪人超市</h1>
+  <p class="subtitle">检查顾客揪出伪人！实体围攻·蜘蛛网·精神值·伟人大军·坦克火箭三军对轰·巴士日循环！</p>
+  <div class="hud" style="margin-top:14px;">
+    <div class="hud-item"><span class="label">天数</span><span id="hDay">0</span></div>
+    <div class="hud-item"><span class="label">💰营业额</span><span id="hMoney">¥0</span></div>
+    <div class="hud-item"><span class="label">🍫巧克力</span><span id="hChoco">0</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="hHp">100</span></div>
+    <div class="hud-item"><span class="label">🧠精神</span><span id="hSan">100</span></div>
+    <div class="hud-item"><span class="label">武器</span><span id="hGun">❌未解锁</span></div>
+    <div class="hud-item"><span class="label">队友</span><span id="hMates">5+1</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="hBest">1</span></div>
+  </div>
+  <div id="wrap">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    <div id="feed"></div>
+    <div class="panel" id="menuPanel">
+      <h2>🛒 伪人超市 · 开业！</h2>
+      <p style="text-align:left;font-size:12.5px;line-height:2;color:#b8c8d8;">
+        <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动 · <b>鼠标</b>瞄准 · <span class="key">左键</span> 开枪(警长解锁后)<br>
+        <span class="key">E</span> 检查顾客/补货/救队友/进武器库/上坦克 · <span class="key">Q</span> 换武器 · <span class="key">R</span> 手雷<br>
+        <span class="key">H</span> 吃巧克力(回血回精神) · <span class="key">B</span> 巴士处结束今天 · <span class="key">1</span><span class="key">2</span><span class="key">3</span> 伟人战争中部署三军<br>
+        🕵️顾客里混着<b style="color:#ff8f8f;">伪人</b>(红眼一闪/影子发绿)——检查后按<span class="key">E</span>确认,直接开枪!<br>
+        伪人跑了→<b style="color:#ff8f8f;">实体</b>进店(不攻击但靠近吸精神)→武器库开门,打满<b>耐心值</b>它们就撤<br>
+        🕷️蜘蛛会喷网: 被粘住狂按<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>挣脱! 精神归零会晕倒,等队友来救<br>
+        🐟鳕雨会掉尸体 · 🤴服务好<b>伟人</b>触发大军对决(坦克可骑!) · 📞每晚电话用🍫升级枪<br>
+        局外养成: 每局都赚🍫 → 手枪 → 狙击枪 → 克洛勒7!
+      </p>
+      <button class="abtn" id="startBtn">🚌 第一天，开业！</button>
+    </div>
+    <div class="panel hid" id="phonePanel">
+      <h2>📞 晚间电话 · 局外养成</h2>
+      <p>今日营业额 <span class="big" id="pMoney">¥0</span> · 巧克力 <span class="big" id="pChoco">0</span> 🍫</p>
+      <p>枪械升级(永久): </p>
+      <button class="abtn" id="upSniper">🎯 狙击枪 (15🍫)</button>
+      <button class="abtn" id="upKroller">🔫 克洛勒7 (40🍫)</button>
+      <p id="pGunNow">当前: 普通手枪</p>
+      <button class="abtn" id="nextDayBtn">🚌 第二天，出发！</button>
+      <p style="font-size:11px;color:#7a8ca8;">队友在巴士上过夜 · 死去的队友也会在巴士上重生</p>
+    </div>
+  </div>
+  <p style="color:#7a8ca8;font-size:12px;margin-top:10px;">顶部红条=实体耐心值(打满即撤退) · 货架空了要补货 · 外面还有个队友在加油搜车！</p>
+</div>
+<div id="toast"></div>
+<script>
+(function(){
+'use strict';
+// ===== 伪人超市: 检查顾客/实体围攻/耐心值/蜘蛛网/精神值/伟人三军/巴士日循环 =====
+var cv=document.getElementById('gameCanvas'),ctx=cv.getContext('2d');
+var W=cv.width||960,H=cv.height||540;
+function sfx(n){try{if(window.SFX&&SFX[n])SFX[n]();}catch(e){}}
+var store={
+ get:function(k,d){try{var v=localStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return d;}},
+ set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+};
+
+// ===== 局外 =====
+var GUNS=[
+ {name:'普通手枪',dmg:34,rate:0.4, cost:0},
+ {name:'狙击枪',  dmg:120,rate:1.1,cost:15},
+ {name:'克洛勒7', dmg:200,rate:0.5,cost:40}
+];
+var save={gun:store.get('fmart_gun',0),choco:store.get('fmart_choco',0),best:store.get('fmart_best',1)};
+
+// ===== 场地 =====
+var SHELVES=[{x:250,y:150},{x:420,y:150},{x:590,y:150},{x:250,y:280},{x:420,y:280},{x:590,y:280}];
+var COUNTER={x:120,y:220};       // 柜台
+var ARMORY={x:880,y:120};        // 武器库(右上)
+var DOOR={x:480,y:40};           // 大门(上)
+var BUS={x:80,y:500};            // 巴士(左下)
+var PUMP={x:820,y:470};          // 加油泵(右下)
+var CARS=[{x:600,y:490},{x:700,y:500}];
+
+// ===== 状态 =====
+var P={x:480,y:340,hp:100,san:100,alive:true,faint:false,webbed:0,struggle:0,riding:null,face:0};
+var day=0,money=0,kills=0,chocoRun=0,sheriffDone=false,gunUnlocked=false,armoryOpen=false;
+var state='menu'; // menu|day|siege|war|phone
+var customers=[],fakers=[],entities=[],spiders=[],hunter=null,gnomeRe=0,hunterKills=0;
+var corpses=[],fishes=[],webs=[],bullets=[],grenades=[],booms=[],tanks=[],rockets=[],aiArmy=[],greatArmy=[],boss=null;
+var mates=[],outMate=null,busHere=true;
+var patience=0,patienceMax=100;
+var greatMode=false,greatDone=0;
+var weather='clear',weatherT=0;
+var trapArmed=true,trapCd=0;
+var keys={},mouse={x:480,y:270,down:false};
+var t=0,last=0,paused=false;
+var els={};
+['hDay','hMoney','hChoco','hHp','hSan','hGun','hMates','hBest','menuPanel','phonePanel','pMoney','pChoco','pGunNow','feed','upSniper','upKroller','nextDayBtn','toast'].forEach(function(id){els[id]=document.getElementById(id);});
+var toastT=null;
+function toast(m){var e=els.toast;if(!e)return;e.textContent=m;e.style.display='block';if(toastT)clearTimeout(toastT);toastT=setTimeout(function(){e.style.display='none';},1700);}
+function feed(m){var e=els.feed;if(!e)return;var d=document.createElement('div');d.textContent=m;e.appendChild(d);if(e.children&&e.children.length>5)e.removeChild(e.children[0]);setTimeout(function(){if(d.parentNode&&d.parentNode.removeChild)d.parentNode.removeChild(d);},3000);}
+function gun(){return GUNS[save.gun];}
+function matesAlive(){return mates.filter(function(m){return m.alive;}).length;}
+
+// ===== 队友: 5个店内(检查/补货/医护) + 1个场外(加油搜车) =====
+function mkMate(role,x,y){
+ return {x:x,y:y,role:role,alive:true,reviveT:0,tx:x,ty:y,cd:0,
+  aim:0,target:null,carry:0};
+}
+function startDay(){
+ day++;
+ customers=[];fakers=[];entities=[];spiders=[];hunter=null;corpses=[];fishes=[];webs=[];bullets=[];grenades=[];booms=[];tanks=[];rockets=[];aiArmy=[];greatArmy=[];boss=null;
+ patience=0;greatMode=false;weather='clear';weatherT=0;
+ P.x=480;P.y=340;P.hp=100;P.san=100;P.faint=false;P.webbed=0;P.riding=null;P.alive=true;
+ mates=[
+  mkMate('inspect',300,400),mkMate('inspect',660,400),
+  mkMate('restock',360,240),mkMate('restock',560,240),
+  mkMate('medic',480,430)
+ ];
+ outMate={x:PUMP.x,y:PUMP.y,fuel:0,search:0,cd:6,alive:true};
+ busHere=true;
+ state='day';
+ // 第1天: 警长先来
+ if(day===1){
+  customers.push({x:DOOR.x,y:DOOR.y,tx:COUNTER.x+50,ty:COUNTER.y+40,name:'警长',kind:'sheriff',state:'shop',t:0,tell:false,pay:0});
+  feed('👮 警长来买东西了');
+ }else{
+  feed('🚌 第'+day+'天, 奇形怪状的客人们进来了');
+  for(var i=0;i<3+Math.min(day,4);i++)spawnCustomer();
+ }
+ try{if(window.Site&&Site.gain)Site.gain(1);}catch(e){} // 每局新游戏获得巧克力
+ chocoRun++;
+ updHud();
+}
+var NAMES=['小明','阿姨','大叔','学生','白领','老王','游客','小孩','奶奶','快递员'];
+function spawnCustomer(forceFake,kind){
+ var fake=forceFake!==undefined?forceFake:(Math.random()<0.3);
+ var name=NAMES[Math.floor(Math.random()*NAMES.length)];
+ if(fake)name=name.split('').reverse().join(''); // 伪人: 名字倒序!
+ customers.push({x:DOOR.x,y:DOOR.y,tx:SHELVES[Math.floor(Math.random()*SHELVES.length)].x,ty:220+Math.random()*60,
+  name:name,kind:kind||(fake?'faker':'normal'),fake:fake,state:'shop',t:0,tell:0,pay:0,checked:false,eyeT:1+Math.random()*3});
+ return customers[customers.length-1];
+}
+
+// ===== 检查/击杀 =====
+function nearestCustomer(){
+ var best=null,bd=70;
+ customers.forEach(function(c){
+  var d=Math.hypot(c.x-P.x,c.y-P.y);
+  if(d<bd){bd=d;best=c;}
+ });
+ return best;
+}
+function inspect(){
+ var c=nearestCustomer();
+ if(!c){toast('附近没有顾客');return null;}
+ c.checked=true;
+ if(c.fake){
+  toast('🕵️ '+c.name+' 是伪人! (红眼确认) 开枪!');
+  sfx('error');
+ }else{
+  toast(c.name+' 是正常人');
+ }
+ return c;
+}
+function fireAt(x,y){
+ if(!gunUnlocked){toast('警长还没来解锁枪械!');return;}
+ if(state!=='day'&&state!=='siege'&&state!=='war'){toast('现在不用枪');return;}
+ var cd=0.3+gun().rate;
+ if(t-lastShot<cd)return;
+ lastShot=t;
+ var dx=x-P.x,dy=y-P.y,d=Math.hypot(dx,dy)||1;
+ bullets.push({x:P.x,y:P.y,vx:dx/d*14,vy:dy/d*14,dmg:gun().dmg,mine:1,life:40});
+ sfx('shoot');
+}
+var lastShot=-9;
+function siege(){return state==='siege';}
+
+// ===== 实体围攻 =====
+function triggerSiege(){
+ if(siege()||state==='war')return;
+ state='siege';patience=0;
+ armoryOpen=true;
+ feed('‼ 伪人逃脱, 引来了实体! 武器库已开放(E进入拿装备)');
+ toast('实体进店! 打满耐心值它们就会撤退!');
+ sfx('roar');
+ var n=2+Math.min(day,4),i;
+ for(i=0;i<n;i++)entities.push({x:DOOR.x+(i-1)*40,y:DOOR.y,vx:0,vy:0.6,hp:60,r:16,t:0});
+ for(i=0;i<1+Math.floor(day/2);i++)spiders.push({x:DOOR.x+(i-1)*50,y:DOOR.y,vx:0,vy:0.5,hp:40,r:14,webCd:3,t:0});
+ if(day>=2&&!hunter&&hunterKills<1)hunter={x:DOOR.x-60,y:DOOR.y,hp:120,r:16,t:0,gnome:false};
+ updHud();
+}
+function endSiege(){
+ entities=[];spiders=[];webs=[];hunter=null;
+ state='day';
+ feed('😎 实体失去耐心, 撤退了! (耐心值打满)');
+ toast('实体撤退! 继续营业');
+ sfx('win');
+ save.choco+=2;store.set('fmart_choco',save.choco);
+ try{if(window.Site&&Site.gain)Site.gain(2);}catch(e){}
+ updHud();
+}
+
+// ===== 伟人 =====
+function serveGreat(){
+ greatMode=true;state='war';greatDone=0;
+ feed('🤴 伟人交易达成! 伟人大军 vs 实体大军!');
+ boss={x:480,y:60,hp:500,max:500};
+ tanks=[{x:200,y:430,hp:200,riding:false,cd:0},{x:320,y:450,hp:200,riding:false,cd:0}];
+ rockets=[{x:760,y:440,cd:0},{x:840,y:460,cd:0}];
+ aiArmy=[];greatArmy=[];
+ var i;
+ for(i=0;i<4;i++)aiArmy.push({x:400+i*60,y:470,hp:60,cd:0});
+ for(i=0;i<6;i++)greatArmy.push({x:200+i*100,y:150,hp:80,t:0,vy:0.4});
+ sfx('levelUp');updHud();
+}
+function deployArmy(kind){
+ if(state!=='war'){toast('伟人战争中才能部署');return;}
+ if(kind===1){ // 增援坦克
+  tanks.push({x:480,y:500,hp:200,riding:false,cd:0});toast('🚜 坦克军增援!');}
+ else if(kind===2){rockets.push({x:880,y:500,cd:0});toast('🚀 火箭军增援!');}
+ else {var i;for(i=0;i<3;i++)aiArmy.push({x:420+i*50,y:490,hp:60,cd:0});toast('🧑🤝🧑 AI队友军增援!');}
+ sfx('select');
+}
+
+// ===== 鳕雨 =====
+function codRain(){
+ weather='cod';weatherT=12;
+ feed('🐟 鳕雨来袭! 天上下鳕鱼了!');
+ var i;
+ for(i=0;i<8;i++)fishes.push({x:100+Math.random()*760,y:20+Math.random()*100,vx:(Math.random()-0.5)*2,vy:2+Math.random()*2,t:2+Math.random()*2});
+ for(i=0;i<2+Math.floor(Math.random()*3);i++)corpses.push({x:150+Math.random()*660,y:100+Math.random()*260,t:0});
+ toast('🐟 鳕雨: 没有交易也出现了尸体…');
+ sfx('bubble');
+}
+
+// ===== 玩家倒下/蜘蛛网 =====
+function faintNow(){
+ P.faint=true;P.san=0;
+ feed('😵 精神值归零, 你晕倒了! 等队友来按E救你');
+ toast('你晕倒了! 队友正在赶来');
+ sfx('lose');
+}
+function reviveAt(){
+ if(!P.faint)return;
+ P.faint=false;P.san=50;P.hp=Math.max(P.hp,40);
+ feed('💪 队友把你扶起来了');
+ sfx('select');updHud();
+}
+function eatChoco(){
+ if(!gunUnlocked){toast('警长解锁枪械后才能吃巧克力');return;}
+ if(save.choco<1){toast('没有巧克力(营业/击杀/通关获得)');sfx('error');return;}
+ save.choco--;store.set('fmart_choco',save.choco);
+ P.hp=Math.min(100,P.hp+30);P.san=Math.min(100,P.san+40);
+ toast('🍫 吃掉一块巧克力');
+ sfx('select');updHud();
+}
+
+// ===== 电话(局外升级) =====
+function buyGun(idx){
+ var g=GUNS[idx];
+ if(save.gun>=idx){toast('已有或更高级');return false;}
+ if(idx!==save.gun+1){toast('要先买上一级');return false;}
+ if(save.choco<g.cost){toast('巧克力不够('+g.cost+'🍫)');sfx('error');return false;}
+ save.choco-=g.cost;save.gun=idx;
+ store.set('fmart_gun',idx);store.set('fmart_choco',save.choco);
+ toast('📞 升级成功: '+g.name+'!');
+ feed('🔫 换上了'+g.name);
+ sfx('levelUp');updHud();
+ return true;
+}
+function endDay(){
+ if(state==='siege'||state==='war'){toast('先解决眼前的麻烦!');return;}
+ if(Math.hypot(P.x-BUS.x,P.y-BUS.y)>80){toast('走到左下巴士处才能收工(B)');return;}
+ money+=0;save.choco+=3;chocoRun+=3;
+ if(day>save.best){save.best=day;store.set('fmart_best',day);}
+ store.set('fmart_choco',save.choco);
+ try{if(window.Site&&Site.gain)Site.gain(3);}catch(e){}
+ state='phone';
+ els.pMoney.textContent='¥'+money;
+ els.pChoco.textContent=save.choco;
+ els.pGunNow.textContent='当前: '+gun().name+(save.gun<2?'(可升级)':'(已满级)');
+ els.phonePanel.classList.remove('hid');
+ sfx('clear');updHud();
+}
+
+// ===== 更新 =====
+function upd(dt){
+ t+=dt;
+ if(weatherT>0){weatherT-=dt;if(weatherT<=0)weather='clear';}
+ if(trapCd>0){trapCd-=dt;if(trapCd<=0){trapArmed=true;feed('门口陷阱已重新布防');}}
+ var i,j,c;
+ // 顾客
+ for(i=customers.length-1;i>=0;i--){
+  c=customers[i];
+  c.eyeT-=dt;
+  if(c.eyeT<0){c.tell=0.4;c.eyeT=2+Math.random()*3;}
+  if(c.tell>0)c.tell-=dt;
+  if(c.state==='shop'){
+   var dx=c.tx-c.x,dy=c.ty-c.y,d=Math.hypot(dx,dy);
+   if(d>6){c.x+=dx/d*1.2;c.y+=dy/d*1.2;}
+   else{c.state='queue';c.t=1+Math.random()*2;}
+  }else if(c.state==='queue'){
+   c.t-=dt;
+   if(c.t<=0){
+    if(c.kind==='sheriff'){
+     c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
+     sheriffDone=true;gunUnlocked=true;
+     feed('👮 警长: "这把枪寄放在你柜台下, 有伪人就干掉它"');
+     toast('🔫 枪械已解锁! 还可以吃巧克力了(H)');
+     sfx('gem');
+    }else if(c.kind==='great'){
+     c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
+     serveGreat();
+    }else{
+     c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
+     money+=20+Math.floor(Math.random()*30);
+     // 货架消耗
+     if(Math.random()<0.4)shelfUse();
+    }
+   }
+  }else if(c.state==='leave'){
+   var dx2=c.tx-c.x,dy2=c.ty-c.y,d2=Math.hypot(dx2,dy2);
+   if(d2>6){c.x+=dx2/d2*1.4;c.y+=dy2/d2*1.4;}
+   else{
+    if(c.fake&&(state==='day')){ // 伪人跑到门口!
+     customers.splice(i,1);
+     if(trapArmed){
+      trapArmed=false;trapCd=15;
+      kills++;save.choco++;store.set('fmart_choco',save.choco);
+      feed('🪤 门口陷阱抓住了伪人! +1🍫 (15秒后重新布防)');
+      booms.push({x:DOOR.x,y:DOOR.y,r:6,t:0.3,c:'#ffd54f'});
+      sfx('gem');
+     }else{
+      feed('🏃 陷阱未布防, 伪人跑了! 它去通知实体了…');
+      triggerSiege();
+     }
+     continue;
+    }
+    customers.splice(i,1);
+   }
+  }
+ }
+ // 实体
+ for(i=entities.length-1;i>=0;i--){
+  var e=entities[i];
+  e.t+=dt;
+  // 缓慢漂向玩家(不攻击, 靠近吸精神)
+  var ddx=P.x-e.x,ddy=P.y-e.y,dd=Math.hypot(ddx,ddy)||1;
+  e.x+=ddx/dd*0.45;e.y+=ddy/dd*0.45;
+  if(dd<70&&!P.faint){P.san-=dt*9;if(P.san<=0){P.san=0;faintNow();}}
+ }
+ // 蜘蛛
+ for(i=spiders.length-1;i>=0;i--){
+  var s=spiders[i];
+  s.t+=dt;s.webCd-=dt;
+  var sx=P.x-s.x,sy=P.y-s.y,sd=Math.hypot(sx,sy)||1;
+  if(P.webbed>0){s.x+=sx/sd*0.9;s.y+=sy/sd*0.9;}
+  else{s.x+=sx/sd*0.55;s.y+=sy/sd*0.55;}
+  if(s.webCd<=0&&sd<260){
+   s.webCd=3.5;
+   webs.push({x:s.x,y:s.y,vx:sx/sd*5,vy:sy/sd*5,life:60});
+   sfx('slide');
+  }
+  if(sd<26&&!P.faint){P.hp-=dt*22;if(P.hp<=0){P.hp=0;playerDown();}}
+ }
+ // 蜘蛛网飞行/命中
+ for(i=webs.length-1;i>=0;i--){
+  var w2=webs[i];
+  w2.x+=w2.vx;w2.y+=w2.vy;w2.life--;
+  if(w2.life<=0){webs.splice(i,1);continue;}
+  if(Math.hypot(w2.x-P.x,w2.y-P.y)<24&&P.webbed<=0){
+   P.webbed=4;P.struggle=0;
+   toast('🕸 被蜘蛛网粘住了! 狂按WASD挣脱!');
+   webs.splice(i,1);
+  }
+ }
+ if(P.webbed>0){
+  P.webbed-=dt*0.15; // 自然缓慢衰减, 挣扎加速
+  if(P.webbed<=0)feed('💪 挣脱了蜘蛛网!');
+ }
+ // 猎人/地精
+ if(hunter){
+  var hx=P.x-hunter.x,hy=P.y-hunter.y,hd=Math.hypot(hx,hy)||1;
+  hunter.x+=hx/hd*(hunter.gnome?0.8:0.6);hunter.y+=hy/hd*(hunter.gnome?0.8:0.6);
+ }
+ // 玩家移动
+ if(!P.faint&&P.webbed<=0&&!P.riding){
+  var sp=3.2*dt*60/60;
+  var mvx=0,mvy=0;
+  if(keys['w'])mvy-=1;if(keys['s'])mvy+=1;if(keys['a'])mvx-=1;if(keys['d'])mvx+=1;
+  if(mvx||mvy){var ml=Math.hypot(mvx,mvy);P.x+=mvx/ml*3.4;P.y+=mvy/ml*3.4;}
+  if(mvx||mvy){P.struggle+=0;P.face=Math.atan2(mvy,mvx);}
+  // 挣扎: 按方向键时网更快消
+ }else if(P.webbed>0){
+  var anyKey=keys['w']||keys['a']||keys['s']||keys['d'];
+  if(anyKey){P.struggle+=dt;P.webbed-=dt*0.55;}
+ }
+ P.x=Math.max(30,Math.min(W-30,P.x));P.y=Math.max(30,Math.min(H-30,P.y));
+ // 鳕雨落鱼
+ for(i=fishes.length-1;i>=0;i--){
+  var f=fishes[i];
+  f.x+=f.vx;f.y+=f.vy;f.t-=dt;
+  if(f.t<=0||f.y>H-40){corpses.push({x:f.x,y:Math.min(H-50,f.y),t:0});fishes.splice(i,1);}
+ }
+ // 尸体(会被实体吸引)
+ for(i=corpses.length-1;i>=0;i--){corpses[i].t+=dt;if(corpses[i].t>25)corpses.splice(i,1);}
+ // 子弹
+ for(i=bullets.length-1;i>=0;i--){
+  var b=bullets[i];
+  b.x+=b.vx;b.y+=b.vy;b.life--;
+  var hit=false;
+  // 打顾客中的伪人
+  for(j=customers.length-1;j>=0;j--){
+   c=customers[j];
+   if(Math.hypot(c.x-b.x,c.y-b.y)<18){
+    if(c.fake){
+     customers.splice(j,1);kills++;
+     booms.push({x:c.x,y:c.y,r:6,t:0.3,c:'#ff5b5b'});
+     feed('🎯 干掉伪人'+(c.name?'('+c.name+')':'')+'!');
+     sfx('explode');
+     save.choco++;store.set('fmart_choco',save.choco);
+    }else{
+     feed('😱 打到了正常人! 营业额-¥50');
+     money-=50;
+     customers.splice(j,1);
+     sfx('error');
+    }
+    hit=true;break;
+   }
+  }
+  if(!hit)for(j=entities.length-1;j>=0;j--){
+   if(Math.hypot(entities[j].x-b.x,entities[j].y-b.y)<20){
+    entities[j].hp-=b.dmg;hit=true;
+    if(patience<patienceMax){patience=Math.min(patienceMax,patience+7);}
+    if(entities[j].hp<=0){entities.splice(j,1);kills++;booms.push({x:b.x,y:b.y,r:8,t:0.3,c:'#9cd9a6'});}
+    break;
+   }
+  }
+  if(!hit)for(j=spiders.length-1;j>=0;j--){
+   if(Math.hypot(spiders[j].x-b.x,spiders[j].y-b.y)<18){
+    spiders[j].hp-=b.dmg;hit=true;
+    if(patience<patienceMax){patience=Math.min(patienceMax,patience+9);}
+    if(spiders[j].hp<=0){spiders.splice(j,1);kills++;save.choco+=2;store.set('fmart_choco',save.choco);}
+    break;
+   }
+  }
+  if(!hit&&hunter&&Math.hypot(hunter.x-b.x,hunter.y-b.y)<20){
+   hunter.hp-=b.dmg;hit=true;
+   if(patience<patienceMax)patience=Math.min(patienceMax,patience+10);
+   if(hunter.hp<=0){
+    kills++;hunterKills++;
+    booms.push({x:hunter.x,y:hunter.y,r:12,t:0.4,c:'#ffd54f'});
+    if(!hunter.gnome&&gnomeRe<3){
+     hunter={x:DOOR.x,y:DOOR.y,hp:150,r:14,t:0,gnome:true};
+     gnomeRe++;
+     feed('🗡 猎人死了…但地精猎人出现了! (还能重生'+(3-gnomeRe+1)+'次)');
+    }else if(hunter.gnome&&gnomeRe<3){
+     gnomeRe++;
+     hunter={x:DOOR.x,y:DOOR.y,hp:150+gnomeRe*50,r:14,t:0,gnome:true};
+     feed('🗡 地精猎人又重生了! (还剩'+(3-gnomeRe)+'次)');
+    }else{
+     hunter=null;
+     feed('🗡 地精猎人彻底倒下了!');
+    }
+   }
+  }
+  if(!hit&&boss&&Math.hypot(boss.x-b.x,boss.y-b.y)<30){
+   boss.hp-=b.dmg;hit=true;greatDone+=b.dmg;
+  }
+  if(!hit)for(j=greatArmy.length-1;j>=0;j--){
+   if(Math.hypot(greatArmy[j].x-b.x,greatArmy[j].y-b.y)<18){greatArmy.splice(j,1);hit=true;break;}
+  }
+  if(hit||b.life<=0||b.x<0||b.x>W||b.y<0||b.y>H)bullets.splice(i,1);
+ }
+ // 手雷
+ for(i=grenades.length-1;i>=0;i--){
+  var g2=grenades[i];
+  g2.x+=g2.vx;g2.y+=g2.vy;g2.vx*=0.96;g2.vy*=0.96;g2.t-=dt;
+  if(g2.t<=0){
+   booms.push({x:g2.x,y:g2.y,r:8,t:0.4,c:'#ff8f2b'});
+   entities=entities.filter(function(e){return Math.hypot(e.x-g2.x,e.y-g2.y)>90||((e.hp-=120)<=0);});
+   spiders=spiders.filter(function(s2){return Math.hypot(s2.x-g2.x,s2.y-g2.y)>90||((s2.hp-=120)<=0);});
+   patience=Math.min(patienceMax,patience+18);
+   grenades.splice(i,1);
+   sfx('boom');
+  }
+ }
+ // 爆炸动画
+ for(i=booms.length-1;i>=0;i--){booms[i].t-=dt;booms[i].r+=200*dt;if(booms[i].t<=0)booms.splice(i,1);}
+ // 队友AI
+ mates.forEach(function(m){
+  if(!m.alive){
+   m.reviveT-=dt;
+   if(m.reviveT<=0&&busHere){ // 巴士上重生
+    m.alive=true;m.x=BUS.x+20;m.y=BUS.y-10;m.hp=60;
+    feed('🚌 队友('+m.role+')在巴士上归队了');
+   }
+   return;
+  }
+  m.cd-=dt;
+  if(m.role==='inspect'){
+   // 跟随最近的未检查顾客
+   var tc=null,td=1e9;
+   customers.forEach(function(c){if(!c.checked){var d2=Math.hypot(c.x-m.x,c.y-m.y);if(d2<td){td=d2;tc=c;}}});
+   if(tc){
+    var mdx=tc.x-m.x,mdy=tc.y-m.y,md=Math.hypot(mdx,mdy)||1;
+    m.x+=mdx/md*1.6;m.y+=mdy/md*1.6;
+    if(md<30&&m.cd<=0){m.cd=2;tc.checked=true;if(tc.fake&&Math.random()<0.5){tc.tell=2;feed('🕵️ 队友觉得'+tc.name+'不对劲…');}}
+   }
+  }else if(m.role==='restock'){
+   var empty=null;
+   SHELVES.forEach(function(s2){if(s2.stock<40&&!empty)empty=s2;});
+   if(empty){
+    var rdx=empty.x-m.x,rdy=empty.y-m.y,rd=Math.hypot(rdx,rdy)||1;
+    m.x+=rdx/rd*1.5;m.y+=rdy/rd*1.5;
+    if(rd<26&&m.cd<=0){m.cd=1.5;empty.stock=Math.min(100,empty.stock+25);if(empty.stock>=100)feed('📦 队友补满了一排货架');}
+   }
+  }else if(m.role==='medic'){
+   if(P.faint){
+    var pdx=P.x-m.x,pdy=P.y-m.y,pd=Math.hypot(pdx,pdy)||1;
+    m.x+=pdx/pd*2.2;m.y+=pdy/pd*2.2;
+    if(pd<26){reviveAt();} // 队友按E救你
+   }else if(P.hp<50){
+    var hdx=P.x-m.x,hdy=P.y-m.y,hdl=Math.hypot(hdx,hdy)||1;
+    m.x+=hdx/hdl*1.8;m.y+=hdy/hdl*1.8;
+    if(hdl<26&&m.cd<=0){m.cd=4;P.hp=Math.min(100,P.hp+15);feed('💉 队友给你包扎+15HP');}
+   }
+  }
+  // 围攻时也打
+  if((siege()||state==='war')&&m.cd<=0){
+   m.cd=0.8;
+   var tgt=entities[0]||spiders[0]||greatArmy[0]||null;
+   if(tgt){
+    bullets.push({x:m.x,y:m.y,vx:(tgt.x-m.x)/20,vy:(tgt.y-m.y)/20,dmg:20,mine:0,life:50});
+    if(patience<patienceMax)patience=Math.min(patienceMax,patience+1.5); // AI参战让耐心打更久
+   }
+   if(Math.random()<0.002){m.alive=false;m.reviveT=6;feed('💔 队友倒下了…将回巴士重生');}
+  }
+ });
+ // 场外队友: 加油/搜车/物资
+ if(outMate&&outMate.alive){
+  outMate.cd-=dt;
+  var phas=Math.floor(t/6)%3;
+  if(phas===0){outMate.x+=(PUMP.x-outMate.x)*0.02;outMate.y+=(PUMP.y-outMate.y)*0.02;outMate.fuel=Math.min(100,outMate.fuel+dt*8);}
+  else if(phas===1){outMate.x+=(CARS[0].x-outMate.x)*0.02;outMate.y+=(CARS[0].y-outMate.y)*0.02;}
+  else{outMate.x+=(DOOR.x+60-outMate.x)*0.02;outMate.y+=(DOOR.y+80-outMate.y)*0.02;}
+  if(outMate.cd<=0){
+   outMate.cd=6;
+   if(phas===2){save.choco++;store.set('fmart_choco',save.choco);feed('📦 场外队友送来补给+1🍫');}
+  }
+ }
+ // 伟人战争
+ if(state==='war'){
+  tanks.forEach(function(tk){
+   tk.cd-=dt;
+   if(tk.cd<=0&&boss){
+    tk.cd=2.2;
+    bullets.push({x:tk.x,y:tk.y,vx:(boss.x-tk.x)/30,vy:(boss.y-tk.y)/30,dmg:60,mine:0,life:60});
+    sfx('shoot');
+   }
+  });
+  rockets.forEach(function(rk){
+   rk.cd-=dt;
+   if(rk.cd<=0){
+    rk.cd=3;
+    var tgt=greatArmy[0]||boss;
+    if(tgt){
+     booms.push({x:tgt.x,y:tgt.y,r:6,t:0.3,c:'#ff8f2b'});
+     if(tgt===boss)boss.hp-=45;else greatArmy.shift();
+    }
+   }
+  });
+  aiArmy.forEach(function(a2){
+   a2.cd-=dt;
+   if(a2.cd<=0){
+    a2.cd=1.4;
+    var tg2=greatArmy[0]||null;
+    if(tg2)bullets.push({x:a2.x,y:a2.y,vx:(tg2.x-a2.x)/20,vy:(tg2.y-a2.y)/20,dmg:25,mine:0,life:50});
+   }
+  });
+  for(i=greatArmy.length-1;i>=0;i--){
+   var ga=greatArmy[i];
+   ga.y+=ga.vy;
+   if(ga.y>380)ga.vy=-0.4;
+   if(ga.y<120)ga.vy=0.4;
+   if(aiArmy.length&&Math.random()<dt*0.4){aiArmy[0].hp-=20;if(aiArmy[0].hp<=0)aiArmy.shift();}
+  }
+  if(boss&&boss.hp<=0){
+   boss=null;state='day';greatMode=false;
+   save.choco+=10;store.set('fmart_choco',save.choco);
+   try{if(window.Site&&Site.gain)Site.gain(10);}catch(e){}
+   feed('🏆 伟人被击败! 奖励10🍫');
+   toast('伟人战争胜利! +10🍫');
+   sfx('win');
+  }
+ }
+ // 耐心满撤退
+ if(siege()&&patience>=patienceMax)endSiege();
+ // 日常随机: 鳕雨/伟人
+ if(state==='day'){
+   if(weather==='clear'&&Math.random()<dt*0.012)codRain();
+   if(Math.random()<dt*0.008&&day>=1&&!customers.some(function(c){return c.kind==='great';})){
+     var gc=spawnCustomer(false,'great');
+     gc.name='伟人';
+     feed('🤴 伟人驾到! 好好服务触发大军交易');
+   }
+   if(customers.length<2+Math.min(day,4)&&Math.random()<dt*0.5)spawnCustomer();
+ }
+ updHud();
+}
+function playerDown(){
+ P.hp=0;
+ feed('☠ 你倒下了…被队友抬回巴士');
+ P.x=BUS.x+30;P.y=BUS.y;P.hp=40;P.san=40;
+ toast('队友把你抬回巴士, 缓过来了');
+ sfx('lose');
+}
+function shelfUse(){
+ var s=SHELVES[Math.floor(Math.random()*SHELVES.length)];
+ s.stock=Math.max(0,(s.stock||100)-30);
+ if(s.stock===0)feed('📦 有货架空了! 队友会去补货');
+}
+SHELVES.forEach(function(s){s.stock=100;});
+
+// ===== 交互 =====
+function interact(){
+ if(state==='menu'||state==='phone')return;
+ if(P.faint){toast('你晕倒了, 等队友来救');return;}
+ var c=nearestCustomer();
+ if(c&&Math.hypot(c.x-P.x,c.y-P.y)<70){inspect();return;}
+ if(Math.hypot(ARMORY.x-P.x,ARMORY.y-P.y)<70){
+  if(armoryOpen){save.choco+=0;toast('🏭 武器库: 已装备'+gun().name+' · 按R扔手雷');grenades_n=3;sfx('gem');}
+  else toast('武器库只有实体来袭才开放');
+  return;
+ }
+ var tk=null;
+ tanks.forEach(function(x){if(Math.hypot(x.x-P.x,x.y-P.y)<50)tk=x;});
+ if(tk&&state==='war'){
+  if(P.riding){P.riding=null;toast('下了坦克');}
+  else{P.riding=tk;toast('🚜 骑上坦克! 左键发射炮弹');}
+  return;
+ }
+ if(Math.hypot(BUS.x-P.x,BUS.y-P.y)<80){endDay();return;}
+ var sh=null;
+ SHELVES.forEach(function(s){if(Math.hypot(s.x-P.x,s.y-P.y)<50)sh=s;});
+ if(sh&&sh.stock<100){sh.stock=100;feed('📦 你补满了一排货架');sfx('dig');return;}
+ toast('没什么可互动的(E对着顾客/武器库/货架/巴士)');
+}
+var grenades_n=0;
+
+// ===== 渲染 =====
+function draw(){
+ // 店外
+ ctx.fillStyle='#20262e';ctx.fillRect(0,0,W,H);
+ // 店内地板
+ ctx.fillStyle='#2a3648';ctx.fillRect(40,60,880,380);
+ ctx.strokeStyle='#1c2734';ctx.lineWidth=2;
+ for(var gx=40;gx<920;gx+=44){ctx.beginPath();ctx.moveTo(gx,60);ctx.lineTo(gx,440);ctx.stroke();}
+ // 墙与门
+ ctx.fillStyle='#3a4a62';ctx.fillRect(40,40,880,24);
+ ctx.fillStyle='#0e1622';ctx.fillRect(DOOR.x-40,40,80,26);
+ ctx.fillStyle='#7fd9ff';ctx.font='12px monospace';ctx.textAlign='center';
+ ctx.fillText('大门',DOOR.x,56);
+ // 货架
+ SHELVES.forEach(function(s){
+  ctx.fillStyle='#4a5a72';ctx.fillRect(s.x-52,s.y-18,104,36);
+  ctx.fillStyle=s.stock>60?'#3ddc6a':(s.stock>0?'#ffd54f':'#ff5b5b');
+  ctx.fillRect(s.x-48,s.y-14,96*Math.max(0,s.stock)/100,7);
+  ctx.fillStyle='#9ab';ctx.font='9px monospace';
+  ctx.fillText(Math.round(s.stock)+'%',s.x,s.y+14);
+ });
+ // 柜台
+ ctx.fillStyle='#5a4a2a';ctx.fillRect(COUNTER.x-50,COUNTER.y-70,90,110);
+ ctx.fillStyle='#ffd54f';ctx.font='11px monospace';
+ ctx.fillText('柜台',COUNTER.x-5,COUNTER.y-40);
+ if(!gunUnlocked){ctx.fillText('🔫🔒',COUNTER.x-5,COUNTER.y-10);}
+ // 武器库
+ ctx.fillStyle=armoryOpen?'#7a3a2a':'#3a3a3a';
+ ctx.fillRect(ARMORY.x-50,ARMORY.y-40,80,90);
+ ctx.fillStyle='#fff';ctx.font='11px monospace';
+ ctx.fillText(armoryOpen?'武器库🏭':'🔒武器库',ARMORY.x-10,ARMORY.y+20);
+ // 巴士
+ ctx.fillStyle='#c9a13a';ctx.fillRect(BUS.x-56,BUS.y-30,110,58);
+ ctx.fillStyle='#041008';ctx.fillRect(BUS.x-44,BUS.y-18,86,20);
+ ctx.fillStyle='#fff';ctx.font='11px monospace';ctx.fillText('🚌巴士(B收工)',BUS.x,BUS.y+44);
+ // 加油泵/车
+ ctx.fillStyle='#c93a3a';ctx.fillRect(PUMP.x-12,PUMP.y-26,24,44);
+ ctx.fillStyle='#8fa';ctx.font='10px monospace';ctx.fillText('⛽',PUMP.x,PUMP.y+40);
+ CARS.forEach(function(c){ctx.fillStyle='#4a6a8a';ctx.fillRect(c.x-30,c.y-14,60,28);});
+ // 尸体
+ corpses.forEach(function(c){
+  ctx.fillStyle='#7a8a9a';ctx.beginPath();ctx.arc(c.x,c.y,9,0,7);ctx.fill();
+  ctx.fillStyle='#456';ctx.beginPath();ctx.arc(c.x,c.y-8,5,0,7);ctx.fill();
+  ctx.fillStyle='#9ab';ctx.font='9px monospace';ctx.fillText('💀',c.x,c.y+16);
+ });
+ // 落鱼
+ fishes.forEach(function(f){ctx.fillStyle='#9ab8d9';ctx.fillRect(f.x-6,f.y-3,12,6);});
+ // 蜘蛛网弹
+ webs.forEach(function(w2){ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.arc(w2.x,w2.y,7,0,7);ctx.stroke();});
+ // 实体
+ entities.forEach(function(e){
+  ctx.fillStyle='#5a2a7a';
+  ctx.beginPath();ctx.arc(e.x,e.y,16,0,7);ctx.fill();
+  ctx.fillStyle='#c98aff';
+  ctx.beginPath();ctx.arc(e.x-5,e.y-4,3,0,7);ctx.arc(e.x+5,e.y-4,3,0,7);ctx.fill();
+ });
+ // 蜘蛛
+ spiders.forEach(function(s){
+  ctx.fillStyle='#1a1a2a';
+  ctx.beginPath();ctx.arc(s.x,s.y,12,0,7);ctx.fill();
+  ctx.strokeStyle='#3a3a5a';ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(s.x-12,s.y);ctx.lineTo(s.x-20,s.y-8);
+  ctx.moveTo(s.x+12,s.y);ctx.lineTo(s.x+20,s.y-8);
+  ctx.moveTo(s.x-10,s.y+8);ctx.lineTo(s.x-18,s.y+14);
+  ctx.moveTo(s.x+10,s.y+8);ctx.lineTo(s.x+18,s.y+14);
+  ctx.stroke();
+  ctx.fillStyle='#ff5b5b';
+  ctx.beginPath();ctx.arc(s.x-4,s.y-3,2,0,7);ctx.arc(s.x+4,s.y-3,2,0,7);ctx.fill();
+ });
+ // 猎人/地精
+ if(hunter){
+  ctx.fillStyle=hunter.gnome?'#7ac96a':'#c98a3a';
+  ctx.fillRect(hunter.x-9,hunter.y-14,18,26);
+  ctx.fillStyle='#000';ctx.fillRect(hunter.x-5,hunter.y-8,3,3);ctx.fillRect(hunter.x+2,hunter.y-8,3,3);
+  ctx.fillStyle='#fff';ctx.font='9px monospace';
+  ctx.fillText(hunter.gnome?'地精猎人🗡'+(3-gnomeRe):'猎人🗡',hunter.x,hunter.y-18);
+ }
+ // 战争单位
+ if(state==='war'){
+  tanks.forEach(function(tk){
+   ctx.fillStyle='#5a6a4a';ctx.fillRect(tk.x-26,tk.y-16,52,32);
+   ctx.fillStyle='#3a4a2a';ctx.fillRect(tk.x-8,tk.y-30,16,18);
+   if(P.riding===tk){ctx.fillStyle='#ffd54f';ctx.font='10px monospace';ctx.fillText('👨‍✈️你',tk.x,tk.y-34);}
+  });
+  rockets.forEach(function(rk){
+   ctx.fillStyle='#8a4a5a';ctx.fillRect(rk.x-14,rk.y-22,28,44);
+   ctx.fillStyle='#ffd54f';ctx.font='9px monospace';ctx.fillText('🚀',rk.x,rk.y+4);
+  });
+  aiArmy.forEach(function(a2){
+   ctx.fillStyle='#3d6adc';ctx.beginPath();ctx.arc(a2.x,a2.y,9,0,7);ctx.fill();
+  });
+  greatArmy.forEach(function(g2){
+   ctx.fillStyle='#d9c04f';ctx.beginPath();ctx.arc(g2.x,g2.y,9,0,7);ctx.fill();
+  });
+  if(boss){
+   ctx.fillStyle='#ffd54f';
+   ctx.beginPath();ctx.arc(boss.x,boss.y,26,0,7);ctx.fill();
+   ctx.fillStyle='#000';ctx.font='bold 11px monospace';
+   ctx.fillText('伟人',boss.x,boss.y+4);
+   ctx.fillStyle='#000a';ctx.fillRect(boss.x-60,boss.y-44,120,8);
+   ctx.fillStyle='#ff5b5b';ctx.fillRect(boss.x-58,boss.y-42,116*Math.max(0,boss.hp)/boss.max,4);
+  }
+ }
+ // 队友
+ mates.forEach(function(m){
+  if(!m.alive){ctx.fillStyle='#556';ctx.font='10px monospace';ctx.fillText('💀('+m.role+'回巴士)',m.x,m.y);return;}
+  ctx.fillStyle=m.role==='medic'?'#7fd9ff':(m.role==='inspect'?'#9cd9a6':'#d9c07e');
+  ctx.beginPath();ctx.arc(m.x,m.y,10,0,7);ctx.fill();
+  ctx.fillStyle='#041008';ctx.font='9px monospace';
+  ctx.fillText(m.role==='inspect'?'🕵':(m.role==='restock'?'📦':'💉'),m.x,m.y+3);
+ });
+ if(outMate){
+  ctx.fillStyle='#c98aff';
+  ctx.beginPath();ctx.arc(outMate.x,outMate.y,10,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='9px monospace';
+  ctx.fillText('⛽外勤',outMate.x,outMate.y+3);
+ }
+ // 顾客
+ customers.forEach(function(c){
+  ctx.fillStyle='#dce6f0';
+  ctx.beginPath();ctx.arc(c.x,c.y,11,0,7);ctx.fill();
+  // 影子
+  ctx.fillStyle=c.fake?'#3ddc6a33':'#00000033';
+  ctx.beginPath();ctx.ellipse(c.x,c.y+16,12,5,0,0,7);ctx.fill();
+  ctx.fillStyle='#222';ctx.font='10px monospace';
+  ctx.fillText((c.checked?(c.fake?'❗':'✔'):'')+c.name,c.x,c.y-16);
+  if(c.tell>0){ // 伪人破绽: 红眼
+   ctx.fillStyle='#ff2b2b';
+   ctx.beginPath();ctx.arc(c.x-4,c.y-2,2.5,0,7);ctx.arc(c.x+4,c.y-2,2.5,0,7);ctx.fill();
+  }
+  if(c.kind==='sheriff'){ctx.fillStyle='#ffd54f';ctx.font='12px monospace';ctx.fillText('👮警长',c.x,c.y-28);}
+  if(c.kind==='great'){ctx.fillStyle='#ffd54f';ctx.font='12px monospace';ctx.fillText('🤴伟人',c.x,c.y-28);}
+ });
+ // 手雷/子弹/爆炸
+ grenades.forEach(function(g2){
+  ctx.fillStyle='#4a5a3a';ctx.beginPath();ctx.arc(g2.x,g2.y,5,0,7);ctx.fill();
+ });
+ bullets.forEach(function(b){
+  ctx.fillStyle=b.mine?'#ffd54f':'#9fd0ff';
+  ctx.fillRect(b.x-2,b.y-2,4,4);
+ });
+ booms.forEach(function(b){
+  ctx.strokeStyle=b.c;ctx.globalAlpha=Math.max(0,b.t*2.5);ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.stroke();
+  ctx.globalAlpha=1;
+ });
+ // 玩家
+ if(P.faint){
+  ctx.fillStyle='#8fa';ctx.beginPath();ctx.arc(P.x,P.y,11,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.fillText('😵晕倒…',P.x,P.y-18);
+ }else{
+  ctx.fillStyle='#fff';
+  if(P.webbed>0){
+   ctx.strokeStyle='#fff';ctx.lineWidth=2;
+   for(var k=0;k<6;k++){ctx.beginPath();ctx.moveTo(P.x,P.y);ctx.lineTo(P.x+Math.cos(k)*22,P.y+Math.sin(k)*22);ctx.stroke();}
+   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(P.x,P.y,11,0,7);ctx.fill();
+   ctx.fillStyle='#f55';ctx.font='10px monospace';ctx.fillText('🕸挣扎!',P.x,P.y-20);
+  }else{
+   ctx.beginPath();ctx.arc(P.x,P.y,11,0,7);ctx.fill();
+  }
+  ctx.strokeStyle='#ffd54f';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(P.x,P.y);
+  ctx.lineTo(P.x+Math.cos(P.face)*16,P.y+Math.sin(P.face)*16);ctx.stroke();
+ }
+ // 准星
+ ctx.strokeStyle=gunUnlocked?'#ff8f8f':'#556';ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.arc(mouse.x,mouse.y,8,0,7);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(mouse.x-12,mouse.y);ctx.lineTo(mouse.x-4,mouse.y);
+ ctx.moveTo(mouse.x+4,mouse.y);ctx.lineTo(mouse.x+12,mouse.y);ctx.stroke();
+ // 顶部耐心条
+ if(siege()||state==='war'){
+  ctx.fillStyle='#000a';ctx.fillRect(W/2-220,64,440,16);
+  ctx.fillStyle='#ff5b5b';ctx.fillRect(W/2-218,66,436*Math.min(1,patience/patienceMax),12);
+  ctx.fillStyle='#fff';ctx.font='11px monospace';
+  ctx.fillText('实体耐心值 '+(patience/patienceMax*100).toFixed(0)+'% (打满→撤退)',W/2,76);
+ }
+ // 天气提示
+ if(weather==='cod'){
+  ctx.fillStyle='#9ab8d9';ctx.font='12px monospace';
+  ctx.fillText('🐟 鳕雨 '+weatherT.toFixed(0)+'s',W-90,80);
+ }
+ ctx.fillStyle='#fff';ctx.font='11px monospace';ctx.textAlign='left';
+ ctx.fillText('手雷:'+grenades_n+'  '+gun().name,12,H-12);
+ ctx.textAlign='center';
+}
+
+// ===== HUD =====
+function updHud(){
+ if(!els.hDay)return;
+ els.hDay.textContent=day;
+ els.hMoney.textContent='¥'+money;
+ els.hChoco.textContent=save.choco;
+ els.hHp.textContent=Math.ceil(P.hp);
+ els.hSan.textContent=Math.ceil(P.san);
+ els.hGun.textContent=gunUnlocked?gun().name+'(Q换/R雷)':'❌未解锁';
+ els.hMates.textContent=matesAlive()+'+1';
+ els.hBest.textContent=save.best;
+}
+
+// ===== 主循环 =====
+function loop(ts){
+ requestAnimationFrame(loop);
+ var dt=Math.min(0.05,(ts-last)/1000||0.016);last=ts;
+ if(paused)return;
+ if(state==='day'||state==='siege'||state==='war')upd(dt);
+ draw();
+}
+requestAnimationFrame(loop);
+
+// ===== 输入 =====
+if(document.addEventListener){
+ document.addEventListener('keydown',function(ev){
+  var k=(ev.key||'').toLowerCase();
+  keys[k]=true;
+  if(k==='escape'){paused=!paused;toast(paused?'⏸已暂停':'▶继续');return;}
+  if(state==='menu'&&(k===' '||k==='enter')){startDay();return;}
+  if(state==='phone'&&k==='enter'){nextDay();return;}
+  if(state==='war'&&(k==='1'||k==='2'||k==='3')){deployArmy(+k);return;}
+  if(k==='e')interact();
+  else if(k==='h')eatChoco();
+  else if(k==='b')endDay();
+  else if(k==='q'&&gunUnlocked){toast('当前: '+gun().name);}
+  else if(k==='r'&&grenades_n>0&&gunUnlocked){
+   grenades_n--;
+   var dx=mouse.x-P.x,dy=mouse.y-P.y,d=Math.hypot(dx,dy)||1;
+   grenades.push({x:P.x,y:P.y,vx:dx/d*7,vy:dy/d*7,t:0.8});
+   sfx('rotate');
+  }
+ });
+ document.addEventListener('keyup',function(ev){keys[(ev.key||'').toLowerCase()]=false;});
+ document.addEventListener('mousemove',function(ev){
+  if(cv.getBoundingClientRect){
+   var r=cv.getBoundingClientRect();
+   mouse.x=(ev.clientX-r.left)*(W/(r.width||W));
+   mouse.y=(ev.clientY-r.top)*(H/(r.height||H));
+  }
+ });
+ document.addEventListener('mousedown',function(ev){
+  if(ev.button!==0)return;
+  if(state==='menu'||state==='phone')return;
+  if(P.faint||P.webbed>0)return;
+  if(P.riding&&boss){
+   // 坦克炮
+   var dx=mouse.x-P.riding.x,dy=mouse.y-P.riding.y,d=Math.hypot(dx,dy)||1;
+   bullets.push({x:P.riding.x,y:P.riding.y-20,vx:dx/d*11,vy:dy/d*11,dmg:90,mine:1,life:50});
+   sfx('boom');return;
+  }
+  fireAt(mouse.x,mouse.y);
+ });
+}
+function nextDay(){
+ els.phonePanel.classList.add('hid');
+ startDay();
+}
+var sb=document.getElementById('startBtn');if(sb)sb.onclick=startDay;
+var nd=els.nextDayBtn;if(nd)nd.onclick=nextDay;
+var us=els.upSniper;if(us)us.onclick=function(){buyGun(1);};
+var uk=els.upKroller;if(uk)uk.onclick=function(){buyGun(2);};
+updHud();
+})();
+</script>
+</body>
+</html>

@@ -25,15 +25,15 @@ var c=document.getElementById('gameCanvas'),x=c.getContext('2d'),W=c.width,H=c.h
 var COLS=8,CELL=W/COLS,ROWS=60,VIEW=Math.floor(H/CELL);
 var T={AIR:0,DIRT:1,COIN:2,ROCK:3};
 var s,grid,p,enemies,keys,camY,tick,pts;
-function init(){s={running:false,over:false,depth:0,coins:0,lives:3,best:getBest()};grid=[];for(var r=0;r<ROWS;r++){var row=[];for(var c2=0;c2<COLS;c2++){if(r===0)row.push(T.AIR);else if(r<3)row.push(T.DIRT);else{var t=T.DIRT;if(Math.random()<0.1)t=T.COIN;if(Math.random()<0.04)t=T.ROCK;row.push(t)}}grid.push(row);}p={x:3,y:0,vx:0,vy:0,onG:false,anim:0,inv:0};enemies=[];keys={};camY=0;tick=0;pts=[];updateHud();}
+function init(){s={running:false,over:false,depth:0,coins:0,lives:3,best:getBest()};grid=[];for(var r=0;r<ROWS;r++){var row=[];for(var c2=0;c2<COLS;c2++){if(r===0)row.push(T.AIR);else if(r<3)row.push(T.DIRT);else{var t=T.DIRT;if(Math.random()<0.1)t=T.COIN;if(Math.random()<0.04)t=T.ROCK;row.push(t)}}grid.push(row);}p={x:W/2,y:0,vx:0,vy:0,onG:false,anim:0,inv:0};enemies=[];keys={};camY=0;tick=0;pts=[];updateHud();}
 function getBest(){return parseInt(localStorage.getItem('mdig_best')||'0',10)}
 function setBest(v){localStorage.setItem('mdig_best',v)}
 function updateHud(){document.getElementById('depth').textContent=Math.floor(s.depth);document.getElementById('coins').textContent=s.coins;document.getElementById('lives').textContent='♥'.repeat(Math.max(0,s.lives))||'—';document.getElementById('best').textContent=s.best;}
-function getT(r,c){if(r<0||r>=ROWS||c<0||c>=COLS)return T.ROCK;return grid[r][c];}
+function getT(r,c){r=Math.floor(r);c=Math.floor(c);if(r<0||r>=ROWS||c<0||c>=COLS)return T.ROCK;return grid[r][c];}
 function isSolid(t){return t!==T.AIR;}
 function update(){if(!s.running||s.over)return;tick++;
-if(keys['arrowleft']||keys['a']){p.vx=-2;if(getT(p.y,Math.floor((p.x-12)/CELL))===T.AIR)p.x-=2;}
-if(keys['arrowright']||keys['d']){p.vx=2;if(getT(p.y,Math.floor((p.x+12)/CELL))===T.AIR)p.x+=2;}
+if(keys['arrowleft']||keys['a']){p.vx=-2;var lc=Math.floor((p.x-14)/CELL),lt=getT(p.y,lc);if(lt===T.AIR)p.x-=2;else if(lt===T.DIRT||lt===T.COIN){if(lt===T.COIN){s.coins++;SFX.coin()}grid[Math.floor(p.y)][lc]=T.AIR;SFX.dig();}}
+if(keys['arrowright']||keys['d']){p.vx=2;var rc=Math.floor((p.x+14)/CELL),rt=getT(p.y,rc);if(rt===T.AIR)p.x+=2;else if(rt===T.DIRT||rt===T.COIN){if(rt===T.COIN){s.coins++;SFX.coin()}grid[Math.floor(p.y)][rc]=T.AIR;SFX.dig();}}
 p.x=Math.max(CELL/2,Math.min(W-CELL/2,p.x));
 if(keys['arrowdown']||keys['s']){var br=p.y+1;var bc=Math.floor(p.x/CELL);if(getT(br,bc)===T.DIRT||getT(br,bc)===T.COIN){if(grid[br][bc]===T.COIN){s.coins++;SFX.coin()}grid[br][bc]=T.AIR;SFX.dig();}}
 p.vy+=0.4;p.y+=p.vy;var pc=Math.floor(p.x/CELL);var below=getT(Math.floor(p.y+0.5),pc);if(isSolid(below)&&p.vy>0){p.y=Math.floor(p.y);p.vy=0;p.onG=true;}else p.onG=false;
@@ -59,7 +59,7 @@ var px=p.x,py=(p.y-camY)*CELL;if(p.inv<=0||Math.floor(p.inv/4)%2===0){x.fillStyl
 enemies.forEach(function(e){var ey=(e.y-camY)*CELL;x.fillStyle='#2e7d32';x.fillRect(e.x-10,ey-8,20,16);x.fillStyle='#fff';x.fillRect(e.x-5,ey-4,3,3);x.fillRect(e.x+2,ey-4,3,3);x.fillStyle='#000';x.fillRect(e.x-4,ey-3,1,2);x.fillRect(e.x+3,ey-3,1,2);});
 pts.forEach(function(pp){x.globalAlpha=pp.life/20;x.fillStyle=pp.c;x.fillRect(pp.x,pp.y,pp.size,pp.size);x.globalAlpha=1});
 if(!s.running){x.fillStyle='rgba(0,0,0,0.7)';x.fillRect(0,0,W,H);x.textAlign='center';if(s.over){x.fillStyle='#e53935';x.font='22px "Press Start 2P",monospace';x.fillText('挖不动了！',W/2,H/2-20);x.fillStyle='#ffd700';x.font='13px "Press Start 2P",monospace';x.fillText('深度:'+Math.floor(s.depth)+'m 💰:'+s.coins,W/2,H/2+10);x.fillStyle='#fff';x.font='10px "Press Start 2P",monospace';x.fillText('按R重玩',W/2,H/2+36);}else{x.fillStyle='#8b5a2b';x.font='20px "Press Start 2P",monospace';x.fillText('准备挖洞',W/2,H/2-8);x.font='10px "Press Start 2P",monospace';x.fillText('点击开始',W/2,H/2+20);}}}
-function loop(){update();draw();requestAnimationFrame(loop);}
+function loop(){try{update();draw();}catch(e){}requestAnimationFrame(loop);}
 document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowleft','arrowright','arrowdown'].indexOf(e.key.toLowerCase())>=0)e.preventDefault();if(e.key.toLowerCase()==='r'){init();s.running=true;AOXSound.ensure();}});
 document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
 document.getElementById('startBtn').addEventListener('click',function(){init();s.running=true;AOXSound.ensure();AOXSound.startBGM('game');SFX.select();if(AOXMobile.isTouch)AOXMobile.virtualKeys({dpad:true,keys:[{label:'⛏',key:'ArrowDown',color:'rgba(229,57,53,0.85)'}]});toast('往下挖！')});
