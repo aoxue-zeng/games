@@ -1107,6 +1107,12 @@
   toast('欢迎来到 AoXuan 的像素世界！⛏');
 
   // ===== 每日推荐 / 随机 / 最近玩过 / 更新列表 =====
+  // 游戏库: 从静态卡片构建 (修复 GAME_DB 未定义导致主页黑屏)
+  var GAME_DB = (typeof GAME_DB !== 'undefined' && GAME_DB && GAME_DB.length) ? GAME_DB
+    : Array.prototype.slice.call(document.querySelectorAll('.game-card')).map(function(a){
+        var h3 = a.querySelector('h3');
+        return { f: a.getAttribute('href'), n: h3 ? h3.textContent.trim() : '游戏', c: a.getAttribute('data-cat') || '游戏' };
+      });
   // 游戏缩略图配置（emoji + 背景色），按文件名映射
   var GAME_META = {
     'pvz-fusion.html':   {icon:'🧬',bg:'linear-gradient(135deg,#4caf50,#ab47bc,#ffd700)',cat:'动作射击',desc:'植物融合版·每日新植物+专属技能'},
