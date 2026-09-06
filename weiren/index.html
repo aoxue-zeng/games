@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伟人商店 · 伪人甄别生存</title>
+<meta name="description" content="雾山小镇的一家小商店。白天卖货，更要甄别混进人群的「伪人」。你能活到第十天吗？">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- CRT 扫描线 / 暗角 覆盖层 -->
+<div class="crt-overlay"></div>
+<div class="vignette"></div>
+
+<!-- ============ 标题画面 ============ -->
+<div id="screen-title" class="screen active">
+  <div class="title-wrap">
+    <div class="title-main flicker-slow">伟&#12288;人&#12288;商&#12288;店</div>
+    <div class="title-sub">—— 雾山小镇 · 伪人甄别 · 生存经营 ——</div>
+    <div class="title-story" id="title-story"></div>
+    <div class="title-buttons">
+      <button class="btn btn-big btn-green" id="btn-start">开始营业</button>
+      <button class="btn btn-big" id="btn-help-title">游戏说明</button>
+    </div>
+    <div class="title-foot" id="title-records"></div>
+  </div>
+</div>
+
+<!-- ============ 主游戏画面 ============ -->
+<div id="screen-game" class="screen">
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span id="hud-day" class="hud-chip">第 1 天</span>
+      <span id="hud-date" class="hud-chip dim">1998-10-01</span>
+      <span id="hud-queue" class="hud-chip dim">排队 0/5</span>
+    </div>
+    <div class="topbar-mid">
+      <span class="hud-chip money">💰 <b id="hud-money">50</b></span>
+      <span class="hud-chip rep">信誉 <b id="hud-rep">100</b></span>
+      <div class="rep-bar"><div id="rep-fill"></div></div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-mini" id="btn-mute" title="音效开关">🔊</button>
+      <button class="btn btn-mini" id="btn-help" title="说明">❓</button>
+      <button class="btn btn-mini" id="btn-quit" title="放弃本局">🚪</button>
+    </div>
+  </header>
+
+  <main class="game-layout">
+    <!-- 左：客人 -->
+    <section class="customer-zone">
+      <div class="cust-scene">
+        <canvas id="avatar" width="160" height="176"></canvas>
+        <canvas id="avatar-mini" width="48" height="56" class="hidden"></canvas>
+        <div class="cust-shadow"></div>
+        <div id="cust-nameplate" class="nameplate">？？？</div>
+      </div>
+      <div id="dialogue" class="dialogue">…</div>
+    </section>
+
+    <!-- 右：检查面板 -->
+    <section class="inspect-zone">
+      <div class="panel" id="panel-id">
+        <div class="panel-head">🪪 身份证 <button class="btn btn-mini" id="btn-toggle-id">收起</button></div>
+        <div class="id-card" id="id-card">
+          <div class="id-title">雾山镇居民身份证</div>
+          <div class="id-body">
+            <div class="id-photo"><canvas id="id-photo" width="48" height="56"></canvas></div>
+            <div class="id-fields">
+              <div>姓名：<b id="id-name">—</b></div>
+              <div>性别：<span id="id-sex">—</span></div>
+              <div>出生：<span id="id-birth">—</span></div>
+              <div>住址：<span id="id-addr">—</span></div>
+            </div>
+          </div>
+          <div class="id-num">编号 <span id="id-num">—</span></div>
+          <div class="id-dates">签发 <span id="id-issue">—</span>｜有效期至 <span id="id-expiry">—</span></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-inspect">
+        <div class="panel-head">🔍 外貌检查</div>
+        <div class="panel-body" id="inspect-result">使用放大镜查看客人外貌。</div>
+      </div>
+
+      <div class="panel" id="panel-tools">
+        <div class="panel-head">🧰 工具检查</div>
+        <div class="panel-body" id="tools-result">尚未使用任何工具。</div>
+      </div>
+
+      <div class="panel" id="panel-ask">
+        <div class="panel-head">💬 盘问（每人限 2 问）<span id="ask-count" class="ask-count">剩 2</span></div>
+        <div class="ask-list" id="ask-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 底部柜台 -->
+  <footer class="counter">
+    <div class="counter-left">
+      <span id="cust-want" class="want-line">…</span>
+    </div>
+    <div class="counter-mid">
+      <button class="btn tool-btn" id="btn-inspect">🔍 放大镜</button>
+      <button class="btn tool-btn" id="btn-mirror">🪞 镜子</button>
+      <button class="btn tool-btn" id="btn-uv">🔦 紫外灯</button>
+      <button class="btn tool-btn" id="btn-lie">📈 测谎仪</button>
+    </div>
+    <div class="counter-right">
+      <button class="btn btn-sell" id="btn-sell">✅ 出售</button>
+      <button class="btn btn-reject" id="btn-reject">❌ 拒绝</button>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ 阶段画面：天数开始/结束/夜市/结局 ============ -->
+<div id="screen-stage" class="screen">
+  <div class="stage-wrap">
+    <div id="stage-box"></div>
+  </div>
+</div>
+
+<!-- ============ 帮助弹窗 ============ -->
+<div id="modal-help" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-title">📖 游戏说明</div>
+    <div class="modal-content">
+      <p><b>你是「伟人商店」的老板。</b>近来雾山小镇混入了大量「伪人」——它们伪装成人类购物。你的职责：把货卖给真正的人类，把伪人拒之门外。</p>
+      <ul>
+        <li>每位客人会想买一件商品，你决定 <b>出售</b> 或 <b>拒绝</b>。</li>
+        <li>卖给伪人 → 信誉 <b>-25</b>；错拒真人 → 信誉 <b>-10</b>、拿不到钱。</li>
+        <li>判断正确 → 信誉 +2，并获得货款。</li>
+        <li>每天结束要付 <b>经营成本</b>，夜晚可以在黑市购买更强的甄别工具。</li>
+        <li>信誉归零 → 商店被查封；欠债过多 → 破产。撑过 <b>10 天</b> 迎来结局。</li>
+      </ul>
+      <p><b>甄别手段：</b></p>
+      <ul>
+        <li>🪪 <b>身份证</b>：核对生日是否合理、证件是否过期、照片与本人是否一致。</li>
+        <li>🔍 <b>放大镜</b>：细看瞳孔、嘴巴、皮肤、牙齿……（免费）</li>
+        <li>💬 <b>盘问</b>：每人限问 2 个问题，注意回答与证件是否矛盾。</li>
+        <li>🪞 <b>镜子</b>：伪人往往没有倒影。（夜市购买）</li>
+        <li>🔦 <b>紫外灯</b>：照出皮肤下的黑纹。（夜市购买）</li>
+        <li>📈 <b>测谎仪</b>：对任何伪人必定报警。（夜市购买，最贵）</li>
+      </ul>
+      <p class="dim">※ 真人也会紧张、发抖、面色不好——不要冤枉好人。</p>
+    </div>
+    <button class="btn btn-green" id="btn-close-help">明白了</button>
+  </div>
+</div>
+
+<!-- ============ 决策反馈浮层 ============ -->
+<div id="overlay-feedback" class="overlay hidden">
+  <div class="feedback-box" id="feedback-box"></div>
+</div>
+
+<script src="../sound.js"></script>
+<script src="../mobile.js"></script>
+<script src="../shared.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

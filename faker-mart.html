@@ -184,7 +184,7 @@ function inspect(){
  if(!c){toast('附近没有顾客');return null;}
  c.checked=true;
  if(c.fake){
-  toast('🕵️ '+c.name+' 是伪人! (红眼确认) 开枪!');
+  toast(c.kind==='dijun'?'👁 帝君!! 伪人帝王! 开枪或守住门口陷阱!':'🕵️ '+c.name+' 是伪人! (红眼确认) 开枪!');
   sfx('error');
  }else{
   toast(c.name+' 是正常人');
@@ -340,6 +340,10 @@ function upd(dt){
     }else if(c.kind==='great'){
      c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
      serveGreat();
+    }else if(c.kind==='dijun'){
+     c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
+     money+=80;
+     feed('👑 帝君丢下重金, 转身冲向大门!! 快守陷阱!');
     }else{
      c.state='leave';c.tx=DOOR.x;c.ty=DOOR.y;
      money+=20+Math.floor(Math.random()*30);
@@ -349,10 +353,29 @@ function upd(dt){
    }
   }else if(c.state==='leave'){
    var dx2=c.tx-c.x,dy2=c.ty-c.y,d2=Math.hypot(dx2,dy2);
-   if(d2>6){c.x+=dx2/d2*1.4;c.y+=dy2/d2*1.4;}
+   var spd=c.kind==='dijun'?2.6:1.4; // 帝君逃跑极快
+   if(d2>6){c.x+=dx2/d2*spd;c.y+=dy2/d2*spd;}
    else{
     if(c.fake&&(state==='day')){ // 伪人跑到门口!
      customers.splice(i,1);
+     if(c.kind==='dijun'){ // 帝君到门口!
+      if(trapArmed){
+       trapArmed=false;trapCd=25;
+       kills+=5;save.choco+=8;money+=300;store.set('fmart_choco',save.choco);
+       try{if(window.Site&&Site.gain)Site.gain(8);}catch(e){}
+       booms.push({x:DOOR.x,y:DOOR.y,r:26,t:0.6,c:'#c56bff'});
+       feed('🪤✨ 陷阱死死咬住了帝君!! +8🍫 +¥300');
+       toast('帝君被门口陷阱擒获!');
+       sfx('win');
+      }else{
+       feed('👑💨 帝君逃出去了!! 它召来了实体军团和血之鳕雨…');
+       toast('帝君逃走了! 大危机!');
+       codRain();triggerSiege();
+       var k;for(k=0;k<3+Math.min(day,4);k++)entities.push({x:DOOR.x+(k-1)*30,y:DOOR.y,vx:0,vy:0.6,hp:60,r:16,t:0});
+       for(k=0;k<2;k++)spiders.push({x:DOOR.x+(k-1)*40,y:DOOR.y,vx:0,vy:0.5,hp:40,r:14,webCd:3,t:0});
+      }
+      continue;
+     }
      if(trapArmed){
       trapArmed=false;trapCd=15;
       kills++;save.choco++;store.set('fmart_choco',save.choco);
@@ -442,6 +465,20 @@ function upd(dt){
   for(j=customers.length-1;j>=0;j--){
    c=customers[j];
    if(Math.hypot(c.x-b.x,c.y-b.y)<18){
+    if(c.kind==='dijun'){ // 帝君: 高血量BOSS, 可以杀!
+     c.hp-=b.dmg;hit=true;
+     booms.push({x:b.x,y:b.y,r:5,t:0.2,c:'#c56bff'});
+     if(c.hp<=0){
+      customers.splice(j,1);kills+=3;
+      save.choco+=5;money+=200;store.set('fmart_choco',save.choco);
+      try{if(window.Site&&Site.gain)Site.gain(5);}catch(e){}
+      booms.push({x:c.x,y:c.y,r:22,t:0.5,c:'#c56bff'});
+      feed('💀 你当场击毙了帝君!! +5🍫 +¥200');
+      toast('帝君被击毙!');
+      sfx('win');
+     }
+     break;
+    }
     if(c.fake){
      customers.splice(j,1);kills++;
      booms.push({x:c.x,y:c.y,r:6,t:0.3,c:'#ff5b5b'});
@@ -633,6 +670,12 @@ function upd(dt){
      gc.name='伟人';
      feed('🤴 伟人驾到! 好好服务触发大军交易');
    }
+   if(Math.random()<dt*0.004&&day>=2&&!customers.some(function(c){return c.kind==='dijun';})){
+     var dj=spawnCustomer(true,'dijun');
+     dj.name='帝君';dj.hp=260;
+     feed('👑 帝君驾临!! 它交易完会冲向大门逃跑——守好陷阱!');
+     sfx('roar');
+   }
    if(customers.length<2+Math.min(day,4)&&Math.random()<dt*0.5)spawnCustomer();
  }
  updHud();
@@ -797,11 +840,17 @@ function draw(){
  }
  // 顾客
  customers.forEach(function(c){
-  ctx.fillStyle='#dce6f0';
-  ctx.beginPath();ctx.arc(c.x,c.y,11,0,7);ctx.fill();
+  var dj=c.kind==='dijun';
+  ctx.fillStyle=dj?'#9b4dd6':'#dce6f0';
+  ctx.beginPath();ctx.arc(c.x,c.y,dj?15:11,0,7);ctx.fill();
+  if(dj){ // 帝君光环
+   ctx.strokeStyle='#c56bff';ctx.lineWidth=2;ctx.globalAlpha=0.6;
+   ctx.beginPath();ctx.arc(c.x,c.y,19+Math.sin(t*4)*2,0,7);ctx.stroke();
+   ctx.globalAlpha=1;
+  }
   // 影子
   ctx.fillStyle=c.fake?'#3ddc6a33':'#00000033';
-  ctx.beginPath();ctx.ellipse(c.x,c.y+16,12,5,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(c.x,c.y+16,dj?17:12,5,0,0,7);ctx.fill();
   ctx.fillStyle='#222';ctx.font='10px monospace';
   ctx.fillText((c.checked?(c.fake?'❗':'✔'):'')+c.name,c.x,c.y-16);
   if(c.tell>0){ // 伪人破绽: 红眼
@@ -810,6 +859,12 @@ function draw(){
   }
   if(c.kind==='sheriff'){ctx.fillStyle='#ffd54f';ctx.font='12px monospace';ctx.fillText('👮警长',c.x,c.y-28);}
   if(c.kind==='great'){ctx.fillStyle='#ffd54f';ctx.font='12px monospace';ctx.fillText('🤴伟人',c.x,c.y-28);}
+  if(dj){ // 帝君: 皇冠+血条
+   ctx.fillStyle='#ffd54f';ctx.font='13px monospace';
+   ctx.fillText('👑帝君',c.x,c.y-30);
+   ctx.fillStyle='#333';ctx.fillRect(c.x-22,c.y-44,44,5);
+   ctx.fillStyle='#c56bff';ctx.fillRect(c.x-22,c.y-44,44*Math.max(0,c.hp)/260,5);
+  }
  });
  // 手雷/子弹/爆炸
  grenades.forEach(function(g2){

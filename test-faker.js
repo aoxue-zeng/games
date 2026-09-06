@@ -8,7 +8,7 @@ function mkEl(id){
   appendChild(c){return c;},addEventListener(){},onclick:null,
   getContext(){return mkAny();},querySelectorAll(){return[]},querySelector(){return mkEl('q');},getBoundingClientRect(){return{left:0,top:0,width:960,height:540};}};
 }
-var EXPORTS='window.__T={startDay:startDay,nextDay:nextDay,spawnCustomer:spawnCustomer,inspect:inspect,fireAt:fireAt,triggerSiege:triggerSiege,endSiege:endSiege,codRain:codRain,serveGreat:serveGreat,deployArmy:deployArmy,buyGun:buyGun,eatChoco:eatChoco,endDay:endDay,faintNow:faintNow,reviveAt:reviveAt,pressKey:function(k,v){keys[k]=v;},nearestCustomer:nearestCustomer,get state(){return state},get day(){return day},get money(){return money},get kills(){return kills},get patience(){return patience},get patienceMax(){return patienceMax},get gunUnlocked(){return gunUnlocked},get sheriffDone(){return sheriffDone},get armoryOpen(){return armoryOpen},get gnomeRe(){return gnomeRe},get hunter(){return hunter},get boss(){return boss},get tanks(){return tanks},get aiArmy(){return aiArmy},get greatArmy(){return greatArmy},get mates(){return mates},get outMate(){return outMate},get P(){return P},get save(){return save},get customers(){return customers},get entities(){return entities},get spiders(){return spiders},get webs(){return webs},get corpses(){return corpses},get fishes(){return fishes},get weather(){return weather},get grenades_n(){return grenades_n},get rockets(){return rockets},set day(v){day=v},set patience(v){patience=v},get trapArmed(){return trapArmed}};';
+var EXPORTS='window.__T={startDay:startDay,nextDay:nextDay,spawnCustomer:spawnCustomer,inspect:inspect,fireAt:fireAt,triggerSiege:triggerSiege,endSiege:endSiege,codRain:codRain,serveGreat:serveGreat,deployArmy:deployArmy,buyGun:buyGun,eatChoco:eatChoco,endDay:endDay,faintNow:faintNow,reviveAt:reviveAt,pressKey:function(k,v){keys[k]=v;},nearestCustomer:nearestCustomer,get state(){return state},get day(){return day},get money(){return money},get kills(){return kills},get patience(){return patience},get patienceMax(){return patienceMax},get gunUnlocked(){return gunUnlocked},get sheriffDone(){return sheriffDone},get armoryOpen(){return armoryOpen},get gnomeRe(){return gnomeRe},get hunter(){return hunter},get boss(){return boss},get tanks(){return tanks},get aiArmy(){return aiArmy},get greatArmy(){return greatArmy},get mates(){return mates},get outMate(){return outMate},get P(){return P},get save(){return save},get customers(){return customers},get entities(){return entities},get spiders(){return spiders},get webs(){return webs},get corpses(){return corpses},get fishes(){return fishes},get weather(){return weather},get grenades_n(){return grenades_n},get rockets(){return rockets},set day(v){day=v},set patience(v){patience=v},get trapArmed(){return trapArmed},set trapArmed(v){trapArmed=v}};';
 function loadGame(file){
  var html=fs.readFileSync(file,'utf8');
  var code=html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -83,6 +83,7 @@ T('吃巧克力回血回精神(+30/+40)',g.P.hp===80&&g.P.san===90,'hp='+g.P.hp+
 
 // 门口陷阱防伪人逃跑
 for(var ck=g.customers.length-1;ck>=0;ck--)g.customers.splice(ck,1);
+g.trapArmed=true; // 强制布防: 排除前面随机伪人已消耗陷阱的干扰
 var fk=g.spawnCustomer(true);
 fk.state='leave';fk.x=480;fk.y=44;fk.tx=480;fk.ty=40;
 var kc0=g.kills,cc0=g.save.choco;
@@ -168,6 +169,34 @@ else{
  }
  T('猎人→地精猎人重生3次后彻底消失',g2.gnomeRe===3,'gnomeRe='+g2.gnomeRe+' times='+times);
 }
+
+// 帝君BOSS: 陷阱擒获 / 逃跑惩罚 / 开枪击毙 (净室实例, 清场保证确定性)
+var sb3=loadGame('faker-mart.html'),g3=sb3.__T;
+g3.startDay();
+var dn=0;while(!g3.sheriffDone&&dn<1600){pump(sb3,1);dn++;} // 解锁枪械
+g3.customers.length=0;g3.trapArmed=true; // 清场+重布陷阱, 排除随机刷客干扰
+// ① 陷阱布防→帝君冲门被擒
+var dj=g3.spawnCustomer(true,'dijun');dj.name='帝君';dj.hp=260;
+dj.state='leave';dj.tx=480;dj.ty=40;dj.x=480;dj.y=52;
+var k0=g3.kills,c0=g3.save.choco,m0=g3.money;
+pump(sb3,10);
+T('帝君逃跑→门口陷阱擒获(+5击杀+8🍫+¥300)',g3.customers.indexOf(dj)<0&&g3.kills===k0+5&&g3.save.choco===c0+8&&g3.money===m0+300,'kills+'+(g3.kills-k0)+' choco+'+(g3.save.choco-c0)+' money+'+(g3.money-m0));
+T('擒获后陷阱进入冷却',g3.trapArmed===false);
+// ② 陷阱冷却中→帝君逃脱引发大危机
+g3.customers.length=0;g3.entities.length=0;g3.spiders.length=0;g3.trapArmed=false;
+var dj2=g3.spawnCustomer(true,'dijun');dj2.name='帝君';dj2.hp=260;
+dj2.state='leave';dj2.tx=480;dj2.ty=40;dj2.x=480;dj2.y=52;
+pump(sb3,10);
+T('陷阱未布防→帝君逃走触发围攻',g3.customers.indexOf(dj2)<0&&g3.state==='siege'&&g3.entities.length>=3,'state='+g3.state+' ent='+g3.entities.length);
+T('帝君逃跑带来血之鳕雨',g3.weather==='cod'&&g3.fishes.length>0,'weather='+g3.weather);
+// ③ 帝君可以开枪击毙(同步泵帧下冷却受限, 用低血量验证击杀分支)
+g3.patience=200;g3.endSiege();
+g3.customers.length=0;
+var dj3=g3.spawnCustomer(true,'dijun');dj3.name='帝君';dj3.hp=5;
+dj3.x=g3.P.x+40;dj3.y=g3.P.y;
+var k1=g3.kills,c1=g3.save.choco,m1=g3.money,shots=0;
+while(g3.customers.indexOf(dj3)>=0&&shots<60){g3.fireAt(dj3.x,dj3.y);pump(sb3,5);shots++;}
+T('帝君可被击毙(+3击杀+5🍫+¥200)',g3.customers.indexOf(dj3)<0&&g3.kills===k1+3&&g3.save.choco===c1+5&&g3.money===m1+200,'shots='+shots);
 
 // 巴士收工→电话升级→第二天
 g.endSiege();
