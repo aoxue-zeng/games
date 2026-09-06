@@ -104,7 +104,7 @@ try {
   vm.createContext(sb);
   for (var oi = 0; oi < order.length && !err; oi++) {
     var o = order[oi];
-    var code = o.src ? fs.readFileSync(__dirname + '/' + o.src, 'utf8') : o.code;
+    var code = o.src ? fs.readFileSync(__dirname + '/' + o.src.split('?')[0], 'utf8') : o.code;
     try { vm.runInContext(code, sb, { filename: o.src || ('inline#' + oi) }); }
     catch (e) { console.log('❌ 执行失败 @', o.src || ('inline#' + oi), '→', e.message); throw e; }
     console.log('✓', o.src || ('inline#' + oi));
