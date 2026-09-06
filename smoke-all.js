@@ -1,6 +1,6 @@
 // ===== 全站冒烟: 每个游戏加载+驱动120帧, 抓初始化运行时错误(黑屏排查) =====
 var fs=require('fs'),vm=require('vm'),path=require('path');
-function mkAny(){ var f=function(){return anyP;}; var anyP=new Proxy(f,{get:function(t,k){ if(k==='canvas')return {}; return anyP; },set:function(){return true;}}); return anyP; }
+function mkAny(){ var f=function(){return anyP;}; var anyP=new Proxy(f,{get:function(t,k){ if(k==='canvas')return {}; if(k===Symbol.toPrimitive||k==='valueOf')return function(){return 0;}; return anyP; },set:function(){return true;}}); return anyP; }
 function mkEl(id){
  return {_id:id,innerHTML:'',textContent:'',value:'',style:{},dataset:{},children:[],disabled:false,width:0,height:0,
   classList:{add(){},remove(){},toggle(){},contains(){return false}},
@@ -37,12 +37,14 @@ files.forEach(function(f){
   Audio:function(){return {play(){return {catch(){}};},pause(){},load(){},volume:1,addEventListener(){}};},
   sessionStorage:{getItem:function(){return null;},setItem(){},removeItem(){}},
   AOXMobile:new Proxy({},{get:function(){return function(){};}}),AOXSound:new Proxy({},{get:function(){return function(){};}}),
-  THREE:mkAny(),CSS:mkAny(),
+  THREE:mkAny(),CSS:{escape:function(s){return String(s).replace(/[^\w-]/g,'');}},
   GAME_DB:[{f:'snake.html',n:'贪吃蛇',c:'经典街机'},{f:'tetris.html',n:'俄罗斯方块',c:'经典街机'}],
   SFX:new Proxy({},{get:function(){return function(){};}}),
   Site:new Proxy({},{get:function(t,k){
    if(k==='beginGame')return function(n,o,cb){try{cb&&cb({duo:false,enemy:null,ally:null});}catch(e){}};
    if(k==='played')return function(){return 99;};
+   if(k==='wallList')return function(){return [];};
+   if(k==='visitStats')return function(){return {v:{first:Date.now(),count:0,days:{},logs:[]},today:0,top:[],totalPlays:0};};
    return function(){};
   }})};
  sb.window=sb;sb.self=sb;sb.globalThis=sb;sb.toast=function(){};
@@ -65,3 +67,4 @@ files.forEach(function(f){
 });
 console.log('冒烟完成: '+okN+'/'+files.length+' 正常');
 if(badList.length){console.log('异常清单:');badList.forEach(function(b){console.log('  ✗ '+b);});}
+process.exit(0); // 某些页面残留setInterval会挂住进程
