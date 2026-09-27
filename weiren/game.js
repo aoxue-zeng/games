@@ -101,6 +101,9 @@ const G = {
   usedInspect: false, usedMirror: false, usedUV: false, usedLie: false,
   stats: { soldFake: 0, rejectedReal: 0, correct: 0, income: 0 },
   dayStats: { sold: 0, mistakes: 0, income: 0 },
+  buffs: {},        // 夜市每日特供增益(次日生效, 当日结束清空)
+  streak: 0,        // 连续零失误天数
+  askMax: 2,        // 每位客人可提问数(浓咖啡+1)
   flags: { kind: false, cold: false, inspectorPassed: false },
   over: false
 };
@@ -124,6 +127,7 @@ const ACH_DEFS = {
   flawless: "✨ 无懈可击 —— 单日零失误",
   rich: "💰 小镇富翁 —— 持有 300 元以上",
   collector: "🧰 收藏家 —— 集齐全部工具",
+  night_owl: "🌙 夜市常客 —— 购买过一件每日特供",
   survivor: "🏆 幸存者 —— 活过 10 天",
   darkness: "🌑 夜幕降临 —— 触发黑暗结局"
 };
@@ -348,6 +352,9 @@ function updateHUD() {
   $("hud-money").textContent = G.money;
   $("hud-rep").textContent = G.rep;
   $("rep-fill").style.width = clamp(G.rep, 0, 100) + "%";
+  const bk = Object.keys(G.buffs).filter(k => G.buffs[k]);
+  const bt = bk.map(k => (CONSUMABLES.find(c => c.key === k) || {}).i || "").join("");
+  $("hud-buffs").textContent = bt ? "增益 " + bt : "";
 }
 let typeTimer = null;
 function typewrite(el, text, speed, done) {
@@ -378,6 +385,7 @@ function resetGame() {
   G.tools = { mirror: false, uv: false, lie: false };
   G.stats = { soldFake: 0, rejectedReal: 0, correct: 0, income: 0 };
   G.flags = { kind: false, cold: false, inspectorPassed: false };
+  G.buffs = {}; G.streak = 0; G.askMax = 2;
   G.over = false;
   showScreen("screen-game");
   startDay();
@@ -455,13 +463,41 @@ function startDay() {
   G.queue = buildQueue(G.day);
   G.qIndex = 0;
   const weather = choice(WEATHERS);
+  const fakeN = G.queue.filter(c => c.isFake).length;
+  const intel = G.buffs.intel ? `<div class="news">📋 线人密报：今日排队的人里，混着 <b>${fakeN}</b> 个伪人。</div>` : "";
+  const buffLine = Object.keys(G.buffs).filter(k => G.buffs[k]).length
+    ? `<div class="stage-stats">今日生效：${activeBuffText()}</div>` : "";
   stageScreen(`
     <div class="stage-date">${gameDateStr(G.day)} · ${weather}</div>
     <div class="stage-title">第 ${G.day} 天</div>
     <div class="stage-desc">${dayFlavor(G.day)}</div>
+    ${intel}
+    ${buffLine}
     ${NEWS[G.day] ? `<div class="news">${NEWS[G.day]}</div>` : ""}
     <div class="stage-buttons"><button class="btn btn-big btn-green" id="btn-day-go">开店营业</button></div>
   `, () => { AudioSys.bell(); nextCustomer(); });
+}
+
+/* ========================= 夜市每日特供 ========================= */
+const CONSUMABLES = [
+  { key: "coffee", n: "☕ 浓咖啡", p: 15, d: "明日每位客人可多问 1 个问题", i: "☕" },
+  { key: "candle", n: "🕯 驱邪蜡烛", p: 18, d: "明日第一次卖给伪人，不扣信誉", i: "🕯" },
+  { key: "lucky", n: "🍀 幸运符", p: 12, d: "明日所有货款 +50%", i: "🍀" },
+  { key: "stone", n: "🧿 镇店石", p: 20, d: "明日所有信誉损失减半", i: "🧿" },
+  { key: "intel", n: "📋 线人情报", p: 25, d: "开店时得知今日伪人数量", i: "📋" },
+  { key: "eye", n: "🔎 鹰眼药水", p: 22, d: "明日外貌检查干净时，提示破绽藏在哪类检查", i: "🔎" }
+];
+function dailySpecials(nextDay) { // 以天数做种子 → 每晚固定刷新 2 件
+  let s = (nextDay * 9301 + 49297) % 233280;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const pool = CONSUMABLES.slice();
+  const out = [];
+  out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+  out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+  return out;
+}
+function activeBuffText() {
+  return CONSUMABLES.filter(c => G.buffs[c.key]).map(c => c.i + c.n.slice(2)).join("　");
 }
 
 function dayFlavor(day) {
@@ -493,6 +529,7 @@ function nextCustomer() {
   if (G.qIndex >= G.queue.length) { endDay(); return; }
   G.cur = G.queue[G.qIndex];
   G.asked = 0;
+  G.askMax = 2 + (G.buffs.coffee ? 1 : 0);
   G.usedInspect = G.usedMirror = G.usedUV = G.usedLie = false;
   showScreen("screen-game");
   updateHUD();
@@ -501,7 +538,8 @@ function nextCustomer() {
   renderAskButtons();
   $("inspect-result").innerHTML = "使用放大镜查看客人外貌。";
   $("tools-result").innerHTML = "尚未使用任何工具。";
-  $("ask-count").textContent = "剩 2";
+  $("ask-count").textContent = "剩 " + G.askMax;
+  $("ask-limit").textContent = G.askMax;
   $("cust-nameplate").textContent = "客人 #" + (G.qIndex + 1);
   $("cust-want").textContent = "想买：" + G.cur.wants.n + "（$" + G.cur.wants.p + "）";
   refreshToolButtons();
@@ -586,7 +624,7 @@ function renderAskButtons() {
 }
 
 function askQuestion(q) {
-  if (G.asked >= 2 || !G.cur) return;
+  if (G.asked >= G.askMax || !G.cur) return;
   G.asked++;
   AudioSys.pageflip();
   const ans = answerFor(G.cur, q.key);
@@ -599,8 +637,8 @@ function askQuestion(q) {
   entry.className = "ask-log";
   entry.innerHTML = "<div class='dim'>▸ " + q.q + "</div><div>" + final + "</div>";
   list.appendChild(entry);
-  Array.from(list.querySelectorAll(".ask-btn")).forEach(b => b.disabled = G.asked >= 2);
-  $("ask-count").textContent = "剩 " + (2 - G.asked);
+  Array.from(list.querySelectorAll(".ask-btn")).forEach(b => b.disabled = G.asked >= G.askMax);
+  $("ask-count").textContent = "剩 " + (G.askMax - G.asked);
 }
 
 function specialAnswer(c, key) {
@@ -634,6 +672,7 @@ function doInspect() {
   let html = "";
   if (t.appearance.length === 0) {
     html = "<div>瞳孔：圆而湿润。</div><div>皮肤：健康的血色。</div><div>嘴部：正常。</div><div>额头：正常。</div><div>眨眼：频率正常。</div><div class='dim'>※ " + G.cur.quirk + "</div>";
+    if (G.buffs.eye) html += "<div class='ok'>🔎 鹰眼药水：外貌完全干净——破绽藏在<b>证件、盘问或工具</b>里。</div>";
   } else {
     const seen = shuffle(t.appearance);
     html += "<div>仔细看——</div>";
@@ -738,21 +777,27 @@ function decide(sell) {
     return finishDecision("夜幕降临", "dark", "她抱着布娃娃走进浓雾。<br>那天夜里，伟人商店的灯亮了一整晚——<br>第二天，镇上的人说，柜台后面站着的那个「老板」，再也不眨眼了。", "「晚安，老板。欢迎加入我们。」", true);
   }
 
-  // 常规判定
+  // 常规判定（夜市特供增益在此生效）
+  const priceMult = G.buffs.lucky ? 1.5 : 1;
+  const repLoss = (n) => G.buffs.stone ? Math.ceil(n / 2) : n;
   if (sell && isFake) {
-    G.money += c.wants.p; G.stats.income += c.wants.p; G.dayStats.income += c.wants.p;
-    G.rep = clamp(G.rep - 25, 0, 100);
+    const gain = Math.round(c.wants.p * priceMult);
+    G.money += gain; G.stats.income += gain; G.dayStats.income += gain;
+    let loss = repLoss(25), candleNote = "";
+    if (G.buffs.candle) { loss = 0; G.buffs.candle = 0; candleNote = "<br><span class='ok'>🕯 驱邪蜡烛挡下了这一刀！信誉无损（一次性）。</span>"; }
+    G.rep = clamp(G.rep - loss, 0, 100);
     G.stats.soldFake++; G.dayStats.mistakes++;
     AudioSys.buzz();
     return finishDecision("你把东西卖给了一个伪人", "err",
-      "它接过货品的手指，比人类多 bend 了一个关节。<br>信誉 -25，收入 +$" + c.wants.p + "。<br><span class='warn'>它离开时回头看了你一眼——像在记住你。</span>",
+      "它接过货品的手指，比人类多 bend 了一个关节。<br>信誉 -" + loss + "，收入 +$" + gain + (priceMult > 1 ? "（🍀幸运符 +50%）" : "") + "。<br><span class='warn'>它离开时回头看了你一眼——像在记住你。</span>" + candleNote,
       choice(["「谢谢。我们会再来。」", "「你分不出来呢。」", "（它笑的时候，嘴角咧到了耳根）"]));
   }
   if (sell && !isFake) {
-    G.money += c.wants.p; G.stats.income += c.wants.p; G.dayStats.income += c.wants.p; G.dayStats.sold++;
+    const gain = Math.round(c.wants.p * priceMult);
+    G.money += gain; G.stats.income += gain; G.dayStats.income += gain; G.dayStats.sold++;
     G.rep = clamp(G.rep + 2, 0, 100); G.stats.correct++;
     AudioSys.chime(); setTimeout(() => AudioSys.coin(), 250);
-    return finishDecision("交易完成", "ok", "客人满意地离开了。<br>收入 +$" + c.wants.p + "，信誉 +2。", choice(["「谢了，老板。」", "「下次还来。」", "「天黑了，早点关门吧。」"]));
+    return finishDecision("交易完成", "ok", "客人满意地离开了。<br>收入 +$" + gain + (priceMult > 1 ? "（🍀幸运符 +50%）" : "") + "，信誉 +2。", choice(["「谢了，老板。」", "「下次还来。」", "「天黑了，早点关门吧。」"]));
   }
   if (!sell && isFake) {
     G.rep = clamp(G.rep + 2, 0, 100); G.stats.correct++;
@@ -760,9 +805,10 @@ function decide(sell) {
     return finishDecision("识破成功", "ok", "「它」的笑脸凝固了一瞬，随后一言不发地退出店门，融进雾里。<br>你守住了柜台。信誉 +2。", choice(["「……可惜。」", "（门外传来指甲刮擦木门的声音）", "「下次，我会更像一点。」"]));
   }
   if (!sell && !isFake) {
-    G.rep = clamp(G.rep - 10, 0, 100); G.stats.rejectedReal++; G.dayStats.mistakes++;
+    const loss = repLoss(10);
+    G.rep = clamp(G.rep - loss, 0, 100); G.stats.rejectedReal++; G.dayStats.mistakes++;
     AudioSys.buzz();
-    return finishDecision("你冤枉了一个真人", "err", "「我？我是伪人？！你疯了！」<br>他摔门而去，说明天全镇都会知道这件事。<br>信誉 -10。", "「伪人的是你！」");
+    return finishDecision("你冤枉了一个真人", "err", "「我？我是伪人？！你疯了！」<br>他摔门而去，说明天全镇都会知道这件事。<br>信誉 -" + loss + (G.buffs.stone ? "（🧿镇店石减半）" : "") + "。", "「伪人的是你！」");
   }
 }
 
@@ -801,8 +847,13 @@ function endDay() {
   if (G.tools.mirror && G.tools.uv && G.tools.lie) unlockAch("collector");
   if (G.stats.correct >= 10) unlockAch("sharp_eye");
 
-  if (G.money <= -40) { endingBankrupt(); return; }
+  // 连续零失误奖励
+  if (G.dayStats.mistakes === 0 && G.dayStats.sold > 0) {
+    G.streak++;
+    if (G.streak >= 3) { G.rep = clamp(G.rep + 5, 0, 100); }
+  } else G.streak = 0;
 
+  if (G.money <= -40) { endingBankrupt(); return; }
   if (G.day >= 10) { endingFinal(); return; }
 
   stageScreen(`
@@ -811,36 +862,51 @@ function endDay() {
     <div class="stage-stats">
       今日售出：<b>${G.dayStats.sold}</b> 件　｜　今日收入：<b>$${G.dayStats.income}</b><br>
       今日失误：<b>${G.dayStats.mistakes}</b> 次　｜　经营成本：-$${rent}<br>
-      现金：<b>$${G.money}</b>　｜　信誉：<b>${G.rep}</b>
+      现金：<b>$${G.money}</b>　｜　信誉：<b>${G.rep}</b>　｜　零失误连击：<b>${G.streak}</b> 🔥${G.streak >= 3 ? "（连击奖励：每日 +5 信誉）" : "（连击 3 天起每日 +5 信誉）"}
     </div>
     ${G.money < 0 ? "<div class='news'>账上已经透支。再亏下去，商店就完了。（低于 -$40 破产）</div>" : ""}
     <div class="stage-buttons"><button class="btn btn-big" id="btn-day-go">前往夜市 🌙</button></div>
   `, () => nightShop());
   G.dayStats = { sold: 0, mistakes: 0, income: 0 };
+  G.buffs = {}; // 当日增益消耗完毕, 等待今夜新特供
 }
 
 function nightShop() {
-  const goods = [
-    { key: "mirror", n: "🪞 穿衣柜镜", d: "伪人往往在镜中没有倒影。", p: 80 },
-    { key: "uv", n: "🔦 紫外灯", d: "照出皮肤下的黑色纹路。", p: 150 },
-    { key: "lie", n: "📈 掌上测谎仪", d: "对任何伪人必定报警——没有心跳。", p: 260 }
+  const tools = [
+    { key: "mirror", n: "🪞 穿衣柜镜", d: "伪人往往在镜中没有倒影。（永久）", p: 80 },
+    { key: "uv", n: "🔦 紫外灯", d: "照出皮肤下的黑色纹路。（永久）", p: 150 },
+    { key: "lie", n: "📈 掌上测谎仪", d: "对任何伪人必定报警——没有心跳。（永久）", p: 260 }
   ];
+  const specials = dailySpecials(G.day + 1); // 明日生效, 每晚刷新
   let html = `
     <div class="stage-date">深夜 · 镇西黑市</div>
     <div class="stage-title">夜 市</div>
-    <div class="stage-desc dim">黑市老板压低声音：「伪人越来越多，老板，你店里……还缺家伙吗？」</div>
+    <div class="stage-desc dim">黑市老板压低声音：「今晚到了两件稀罕货——只卖一晚，明晚就换新批了。」</div>
+    <div class="panel-head" style="padding:6px 2px">🌙 每日特供 · 第 ${G.day + 1} 天上架（明晚自动换新）</div>
     <div class="shop-goods">`;
-  goods.forEach(g => {
+  specials.forEach(g => {
+    const owned = G.buffs[g.key];
+    html += `
+      <div class="goods-item ${owned ? "owned" : ""}">
+        <div class="goods-info"><b>${g.n} <span class="dim" style="font-size:11px">一次性·明日生效</span></b><span>${g.d}</span></div>
+        ${owned ? "<div class='goods-price'>已入手 ✓</div>"
+        : `<button class="btn goods-buy" data-type="buff" data-key="${g.key}" data-p="${g.p}" ${G.money < g.p ? "disabled" : ""}>购买 $${g.p}</button>`}
+      </div>`;
+  });
+  html += `</div>
+    <div class="panel-head" style="padding:6px 2px">🔧 常规装备 · 买断制</div>
+    <div class="shop-goods">`;
+  tools.forEach(g => {
     const owned = G.tools[g.key];
     html += `
       <div class="goods-item ${owned ? "owned" : ""}">
         <div class="goods-info"><b>${g.n}</b><span>${g.d}</span></div>
         ${owned ? "<div class='goods-price'>已购入</div>"
-        : `<button class="btn goods-buy" data-key="${g.key}" data-p="${g.p}" ${G.money < g.p ? "disabled" : ""}>购买 $${g.p}</button>`}
+        : `<button class="btn goods-buy" data-type="tool" data-key="${g.key}" data-p="${g.p}" ${G.money < g.p ? "disabled" : ""}>购买 $${g.p}</button>`}
       </div>`;
   });
   html += `</div>
-    <div class="stage-stats">现金：<b>$${G.money}</b></div>
+    <div class="stage-stats">现金：<b>$${G.money}</b>　｜　明日增益：${Object.keys(G.buffs).filter(k => G.buffs[k]).length ? activeBuffText() : "（无）"}</div>
     <div class="stage-buttons"><button class="btn btn-big btn-green" id="btn-day-go">回家睡觉 💤</button></div>`;
   stageScreen(html, () => { G.day++; startDay(); });
   document.querySelectorAll(".goods-buy").forEach(b => {
@@ -848,9 +914,15 @@ function nightShop() {
       const p = +b.dataset.p;
       if (G.money < p) return;
       G.money -= p;
-      G.tools[b.dataset.key] = true;
-      AudioSys.coin();
-      if (G.tools.mirror && G.tools.uv && G.tools.lie) unlockAch("collector");
+      if (b.dataset.type === "buff") {
+        G.buffs[b.dataset.key] = 1;
+        unlockAch("night_owl");
+        AudioSys.coin();
+      } else {
+        G.tools[b.dataset.key] = true;
+        AudioSys.coin();
+        if (G.tools.mirror && G.tools.uv && G.tools.lie) unlockAch("collector");
+      }
       nightShop();
     };
   });

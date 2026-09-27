@@ -95,6 +95,9 @@ try {
   playGame(() => !G.cur.isFake ? coin(0.95) : coin(0.05), "上帝视角");
   playGame(() => true, "全部出售");
   playGame(() => (G.cur.special === "final") ? true : !G.cur.isFake, "完美经营·终客失手");
+  startGame();
+  G.buffs = { coffee: 1, candle: 1, lucky: 1, stone: 1, intel: 1, eye: 1 }; // 全增益路径
+  playGame(() => !G.cur.isFake ? true : coin(0.3), "夜市全增益");
   console.log("SMOKE_TEST_OK");
 } catch (e) {
   console.error("SMOKE_TEST_FAILED:", e);

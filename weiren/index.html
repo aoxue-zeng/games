@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>伟人商店 · 伪人甄别生存</title>
 <meta name="description" content="雾山小镇的一家小商店。白天卖货，更要甄别混进人群的「伪人」。你能活到第十天吗？">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏪</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -39,6 +40,7 @@
     <div class="topbar-mid">
       <span class="hud-chip money">💰 <b id="hud-money">50</b></span>
       <span class="hud-chip rep">信誉 <b id="hud-rep">100</b></span>
+      <span id="hud-buffs" class="hud-chip dim"></span>
       <div class="rep-bar"><div id="rep-fill"></div></div>
     </div>
     <div class="topbar-right">
@@ -91,7 +93,7 @@
       </div>
 
       <div class="panel" id="panel-ask">
-        <div class="panel-head">💬 盘问（每人限 2 问）<span id="ask-count" class="ask-count">剩 2</span></div>
+        <div class="panel-head">💬 盘问（每人限 <span id="ask-limit">2</span> 问）<span id="ask-count" class="ask-count">剩 2</span></div>
         <div class="ask-list" id="ask-list"></div>
       </div>
     </section>

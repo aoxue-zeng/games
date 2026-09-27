@@ -856,7 +856,7 @@
     initPetLikes();
     initHiddenZone();
     try { Site.visitLog(); } catch (e) {}
-    if (!Site.pet() && !localStorage.getItem('aox_pet_later') && /index\.html?$|\/$|^$/.test(location.pathname.split('/').pop() || 'index.html')) {
+    if (!Site.pet() && !localStorage.getItem('aox_pet_later') && (function () { var p = location.pathname.replace(/index\.html?$/, ''); return p === '' || p === '/'; })()) {
       setTimeout(function () { Site.petChooseModal(); }, 800);
     }
   }
