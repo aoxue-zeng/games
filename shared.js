@@ -589,25 +589,31 @@
     petChooseModal: function () {
       if (document.getElementById('sitePetModal')) return;
       var m = document.createElement('div'); m.id = 'sitePetModal';
-      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:inherit';
+      // 遮罩调轻(.78→.45)+毛玻璃: 首页背景保持可见, 避免新访客误以为"黑屏"
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:inherit';
       var cards = Object.keys(PET_TYPES).map(function (k) {
         var t = PET_TYPES[k];
         return '<button data-pet="' + k + '" style="cursor:pointer;background:#1c2f4a;border:3px solid #000;box-shadow:inset -3px -3px 0 #0006,inset 3px 3px 0 #fff2;padding:18px 14px;width:150px;color:#fff">' +
           '<div style="font-size:52px">' + t.i + '</div><div style="font-weight:bold;font-size:16px;margin:6px 0">' + t.n + '</div>' +
           '<div style="font-size:11px;color:#9ab;line-height:1.5">' + t.d + '</div></button>';
       }).join('');
-      m.innerHTML = '<div style="background:#0d1b2a;border:3px solid #ffd700;padding:26px 30px;max-width:660px;text-align:center;color:#fff;box-shadow:0 0 40px #000">' +
+      m.innerHTML = '<div style="position:relative;background:#0d1b2a;border:3px solid #ffd700;padding:26px 30px;max-width:660px;text-align:center;color:#fff;box-shadow:0 0 40px #000">' +
+        '<button id="petCloseX" title="关闭" style="position:absolute;top:6px;right:10px;cursor:pointer;background:none;border:none;color:#789;font-size:24px;line-height:1;padding:4px">✕</button>' +
         '<h2 style="color:#ffd700;margin:0 0 6px">🐣 领养你的宠物！</h2>' +
         '<p style="color:#9ab;font-size:13px;margin:0 0 18px">赢游戏赚🍫巧克力喂它 · 每 ' + '' + '10×等级 块升一级 · 升级解锁漂浮 goodies</p>' +
         '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' + cards + '</div>' +
-        '<div style="margin-top:16px"><button id="petLaterBtn" style="cursor:pointer;background:#22344e;border:2px solid #000;box-shadow:0 3px 0 #000;padding:8px 22px;color:#9ab;font-size:13px">稍后再说 ✕</button></div></div>';
+        '<div style="margin-top:16px"><button id="petLaterBtn" style="cursor:pointer;background:#22344e;border:2px solid #000;box-shadow:0 3px 0 #000;padding:8px 22px;color:#9ab;font-size:13px">稍后再说</button></div></div>';
       document.body.appendChild(m);
       m.querySelectorAll('[data-pet]').forEach(function (b) {
         b.onmouseenter = function () { if (window.SFX) SFX.select(); };
         b.onclick = function () { Site.adopt(b.dataset.pet); };
       });
-      var lb = m.querySelector && m.querySelector('#petLaterBtn');
-      if (lb) lb.onclick = function () { try { localStorage.setItem('aox_pet_later', '1'); } catch (e) { } m.remove(); };
+      function dismiss() { try { localStorage.setItem('aox_pet_later', '1'); } catch (e) { } m.remove(); } // 统一关闭: 记住选择, 下次不再弹
+      var lb = m.querySelector('#petLaterBtn');
+      if (lb) lb.onclick = dismiss;
+      var cx = m.querySelector('#petCloseX');
+      if (cx) cx.onclick = dismiss;
+      m.addEventListener('click', function (ev) { if (ev.target === m) dismiss(); }); // 点遮罩空白处也能关闭
     },
 
     energy: function () { return sget('choco_energy', 10); },
@@ -856,8 +862,9 @@
     initPetLikes();
     initHiddenZone();
     try { Site.visitLog(); } catch (e) {}
-    if (!Site.pet() && !localStorage.getItem('aox_pet_later') && (function () { var p = location.pathname.replace(/index\.html?$/, ''); return p === '' || p === '/'; })()) {
-      setTimeout(function () { Site.petChooseModal(); }, 800);
+    var petLater = false; try { petLater = !!localStorage.getItem('aox_pet_later'); } catch (e) { } // 隐私模式等存储被禁时不抛错
+    if (!Site.pet() && !petLater && (function () { var p = location.pathname.replace(/index\.html?$/, ''); return p === '' || p === '/'; })()) {
+      setTimeout(function () { Site.petChooseModal(); }, 1200);
     }
   }
   if (document.readyState !== 'loading') { initSiteSystem(); }
