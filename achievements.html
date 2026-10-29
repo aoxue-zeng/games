@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 成就殿堂 - AoXuan 像素世界</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .ach-wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 80px; }
+  .ach-title { text-align: center; margin: 10px 0 4px; }
+  .ach-title h1 { color: #ffd700; text-shadow: 0 3px 0 #000; font-size: 30px; margin: 0; }
+  .ach-sub { text-align: center; color: #9ab; font-size: 13px; margin-bottom: 18px; }
+  .board { background: #0d1b2a; border: 3px solid #ffd700; box-shadow: 0 3px 0 #000; padding: 16px 18px; margin-bottom: 16px; }
+  .stat-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .stat-box { background: #091626; border: 2px solid #000; padding: 10px 16px; text-align: center; flex: 1; min-width: 110px; }
+  .stat-box .v { font-size: 22px; color: #ffd700; font-weight: bold; }
+  .stat-box .k { font-size: 11px; color: #78909c; margin-top: 3px; }
+  .exp-bar { height: 12px; background: #000; border: 2px solid #000; margin-top: 10px; }
+  .exp-bar > div { height: 100%; background: linear-gradient(90deg, #42a5f5, #ffd700); }
+  .ck-card { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #0d1b2a; border: 3px solid #43a047; box-shadow: 0 3px 0 #000; padding: 16px 18px; margin-bottom: 22px; }
+  .ck-icon { font-size: 38px; }
+  .ck-main { flex: 1; min-width: 200px; }
+  .ck-main .t { font-size: 16px; color: #fff; }
+  .ck-main .d { font-size: 12px; color: #78909c; margin-top: 4px; }
+  .ck-btn { cursor: pointer; background: #43a047; color: #fff; border: 2px solid #000; box-shadow: 0 3px 0 #000; padding: 12px 26px; font-weight: bold; font-size: 15px; }
+  .ck-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+  .ck-done { background: #22344e; color: #78909c; border: 2px solid #000; padding: 12px 22px; font-size: 14px; }
+  .cat-h { color: #ffd700; font-size: 15px; margin: 20px 0 10px; text-shadow: 0 2px 0 #000; }
+  .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
+  .tile { background: #0d1b2a; border: 2px solid #000; box-shadow: 0 3px 0 #000; padding: 14px 12px; position: relative; }
+  .tile.un { border-color: #ffd700; background: #16283f; }
+  .tile .ic { font-size: 34px; line-height: 1; }
+  .tile.lock .ic { filter: grayscale(1); opacity: .6; }
+  .tile .nm { font-size: 13px; margin-top: 7px; color: #9ab; }
+  .tile.un .nm { color: #ffd700; }
+  .tile .ds { font-size: 11px; color: #78909c; line-height: 1.55; margin-top: 4px; min-height: 33px; }
+  .tile .xp { font-size: 11px; margin-top: 5px; color: #4dd0e1; }
+  .tile .xp.big { color: #ff8fa3; }
+  .tile .dt { font-size: 10px; color: #4caf50; margin-top: 4px; }
+  .pbar { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
+  .pbar .tr { flex: 1; height: 7px; background: #000; border: 1px solid #000; }
+  .pbar .tr > div { height: 100%; background: #42a5f5; }
+  .pbar span { font-size: 10px; color: #78909c; }
+  .ach-tip { text-align: center; color: #78909c; font-size: 12px; margin-top: 26px; line-height: 1.8; }
+  .ach-tip a { color: #4dd0e1; }
+  @media (max-width: 560px) { .stat-box { min-width: 84px; padding: 8px 10px; } .stat-box .v { font-size: 17px; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="achievements.html">🏆 成就</a>
+    <a href="music.html">🎵 音乐工作站</a>
+    <a href="game-vault.html">📦 游戏仓库</a>
+    <a href="snake.html">贪吃蛇</a>
+    <a href="pvz.html">植物僵尸</a>
+  </nav>
+</div>
+
+<div class="ach-wrap">
+  <div class="ach-title"><h1>🏆 成就殿堂</h1></div>
+  <div class="ach-sub">破纪录 · 升级 · 签到 · 探索 · 通关 · 经营 · 创作 —— 都能解锁成就赢经验</div>
+
+  <div class="board" id="statBoard"></div>
+
+  <div class="ck-card" id="ckCard"></div>
+
+  <div id="achCats"></div>
+
+  <div class="ach-tip">
+    任何游戏打破最佳成绩都会自动 +50 经验并推进成就进度 ·<br>
+    徽章奖励经验会累积升级，Lv.10 可开启首页的<a href="index.html">隐藏清单</a> ·
+    <a href="index.html">← 返回首页</a>
+  </div>
+</div>
+
+<script src="sound.js?v=20261018a"></script>
+<script src="mobile.js?v=20261018a"></script>
+<script src="shared.js?v=20261018a"></script>
+<script>
+(function () {
+  'use strict';
+  // 防御式取值(兼容沙箱/未加载场景)
+  function safe(fn, d) { try { var v = fn(); return (v === undefined || v === null) ? d : v; } catch (e) { return d; } }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  var ACH = safe(function () { return Site.ACH; }, []);
+  if (!ACH || ACH.length === 0) { // shared.js 未就绪: 不渲染不报错
+    document.getElementById('achCats').innerHTML = '<div class="ach-tip">成就数据加载中…请刷新页面</div>';
+    return;
+  }
+
+  function dayStr(ts) {
+    var v = safe(function () { return Site._dayStr(ts); }, null);
+    if (v) return v;
+    var d = ts ? new Date(ts) : new Date();
+    var m = d.getMonth() + 1, dd = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (dd < 10 ? '0' + dd : dd);
+  }
+
+  function gotMap() { return safe(function () { return JSON.parse(localStorage.getItem('aox_ach') || '{}'); }, {}); }
+  function st() {
+    var s = safe(function () { return Site.achState(); }, null) || {};
+    return {
+      lv: s.lv || 1, exp: s.exp || 0, need: s.need || 200, rem: s.rem || 0,
+      logSum: s.logSum || 0, playedN: s.playedN || 0,
+      ckStreak: s.ckStreak || 0, ckTotal: s.ckTotal || 0
+    };
+  }
+
+  function renderAll() {
+    var got = gotMap(), nGot = 0, k;
+    for (k in got) nGot++;
+    var s = st();
+    var pct = Math.max(0, Math.min(100, Math.round(s.rem / (s.need || 1) * 100)));
+
+    // 统计板
+    document.getElementById('statBoard').innerHTML =
+      '<div class="stat-row">' +
+      '<div class="stat-box"><div class="v">Lv.' + s.lv + '</div><div class="k">当前等级</div></div>' +
+      '<div class="stat-box"><div class="v">' + s.exp + '</div><div class="k">总经验</div></div>' +
+      '<div class="stat-box"><div class="v" style="color:#4dd0e1">' + nGot + '/' + ACH.length + '</div><div class="k">成就进度</div></div>' +
+      '<div class="stat-box"><div class="v" style="color:#4caf50">' + s.logSum + '</div><div class="k">累计破纪录</div></div>' +
+      '<div class="stat-box"><div class="v" style="color:#ff9800">🔥' + s.ckStreak + '</div><div class="k">连签天数</div></div>' +
+      '</div>' +
+      '<div class="exp-bar"><div style="width:' + pct + '%"></div></div>' +
+      '<div style="font-size:11px;color:#78909c;margin-top:5px">距离下一级还需 ' + s.rem + '/' + s.need + ' 经验</div>';
+
+    // 签到卡
+    var today = dayStr();
+    var ci = safe(function () { return JSON.parse(localStorage.getItem('aox_checkin') || 'null'); }, null) || { last: '', streak: 0, total: 0 };
+    var signed = ci.last === today;
+    var yest = dayStr(Date.now() - 86400000);
+    var willStreak = signed ? ci.streak : (ci.last === yest ? (ci.streak || 0) + 1 : 1);
+    var bonus = 50 + 10 * Math.min(willStreak, 7);
+    document.getElementById('ckCard').innerHTML =
+      '<div class="ck-icon">📅</div>' +
+      '<div class="ck-main"><div class="t">每日签到 <b style="color:#ff9800">🔥连签 ' + (ci.streak || 0) + '</b> · 累计 ' + (ci.total || 0) + ' 天</div>' +
+      '<div class="d">' + (signed ? '今天已签到 ✓ 明天可拿 ' + (50 + 10 * Math.min(willStreak + 1, 7)) + '+ 经验' : '今天签到可得 <b style="color:#ffd700">+' + bonus + '</b> 经验，连签越久奖励越高（7天封顶）') + '</div></div>' +
+      (signed ? '<span class="ck-done">✅ 已签到</span>'
+        : '<button class="ck-btn" id="ckGo">立即签到 +' + bonus + '</button>');
+    var go = document.getElementById('ckGo');
+    if (go) go.onclick = function () {
+      var r = safe(function () { return Site.checkin(); }, null);
+      if (!r) return;
+      if (!r.ok && r.msg) { if (window.toast) toast(r.msg); return; }
+      renderAll();
+    };
+
+    // 分类徽章
+    var cats = [], byCat = {};
+    ACH.forEach(function (a) { if (!byCat[a.cat]) { byCat[a.cat] = []; cats.push(a.cat); } byCat[a.cat].push(a); });
+    document.getElementById('achCats').innerHTML = cats.map(function (cat) {
+      var list = byCat[cat];
+      var cUn = list.filter(function (a) { return got[a.id]; }).length;
+      var tiles = list.map(function (a) {
+        var un = !!got[a.id];
+        var ic = a.i, nm = a.n, ds = a.d;
+        if (!un && a.hidden) { ic = '❓'; nm = '？？？'; ds = '神秘成就，等待发掘…'; }
+        var tail;
+        if (un) tail = '<div class="dt">✓ ' + dayStr(got[a.id]) + ' 解锁</div>';
+        else if (a.prog) {
+          var pg = [0, 1];
+          try { pg = a.prog(st()) || pg; } catch (e) { }
+          var p2 = Math.max(0, Math.min(100, Math.round((pg[0] || 0) / (pg[1] || 1) * 100)));
+          tail = '<div class="pbar"><div class="tr"><div style="width:' + p2 + '%"></div></div><span>' + (pg[0] || 0) + '/' + pg[1] + '</span></div>';
+        } else tail = '';
+        return '<div class="tile' + (un ? ' un' : ' lock') + '">' +
+          '<div class="ic">' + ic + '</div>' +
+          '<div class="nm">' + esc(nm) + '</div>' +
+          '<div class="ds">' + esc(ds) + '</div>' +
+          '<div class="xp' + (a.e >= 200 ? ' big' : '') + '">+' + a.e + ' 经验</div>' + tail + '</div>';
+      }).join('');
+      return '<div class="cat-h">▸ ' + esc(cat) + '（' + cUn + '/' + list.length + '）</div>' +
+        '<div class="ach-grid">' + tiles + '</div>';
+    }).join('');
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

@@ -385,7 +385,9 @@
     {n:'军团攻城战4',f:'legion4.html',c:'策略对战',k:'军团 王者 佣兵 双升级 龙骑士 霜法师 绿洲 圣泉 回血 奖金'},
     {n:'贪吃蛇进化版',f:'snake-evo.html',c:'经典街机',k:'进化 贪吃蛇 食物 冲刺 连击 障碍 穿身 双倍'},
     {n:'打砖块进化版',f:'breakout-evo.html',c:'动作射击',k:'进化 打砖块 道具 激光 穿透 boss 爆炸 治疗'},
-    {n:'记忆翻牌进化版',f:'memory-evo.html',c:'益智逻辑',k:'进化 记忆 翻牌 万能牌 炸弹 时钟 偷看 洗牌 星级'}
+    {n:'记忆翻牌进化版',f:'memory-evo.html',c:'益智逻辑',k:'进化 记忆 翻牌 万能牌 炸弹 时钟 偷看 洗牌 星级'},
+    {n:'星露小镇·种田RPG',f:'starfarm/index.html',c:'我的世界',k:'星露谷 星露小镇 种田 农场 经营 牧场 种地 浇水 收获 打怪 矿洞 史莱姆 钓鱼 背包 锄头 镐 剑 商店 四季 体力 存档 大型 RPG stardew farm'},
+    {n:'成就殿堂',f:'achievements.html',c:'创造休闲',k:'成就 徽章 勋章 签到 每日 经验 等级 奖励 殿堂 收集 achv achievement'}
   ];
 
   function initAssistant() {
@@ -419,7 +421,7 @@
     }
 
     function welcome() {
-        addMsg('👋 你好！我是 AoXuan 网站助手。<br>这里有 <b>165 个游戏</b>，告诉我你想玩什么类型，我帮你找！<br><br>你可以问：<br>• "想玩射击游戏"<br>• "有马里奥吗"<br>• "手机能玩吗"<br>• "推荐个益智的"<br>• "贪吃蛇在哪"<br>• "赛车/体育游戏"');
+        addMsg('👋 你好！我是 AoXuan 网站助手。<br>这里有 <b>188 个游戏</b>，告诉我你想玩什么类型，我帮你找！<br><br>你可以问：<br>• "想玩射击游戏"<br>• "有马里奥吗"<br>• "手机能玩吗"<br>• "推荐个益智的"<br>• "贪吃蛇在哪"<br>• "赛车/体育游戏"');
     }
 
     function toggle() {
@@ -460,7 +462,7 @@
         return '👋 你好！想玩什么游戏？告诉我类型或名字就行～';
       }
       if (q.indexOf('有多少') >= 0 || q.indexOf('几个') >= 0 || q.indexOf('多少') >= 0) {
-        return '🎮 本站共有 <b>165 个游戏</b>，分 11 大类：马里奥18、我的世界19、动作射击54、益智逻辑23、经典街机21、博弈竞猜7、策略对战9、创造休闲11、文字6、体育运动4、赛车竞速4。';
+        return '🎮 本站共有 <b>188 个游戏</b>，分 11 大类：马里奥18、我的世界20、动作射击54、益智逻辑23、经典街机21、博弈竞猜7、策略对战9、创造休闲11、文字6、体育运动4、赛车竞速4。';
       }
       if (q.indexOf('分类') >= 0 || q.indexOf('类别') >= 0 || q.indexOf('种类') >= 0) {
         return '📂 11 大分类：<br>🍄 马里奥 · ⛏ 我的世界 · 🎮 动作射击 · 🧠 益智逻辑 · 🕹️ 经典街机 · 🎲 博弈竞猜 · ♟️ 策略对战 · 🎨 创造休闲 · ⌨️ 文字 · ⚽ 体育运动 · 🏁 赛车竞速<br><br>主页可点分类按钮筛选！';
@@ -727,8 +729,18 @@
       } else {
         petHtml = '<div style="background:#0d1b2acc;border:2px solid #ffd700;box-shadow:0 3px 0 #000;padding:8px 12px;color:#fff;font-size:12px;cursor:pointer" id="hudPet">🐣 点我<br>领养宠物</div>';
       }
+      var xp = Site.expLv();
+      var achN = 0; try { achN = Site.ACH.length; } catch (e) { achN = 0; }
+      var achG = 0; try { achG = Site.achGot(); } catch (e) { achG = 0; }
       h.innerHTML = petHtml +
-        '<div style="background:#0d1b2acc;border:2px solid #000;box-shadow:0 3px 0 #000;padding:6px 12px;color:#fff;font-size:13px">🍫 <b style="color:#ffd700">' + e + '</b></div>';
+        '<div style="background:#0d1b2acc;border:2px solid #000;box-shadow:0 3px 0 #000;padding:6px 12px;color:#fff;font-size:13px">🍫 <b style="color:#ffd700">' + e + '</b></div>' +
+        '<div id="hudExp" title="点击查看经验详情" style="background:#0d1b2acc;border:2px solid #000;box-shadow:0 3px 0 #000;padding:5px 12px;color:#fff;font-size:13px;cursor:pointer;text-align:center">⭐ <b style="color:#ffd700">Lv.' + xp.lv + '</b>' +
+        '<div style="width:52px;height:5px;background:#000;margin:3px auto 1px;border:1px solid #000"><div style="height:100%;width:' + Math.min(100, Math.round(xp.rem / xp.need * 100)) + '%;background:linear-gradient(90deg,#42a5f5,#ffd700)"></div></div></div>' +
+        '<div id="hudAch" title="成就殿堂" style="background:#0d1b2acc;border:2px solid #000;box-shadow:0 3px 0 #000;padding:8px 12px;color:#fff;font-size:13px;cursor:pointer;text-align:center">🏆 <b style="color:#ffd700">' + achG + '</b><span style="color:#78909c">/' + achN + '</span></div>';
+      var he = document.getElementById('hudExp');
+      if (he) he.onclick = function () { Site.expModal(); };
+      var ha = document.getElementById('hudAch');
+      if (ha) ha.onclick = function () { Site.achModal(); };
       var hp = document.getElementById('hudPet');
       if (hp) hp.onclick = function () {
         var p2 = Site.pet();
@@ -756,6 +768,296 @@
   };
   window.Site = Site;
   window.__siteLastAI = null;
+
+  /* ============ ⭐ 全站经验系统 ============
+     任何游戏打破自己的最佳成绩(写入 *_best/*Best/*_hi 等) = +50 经验, 可反复拿。
+     等级解锁隐藏游戏(EXP_UNLOCK_LV), Lv.10 开启首页虚空尽头的「隐藏清单」。 */
+  Site.EXP_PER_AWARD = 50;
+  Site.EXP_UNLOCK_LV = { 3: 'hsr.html', 5: 'genshin.html', 7: 'sheep.html', 9: 'hsr-train.html', 10: '_hall' };
+  Site.exp = function () { return sget('aox_exp', 0); };
+  Site.expLv = function (exp) {
+    var e = (typeof exp === 'number') ? exp : Site.exp();
+    var lv = 1, rem = e, need = 200;
+    while (rem >= need && lv < 999) { rem -= need; lv++; need = 150 + 50 * lv; } // 每级需求递增50
+    return { lv: lv, rem: rem, need: need };
+  };
+  Site.hiddenUnlocked = function (g) {
+    if (!g) return Site.petIsMax();
+    if (Site.petIsMax()) return true; // 宠物满级=全部解锁(保留老规矩)
+    return Site.expLv().lv >= (g.lv || 99);
+  };
+  Site.gainExp = function (n, key, msg) {
+    n = n || Site.EXP_PER_AWARD; key = key || '_misc';
+    var now = Date.now();
+    var log = sget('aox_exp_log', {});
+    var rec = log[key] || { cnt: 0, ts: 0 };
+    if (now - rec.ts < 2000) return false; // 同一成绩2秒内不重复计(防反复写入)
+    var before = Site.expLv().lv;
+    sset('aox_exp', Site.exp() + n);
+    rec.cnt++; rec.ts = now; log[key] = rec; sset('aox_exp_log', log);
+    var aft = Site.expLv();
+    toast(msg || ('⭐ +' + n + ' 经验！新纪录！（Lv.' + aft.lv + ' · ' + aft.rem + '/' + aft.need + '）'));
+    if (window.SFX) { if (SFX.gem) SFX.gem(); else if (SFX.coin) SFX.coin(); }
+    if (aft.lv > before) {
+      if (window.SFX && SFX.levelUp) SFX.levelUp();
+      toast('🎉 恭喜升级！现在是 Lv.' + aft.lv + '！');
+      var unl = Site.EXP_UNLOCK_LV[aft.lv];
+      if (unl && unl !== '_hall') {
+        var hg = null; (Site.HIDDEN_GAMES || []).forEach(function (g) { if (g.f === unl) hg = g; });
+        if (hg) toast('🔓 等级解锁隐藏游戏：「' + hg.i + ' ' + hg.n + '」！在首页游戏列表找找✨');
+      } else if (unl === '_hall') {
+        toast('🔓 Lv.10 解锁「隐藏清单」！去首页一路滚到最底…✨');
+      }
+    }
+    Site.hud();
+    try { if (Site.checkAchSoon) Site.checkAchSoon(); } catch (e) { } // 🏆 经验变动→顺手重估成就
+    return true;
+  };
+  Site.expModal = function () {
+    if (document.getElementById('siteExpModal')) return;
+    var xp = Site.expLv();
+    var log = sget('aox_exp_log', {});
+    var cnt = 0; for (var k in log) cnt += (log[k] && log[k].cnt) || 0;
+    var rows = (Site.HIDDEN_GAMES || []).map(function (g) {
+      var ok = Site.hiddenUnlocked(g);
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 4px;border-bottom:1px dashed #26384f;font-size:13px">' +
+        '<span>' + g.i + ' ' + g.n + '</span><b style="color:' + (ok ? '#4caf50' : '#78909c') + '">' + (ok ? '✅ 已解锁' : '🔒 Lv.' + g.lv + ' 解锁') + '</b></div>';
+    }).join('');
+    var m = document.createElement('div'); m.id = 'siteExpModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:inherit';
+    m.innerHTML = '<div style="background:#0d1b2a;border:3px solid #ffd700;padding:24px 28px;max-width:430px;width:92%;color:#fff;box-shadow:0 0 40px #000">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;color:#ffd700;font-size:20px">⭐ 玩家经验</h2><button id="expX" style="cursor:pointer;background:none;border:none;color:#78909c;font-size:22px;line-height:1;padding:4px">✕</button></div>' +
+      '<div style="text-align:center;margin:12px 0 4px;font-size:44px">⭐</div>' +
+      '<div style="text-align:center;font-size:15px">等级 <b style="color:#ffd700;font-size:22px">Lv.' + xp.lv + '</b> · 总经验 <b>' + Site.exp() + '</b></div>' +
+      '<div style="width:100%;height:12px;background:#000;border:2px solid #000;margin:10px 0 4px"><div style="height:100%;width:' + Math.min(100, Math.round(xp.rem / xp.need * 100)) + '%;background:linear-gradient(90deg,#42a5f5,#ffd700)"></div></div>' +
+      '<div style="text-align:center;color:#9ab;font-size:12px;margin-bottom:12px">距下一级还差 ' + (xp.need - xp.rem) + ' 经验 · 已破纪录 ' + cnt + ' 次</div>' +
+      '<div style="background:#091626;border:2px solid #000;padding:10px 12px;margin-bottom:10px">' +
+      '<div style="color:#ffd700;font-size:12px;margin-bottom:4px">📌 规则：任何游戏打破自己的纪录 = +50 经验，可反复刷！</div>' +
+      '<div style="color:#78909c;font-size:12px;margin-bottom:2px">等级越高，解锁的隐藏游戏越多 ↓</div>' + rows + '</div>' +
+      '<div style="text-align:center"><button id="expOk" style="cursor:pointer;background:#43a047;color:#fff;border:2px solid #000;padding:9px 26px;font-weight:bold">继续冒险！</button></div></div>';
+    document.body.appendChild(m);
+    var close = function () { m.remove(); };
+    var x = m.querySelector('#expX'); if (x) x.onclick = close;
+    var okb = m.querySelector('#expOk'); if (okb) okb.onclick = close;
+    m.addEventListener('click', function (ev) { if (ev.target === m) close(); });
+  };
+
+  /* ⭐ 经验钩子: 包一层 Storage.setItem, 游戏写"最佳成绩"类键且值更优时自动 +50 经验 */
+  (function () {
+    if (typeof Storage === 'undefined' || Storage.prototype.__expHook) return;
+    var BEST_RE = /(?:_best|Best|_hi|_clear|_win|_passed)$/;
+    var SKIP_RE = /^(aox_|choco_|pet_|mc_sound|played_|wall_|visit_|game_likes|total_|global_|weiren|starfarm|scope_)/;
+    function num(v) {
+      if (v === null || v === undefined) return null;
+      var f = parseFloat(String(v).replace(/^"|"$/g, '')); // 兼容 JSON.stringify 存的数字
+      return isNaN(f) ? null : f;
+    }
+    var raw = Storage.prototype.setItem;
+    Storage.prototype.__expHook = true;
+    Storage.prototype.setItem = function (k, v) {
+      try {
+        if (typeof k === 'string' && BEST_RE.test(k) && !SKIP_RE.test(k)) {
+          var old = null;
+          try { old = this.getItem(k); } catch (e) {}
+          if (old !== v) { // 值确实变化了
+            var nv = num(v), ov = num(old), better;
+            if (nv !== null) better = (ov === null) || nv > ov; // 数字最佳: 更大更优
+            else better = (old === null && v && v !== 'false' && v !== '0'); // 通关旗标: 首次置位
+            if (better && window.Site && Site.gainExp) Site.gainExp(50, k);
+          }
+        }
+      } catch (e) {}
+      return raw.call(this, k, v);
+    };
+  })();
+
+  /* ============ 🏆 全站成就系统 ============
+     33枚徽章，全部基于已有 localStorage 数据「声明式判定」(checkAch 快照重估)，无需逐游戏埋点：
+     破纪录/升级/签到/探索/通关/经营/创作都能解锁。徽章奖励经验走 gainExp，与升级/隐藏解锁联动。
+     解锁表 aox_ach = { 徽章id: 时间戳 }，天然防重复；徽章经验→升级→级徽章 由 checkAchSoon 防抖收敛。 */
+  Site._dayStr = function (ts) { // 本地日期串 YYYY-MM-DD(签到用, 走本地时区)
+    var d = ts ? new Date(ts) : new Date();
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+  };
+  Site._nowHour = function () { try { return new Date().getHours(); } catch (e) { return 12; } };
+  Site.ACH = [
+    // 🎮 游玩
+    { id: 'play1', cat: '游玩', i: '🎮', n: '初来乍到', d: '游玩第1款游戏', e: 100, chk: function (s) { return s.playedN >= 1; } },
+    { id: 'play10', cat: '游玩', i: '🧭', n: '游戏探索者', d: '游玩10款不同游戏', e: 100, prog: function (s) { return [s.playedN, 10]; }, chk: function (s) { return s.playedN >= 10; } },
+    { id: 'play30', cat: '游玩', i: '🗺️', n: '游戏博物学家', d: '游玩30款不同游戏', e: 200, prog: function (s) { return [s.playedN, 30]; }, chk: function (s) { return s.playedN >= 30; } },
+    { id: 'play80', cat: '游玩', i: '🌍', n: '全站旅行家', d: '游玩80款不同游戏', e: 200, prog: function (s) { return [s.playedN, 80]; }, chk: function (s) { return s.playedN >= 80; } },
+    // 📈 纪录
+    { id: 'rec1', cat: '纪录', i: '✏️', n: '初破纪录', d: '首次打破任意游戏纪录', e: 100, chk: function (s) { return s.logSum >= 1; } },
+    { id: 'rec10', cat: '纪录', i: '📈', n: '纪录收割机', d: '累计破纪录10次', e: 100, prog: function (s) { return [s.logSum, 10]; }, chk: function (s) { return s.logSum >= 10; } },
+    { id: 'rec50', cat: '纪录', i: '💥', n: '纪录粉碎机', d: '累计破纪录50次', e: 200, prog: function (s) { return [s.logSum, 50]; }, chk: function (s) { return s.logSum >= 50; } },
+    { id: 'rec200', cat: '纪录', i: '🏹', n: '纪录终结者', d: '累计破纪录200次', e: 200, prog: function (s) { return [s.logSum, 200]; }, chk: function (s) { return s.logSum >= 200; } },
+    { id: 'wide5', cat: '纪录', i: '🎯', n: '多面手', d: '在5款不同游戏中破过纪录', e: 100, prog: function (s) { return [s.logKeys, 5]; }, chk: function (s) { return s.logKeys >= 5; } },
+    { id: 'wide15', cat: '纪录', i: '⚔️', n: '十八般武艺', d: '在15款不同游戏中破过纪录', e: 200, prog: function (s) { return [s.logKeys, 15]; }, chk: function (s) { return s.logKeys >= 15; } },
+    { id: 'wide40', cat: '纪录', i: '👑', n: '全能王者', d: '在40款不同游戏中破过纪录', e: 200, prog: function (s) { return [s.logKeys, 40]; }, chk: function (s) { return s.logKeys >= 40; } },
+    { id: 'clear1', cat: '纪录', i: '🚩', n: '首次通关', d: '通关任意一款游戏', e: 100, chk: function (s) { return s.clears >= 1; } },
+    { id: 'clear4', cat: '纪录', i: '🎖️', n: '通关达人', d: '通关4款不同游戏', e: 200, prog: function (s) { return [s.clears, 4]; }, chk: function (s) { return s.clears >= 4; } },
+    // ⭐ 等级
+    { id: 'lv5', cat: '等级', i: '🌟', n: '崭露头角', d: '达到 Lv.5', e: 100, prog: function (s) { return [Math.min(s.lv, 5), 5]; }, chk: function (s) { return s.lv >= 5; } },
+    { id: 'lv10', cat: '等级', i: '🌠', n: '十级明星', d: '达到 Lv.10（解锁隐藏清单）', e: 200, prog: function (s) { return [Math.min(s.lv, 10), 10]; }, chk: function (s) { return s.lv >= 10; } },
+    { id: 'lv15', cat: '等级', i: '🏅', n: '传奇玩家', d: '达到 Lv.15', e: 200, prog: function (s) { return [Math.min(s.lv, 15), 15]; }, chk: function (s) { return s.lv >= 15; } },
+    { id: 'lv20', cat: '等级', i: '🔥', n: '站内传说', d: '达到 Lv.20', e: 200, prog: function (s) { return [Math.min(s.lv, 20), 20]; }, chk: function (s) { return s.lv >= 20; } },
+    // ♟️ 棋类
+    { id: 'gmk5', cat: '棋类', i: '⚫', n: '五子棋手', d: '五子棋战胜AI 5局', e: 100, prog: function (s) { return [s.gomoku, 5]; }, chk: function (s) { return s.gomoku >= 5; } },
+    { id: 'board3', cat: '棋类', i: '♟️', n: '棋盘常客', d: '五子棋/飞行棋/跳棋/黑白棋各赢1局', e: 100, chk: function (s) { return s.gomoku >= 1 && s.ludo >= 1 && s.chk >= 1 && s.rev >= 1; } },
+    { id: 'board10', cat: '棋类', i: '🀄', n: '棋类高手', d: '棋类游戏总胜场达10局', e: 200, prog: function (s) { return [s.board, 10]; }, chk: function (s) { return s.board >= 10; } },
+    // 🌾 经营
+    { id: 'farm1', cat: '经营', i: '🌱', n: '星露新农民', d: '完成首个星露小镇里程碑', e: 100, chk: function (s) { return s.farm; } },
+    { id: 'farmRich', cat: '经营', i: '💰', n: '星露富豪', d: '星露小镇存款达5000金', e: 200, prog: function (s) { return [Math.min(s.farmGold, 5000), 5000]; }, chk: function (s) { return s.farmGold >= 5000; } },
+    { id: 'shop1', cat: '经营', i: '🏪', n: '小店开业', d: '在微人商店留下经营存档', e: 100, chk: function (s) { return s.has('weiren_shop_v1'); } },
+    // 🎨 创造与伙伴
+    { id: 'song1', cat: '创造', i: '🎤', n: '音乐人', d: '上传1首歌到音乐仓库', e: 100, chk: function (s) { return s.jlen('music_vault') >= 1; } },
+    { id: 'game1', cat: '创造', i: '🛠️', n: '游戏设计师', d: '在游戏仓库发布1个自制游戏', e: 100, chk: function (s) { return s.jlen('game_vault') >= 1; } },
+    { id: 'pet1', cat: '创造', i: '🐾', n: '铲屎官', d: '领养一只宠物', e: 100, chk: function (s) { return s.has('pet_v2'); } },
+    // 📅 签到
+    { id: 'ck1', cat: '签到', i: '📅', n: '签到首日', d: '完成首次每日签到', e: 100, chk: function (s) { return s.ckTotal >= 1; } },
+    { id: 'ck10', cat: '签到', i: '📆', n: '签到常客', d: '累计签到10天', e: 100, prog: function (s) { return [s.ckTotal, 10]; }, chk: function (s) { return s.ckTotal >= 10; } },
+    { id: 'ck3', cat: '签到', i: '🗓️', n: '三日之约', d: '连续签到3天', e: 100, prog: function (s) { return [s.ckStreak, 3]; }, chk: function (s) { return s.ckStreak >= 3; } },
+    { id: 'ck7', cat: '签到', i: '🔥', n: '七日之约', d: '连续签到7天', e: 200, prog: function (s) { return [s.ckStreak, 7]; }, chk: function (s) { return s.ckStreak >= 7; } },
+    { id: 'ck30', cat: '签到', i: '🏆', n: '恒心大师', d: '连续签到30天', e: 200, prog: function (s) { return [s.ckStreak, 30]; }, chk: function (s) { return s.ckStreak >= 30; } },
+    // ✨ 隐藏
+    { id: 'owl', cat: '隐藏', i: '🌙', n: '夜猫子', d: '在凌晨0点至5点间玩游戏', e: 100, hidden: true, chk: function (s) { return s.hour >= 0 && s.hour < 5; } },
+    { id: 'dj', cat: '隐藏', i: '🎧', n: 'Site DJ', d: '用全站音乐播放器放过歌', e: 100, hidden: true, chk: function (s) { return s.musicUsed; } }
+  ];
+  Site.achState = function () { // 一次性快照: checkAch 用
+    var log = sget('aox_exp_log', {});
+    var sum = 0, keys = 0, clears = 0, farm = false;
+    for (var k in log) {
+      var c = (log[k] && log[k].cnt) || 0;
+      if (c <= 0) continue;
+      sum += c; keys++;
+      if (/(?:_clear|_win|_passed)$/.test(k)) clears++;
+      if (k.indexOf('starfarm_') === 0) farm = true;
+    }
+    var played = sget('aox_played', {}), playedN = 0;
+    for (var p in played) { if (p && p !== 'index.html' && p !== 'achievements.html') playedN++; }
+    var sf = sget('starfarm_save_v1', null) || {};
+    var ci = sget('aox_checkin', null) || {};
+    function num(k, d) { var v = sget(k, null); if (v === null || v === '') return d; var f = parseFloat(v); return isNaN(f) ? d : f; }
+    return {
+      exp: Site.exp(), lv: Site.expLv().lv,
+      logSum: sum, logKeys: keys, clears: clears, farm: farm,
+      playedN: playedN,
+      has: function (k) { try { return localStorage.getItem(k) !== null; } catch (e) { return false; } },
+      jlen: function (k) { var a = sget(k, []); return (a && typeof a.length === 'number') ? a.length : 0; },
+      gomoku: num('gomoku_p', 0), ludo: num('ludo_w', 0), chk: num('chk_p', 0), rev: num('rev_p', 0),
+      board: num('gomoku_p', 0) + num('ludo_w', 0) + num('chk_p', 0) + num('rev_p', 0) + num('snakeL_w', 0),
+      farmGold: (+sf.gold) || 0,
+      ckStreak: ci.streak || 0, ckTotal: ci.total || 0,
+      hour: Site._nowHour(),
+      musicUsed: !!sget('aox_music_played', false)
+    };
+  };
+  Site.checkAch = function () { // 重估全部徽章, 返回本次新解锁列表
+    var st = Site.achState();
+    var got = sget('aox_ach', {});
+    var newly = [];
+    Site.ACH.forEach(function (a) {
+      if (got[a.id]) return;
+      var ok = false;
+      try { ok = !!a.chk(st); } catch (e) { }
+      if (ok) { got[a.id] = Date.now(); newly.push(a); }
+    });
+    if (!newly.length) return newly;
+    sset('aox_ach', got);
+    newly.forEach(function (a) { // 奖励经验走 gainExp(计入升级/隐藏解锁链), 自定义文案
+      Site.gainExp(a.e, 'ach_' + a.id, '🏆 成就「' + a.n + '」解锁！+' + a.e + ' 经验');
+    });
+    Site.hud();
+    return newly;
+  };
+  Site.checkAchSoon = function () { // 防抖: 同一批经验变动只重估一次
+    if (Site._achT) return;
+    Site._achT = setTimeout(function () { Site._achT = null; try { Site.checkAch(); } catch (e) { } }, 200);
+  };
+  Site.achGot = function () { // 已解锁数(HUD胶囊用)
+    var got = sget('aox_ach', {}), n = 0;
+    for (var k in got) n++;
+    return n;
+  };
+  Site.checkin = function () { // 每日签到: 连签有加成, 断签重计
+    var today = Site._dayStr();
+    var ci = sget('aox_checkin', null) || { last: '', streak: 0, total: 0 };
+    if (ci.last === today) return { ok: false, msg: '今天已经签到过啦，明天再来！', ci: ci };
+    var yest = Site._dayStr(Date.now() - 86400000);
+    ci.streak = (ci.last === yest) ? (ci.streak || 0) + 1 : 1;
+    ci.total = (ci.total || 0) + 1;
+    ci.last = today;
+    var bonus = 50 + 10 * Math.min(ci.streak, 7); // 首日60, 连签7天封顶120
+    sset('aox_checkin', ci);
+    Site.gainExp(bonus, 'checkin_' + today, '📅 签到成功！连续 ' + ci.streak + ' 天，+' + bonus + ' 经验');
+    try { Site.checkAch(); } catch (e) { }
+    return { ok: true, ci: ci, bonus: bonus };
+  };
+  Site.achModal = function () {
+    if (Site._achOpen) return; // 开合旗标(getElementById在部分桩环境会自动建元素, 不可作守卫)
+    var got = sget('aox_ach', {});
+    var nGot = 0; for (var gk in got) nGot++;
+    var nAll = Site.ACH.length;
+    var xp = Site.expLv();
+    var ci = sget('aox_checkin', null) || { last: '', streak: 0, total: 0 };
+    var today = Site._dayStr();
+    var signed = ci.last === today;
+    var yest = Site._dayStr(Date.now() - 86400000);
+    var willStreak = signed ? ci.streak : (ci.last === yest ? (ci.streak || 0) + 1 : 1);
+    // 签到卡
+    var ckCard = '<div style="background:#091626;border:2px solid #000;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div style="font-size:30px">📅</div>' +
+      '<div style="flex:1;min-width:150px"><div style="font-size:14px;color:#fff">每日签到 <b style="color:#ff9800">🔥连签 ' + (ci.streak || 0) + '</b> · 累计 ' + (ci.total || 0) + ' 天</div>' +
+      '<div style="font-size:11px;color:#78909c">' + (signed ? '今天已签到，明天再来拿 ' + (50 + 10 * Math.min(willStreak + 1, 7)) + '+ 经验' : '签到可得 50+ 经验，连签越久奖励越高（7天封顶120）') + '</div></div>' +
+      (signed ? '<span style="background:#22344e;color:#78909c;border:2px solid #000;padding:9px 18px;font-size:13px">✅ 已签到</span>'
+        : '<button id="achCkBtn" style="cursor:pointer;background:#43a047;color:#fff;border:2px solid #000;padding:9px 20px;font-weight:bold">签到 +' + (50 + 10 * Math.min(willStreak, 7)) + '</button>') +
+      '</div>';
+    // 徽章网格(按分类分组)
+    var cats = [], byCat = {};
+    Site.ACH.forEach(function (a) { if (!byCat[a.cat]) { byCat[a.cat] = []; cats.push(a.cat); } byCat[a.cat].push(a); });
+    var st = Site.achState();
+    var grid = cats.map(function (cat) {
+      var tiles = byCat[cat].map(function (a) {
+        var un = !!got[a.id];
+        var icon = a.i, name = a.n, desc = a.d;
+        if (!un && a.hidden) { icon = '❓'; name = '？？？'; desc = '神秘成就，等待发掘…'; }
+        var progHtml = '';
+        if (!un && a.prog) {
+          var pg = [0, 1]; try { pg = a.prog(st) || pg; } catch (e) { }
+          var pct = Math.max(0, Math.min(100, Math.round((pg[0] || 0) / (pg[1] || 1) * 100)));
+          progHtml = '<div style="display:flex;align-items:center;gap:6px;margin-top:6px"><div style="flex:1;height:6px;background:#000;border:1px solid #000"><div style="height:100%;width:' + pct + '%;background:#42a5f5"></div></div><span style="font-size:10px;color:#78909c">' + (pg[0] || 0) + '/' + pg[1] + '</span></div>';
+        }
+        var dateHtml = un ? '<div style="font-size:10px;color:#4caf50;margin-top:4px">✓ ' + Site._dayStr(got[a.id]) + ' 解锁</div>' : progHtml;
+        return '<div style="background:' + (un ? '#16283f' : '#0a1522') + ';border:2px solid ' + (un ? '#ffd700' : '#000') + ';padding:10px;opacity:' + (un ? 1 : .78) + '">' +
+          '<div style="font-size:26px;line-height:1;' + (un ? '' : 'filter:grayscale(1)') + '">' + icon + '</div>' +
+          '<div style="font-size:12px;color:' + (un ? '#ffd700' : '#9ab') + ';margin-top:4px">' + name + '</div>' +
+          '<div style="font-size:10px;color:#78909c;line-height:1.5;margin-top:2px">' + desc + '</div>' +
+          '<div style="font-size:10px;color:' + (a.e >= 200 ? '#ff8fa3' : '#4dd0e1') + ';margin-top:3px">+' + a.e + ' 经验</div>' + dateHtml + '</div>';
+      }).join('');
+      return '<div style="margin-bottom:12px"><div style="font-size:12px;color:#ffd700;margin-bottom:6px">▸ ' + cat + '（' + byCat[cat].filter(function (a) { return got[a.id]; }).length + '/' + byCat[cat].length + '）</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px">' + tiles + '</div></div>';
+    }).join('');
+    var m = document.createElement('div'); m.id = 'siteAchModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:inherit';
+    m.innerHTML = '<div style="background:#0d1b2a;border:3px solid #ffd700;padding:20px 22px;max-width:560px;width:94%;max-height:88vh;overflow-y:auto;color:#fff;box-shadow:0 0 40px #000">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;color:#ffd700;font-size:20px">🏆 成就殿堂</h2><button id="achX" style="cursor:pointer;background:none;border:none;color:#78909c;font-size:22px;line-height:1;padding:4px">✕</button></div>' +
+      '<div style="font-size:12px;color:#9ab;margin:8px 0 10px">已解锁 <b style="color:#ffd700">' + nGot + '</b> / ' + nAll + ' 枚 · 等级 Lv.' + xp.lv + ' · 总经验 ' + Site.exp() + ' · 破纪录/升级/签到/探索都能解锁成就</div>' +
+      ckCard + grid +
+      '<div style="text-align:center;margin-top:6px"><button id="achOk" style="cursor:pointer;background:#43a047;color:#fff;border:2px solid #000;padding:9px 26px;font-weight:bold">继续冒险！</button></div></div>';
+    document.body.appendChild(m);
+    Site._achOpen = true;
+    var close = function () { Site._achOpen = false; m.remove(); };
+    var x = m.querySelector('#achX'); if (x) x.onclick = close;
+    var okb = m.querySelector('#achOk'); if (okb) okb.onclick = close;
+    var ckb = m.querySelector('#achCkBtn');
+    if (ckb) ckb.onclick = function () {
+      var r = Site.checkin();
+      if (!r.ok) { toast(r.msg); return; }
+      close(); Site.achModal(); // 重开刷新数据
+    };
+    m.addEventListener('click', function (ev) { if (ev.target === m) close(); });
+  };
 
   Site.WALL_SEED = [
     { n: '矿工老李', t: '这网站的钻石真难挖，但我挖了一整晚...', d: '2023-11-08' },
@@ -789,6 +1091,13 @@
     v.days[day] = (v.days[day] || 0) + 1;
     v.logs.unshift({ t: Date.now(), path: location.pathname.split('/').pop() || 'index.html' });
     if (v.logs.length > 80) v.logs.length = 80;
+    try { // 🏆 成就: 记录玩过的游戏页(首页/成就页不算), 支撑「游玩N款」系列徽章
+      var f = location.pathname.split('/').pop() || 'index.html';
+      if (f && f !== 'index.html' && f !== 'achievements.html') {
+        var pl = sget('aox_played', {});
+        if (!pl[f]) { pl[f] = Date.now(); sset('aox_played', pl); }
+      }
+    } catch (e) { }
     sset('visit_stats', v);
     return v;
   };
@@ -840,28 +1149,199 @@
   };
 
   Site.HIDDEN_GAMES = [
-    { f: 'hsr.html', n: '星穹开拓·Q萌版', i: '🌌' },
-    { f: 'genshin.html', n: '提瓦特Q萌远征', i: '🌪️' },
-    { f: 'sheep.html', n: '羊了个羊·萌版', i: '🐑' },
-    { f: 'hsr-train.html', n: '星穹列车·跑酷', i: '🚄' }
+    { f: 'hsr.html', n: '星穹开拓·Q萌版', i: '🌌', lv: 3 },
+    { f: 'genshin.html', n: '提瓦特Q萌远征', i: '🌪️', lv: 5 },
+    { f: 'sheep.html', n: '羊了个羊·萌版', i: '🐑', lv: 7 },
+    { f: 'hsr-train.html', n: '星穹列车·跑酷', i: '🚄', lv: 9 }
   ];
   function initHiddenZone() {
-    if (!Site.petIsMax()) return; // 未满级: 完全不渲染, 一点提示都没有
-    document.querySelectorAll('.game-card[data-hidden]').forEach(function (c) { c.style.display = ''; });
-    var z = document.createElement('div');
-    z.id = 'siteHiddenZone';
-    z.style.cssText = 'position:relative;left:0;right:0;bottom:0;text-align:center;padding:26px 0 30px;opacity:.5;z-index:1';
-    z.innerHTML = Site.HIDDEN_GAMES.map(function (g) {
+    var any = false;
+    document.querySelectorAll('.game-card[data-hidden]').forEach(function (c) {
+      var f = c.getAttribute('href') || '', g = null;
+      Site.HIDDEN_GAMES.forEach(function (x) { if (f.indexOf(x.f) >= 0) g = x; });
+      var ok = Site.hiddenUnlocked(g || {});
+      c.style.display = ok ? '' : 'none';
+      if (ok) any = true;
+    });
+    if (!any) return; // 一个都没解锁: 完全不渲染, 一点提示都没有
+    var z = document.getElementById('siteHiddenZone');
+    if (!z) {
+      z = document.createElement('div');
+      z.id = 'siteHiddenZone';
+      z.style.cssText = 'position:relative;left:0;right:0;bottom:0;text-align:center;padding:26px 0 30px;opacity:.5;z-index:1';
+      document.body.appendChild(z);
+    }
+    z.innerHTML = Site.HIDDEN_GAMES.filter(function (g) { return Site.hiddenUnlocked(g); }).map(function (g) {
       return '<a href="' + g.f + '" title="·" style="text-decoration:none;font-size:20px;margin:0 14px;opacity:.8">' + g.i + '</a>';
     }).join('');
-    document.body.appendChild(z);
+  }
+
+  /* ============ 🎵 全站音乐播放器 ============
+     左下角唱片按钮。歌单 = 站点歌曲(music/目录) + 自动合并「音乐仓库」里你自己存的歌(标📦)。
+     放歌时游戏合成BGM自动让位；播放状态/进度记忆(localStorage)。 */
+  Site.SONGS = [
+    { f: 'music/youth-poem.flac', n: '青春是一首诗' },
+    { f: 'music/deskmate-forever.flac', n: '永远的同桌' },
+    { f: 'music/rainy-day-boy.flac', n: '倒霉透顶的雨日(男生版)' },
+    { f: 'music/rainy-day-girl.flac', n: '倒霉透顶的雨天(女生版)' },
+    { f: 'music/game-gunfight.flac', n: '游戏枪战的悲喜瞬间' }
+  ];
+  function muRoot() { // 通过 shared.js 自身的 src 推算站点根(兼容子目录页面)
+    try {
+      var s = document.querySelector('script[src*="shared.js"]');
+      if (s) {
+        var src = (s.getAttribute('src') || '').split('?')[0];
+        return src.slice(0, src.lastIndexOf('/') + 1); // '' 或 '../'
+      }
+    } catch (e) { }
+    return '';
+  }
+  Site._mu = { idx: 0, playing: false, started: false, audio: null, pref: sget('site_music_v1', { on: false, idx: 0, vol: 0.8, mode: 'all', time: 0 }) };
+  function muList() {
+    var list = Site.SONGS.map(function (s) { return { n: s.n, src: muRoot() + s.f, vault: false }; });
+    try {
+      (sget('music_vault', []) || []).forEach(function (sv) {
+        if (sv && sv.audio) list.push({ n: (sv.name || '仓库歌曲'), src: sv.audio, vault: true });
+      });
+    } catch (e) { }
+    return list;
+  }
+  function muAudio() {
+    if (!Site._mu.audio) {
+      Site._mu.audio = new Audio();
+      Site._mu.audio.volume = Site._mu.pref.vol;
+      Site._mu.audio.addEventListener('ended', function () {
+        if (Site._mu.pref.mode === 'one') { try { Site._mu.audio.currentTime = 0; Site._mu.audio.play(); } catch (e) { } return; }
+        Site.musicNext();
+      });
+      Site._mu.audio.addEventListener('play', function () { muSync(true); });
+      Site._mu.audio.addEventListener('pause', function () { muSync(false); muSaveState(); });
+    }
+    return Site._mu.audio;
+  }
+  Site.musicPlay = function (i) {
+    var list = muList();
+    if (!list.length) { toast('🎧 歌单是空的'); return; }
+    try { if (!sget('aox_music_played', false)) sset('aox_music_played', true); } catch (e) { } // 🏆 成就: Site DJ 旗标
+    i = ((i % list.length) + list.length) % list.length;
+    var a = muAudio(), item = list[i];
+    try { if (window.AOXSound) AOXSound.stopBGM(); } catch (e) { }
+    if (Site._mu.idx !== i || (a.getAttribute && a.getAttribute('src')) !== item.src) { a.src = item.src; Site._mu.idx = i; }
+    var p = a.play();
+    if (p && p.then) p.then(function () { muSync(true); }).catch(function () { muSync(false); });
+  };
+  Site.musicToggle = function () {
+    var a = muAudio();
+    if (Site._mu.playing) a.pause();
+    else Site.musicPlay(Site._mu.idx);
+  };
+  Site.musicNext = function () { Site.musicPlay(Site._mu.idx + 1); };
+  Site.musicPrev = function () { Site.musicPlay(Site._mu.idx - 1); };
+  function muSaveState() {
+    Site._mu.pref.on = Site._mu.playing;
+    Site._mu.pref.idx = Site._mu.idx;
+    try { Site._mu.pref.time = Site._mu.audio ? Site._mu.audio.currentTime : 0; } catch (e) { }
+    sset('site_music_v1', Site._mu.pref);
+  }
+  function muSync(playing) {
+    Site._mu.playing = playing;
+    muSaveState();
+    var btn = document.getElementById('smBtn'), st = document.getElementById('smState');
+    if (btn) { btn.textContent = playing ? '🎶' : '🎵'; btn.title = playing ? '正在播放(点开歌单)' : '站点音乐'; }
+    if (st) st.textContent = playing ? '♪ 播放中' : '已暂停';
+    var rows = document.querySelectorAll('#smPanel [data-mu]');
+    for (var i = 0; i < rows.length; i++) {
+      var ri = +rows[i].getAttribute('data-mu');
+      rows[i].style.background = (ri === Site._mu.idx && playing) ? '#2b4a2e' : '#16283f';
+      rows[i].style.borderColor = (ri === Site._mu.idx) ? '#ffd700' : '#000';
+    }
+    var pb = document.getElementById('smPlay');
+    if (pb) pb.textContent = playing ? '⏸' : '▶';
+  }
+  Site.musicPanel = function () {
+    var old = document.getElementById('smPanelBox');
+    var btn = document.getElementById('smBtn');
+    if (old) { old.remove(); if (btn) btn.style.borderColor = '#000'; return; }
+    var list = muList();
+    var rows = list.map(function (s, i) {
+      return '<div data-mu="' + i + '" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#16283f;border:2px solid #000;margin-bottom:5px;font-size:13px;color:#fff">' +
+        '<span style="width:16px;text-align:center;color:#ffd700">' + (i === Site._mu.idx ? '▶' : '') + '</span>' +
+        '<span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + s.n + (s.vault ? ' <i style="color:#4dd0e1;font-style:normal">📦仓库</i>' : '') + '</span></div>';
+    }).join('');
+    var m = document.createElement('div'); m.id = 'smPanelBox';
+    m.style.cssText = 'position:fixed;left:12px;bottom:66px;z-index:9996;width:250px;background:#0d1b2a;border:3px solid #ffd700;box-shadow:0 0 30px #000;color:#fff;font-family:inherit';
+    m.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px 6px;border-bottom:2px solid #000">' +
+      '<b style="color:#ffd700;font-size:14px">🎵 站点音乐</b>' +
+      '<span id="smState" style="font-size:11px;color:#9ab">' + (Site._mu.playing ? '♪ 播放中' : '已暂停') + '</span></div>' +
+      '<div style="padding:10px 12px">' +
+      '<div id="smNow" style="font-size:12px;color:#cfd8dc;margin-bottom:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">💿 ' + ((muList()[Site._mu.idx] || {}).n || '—') + '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:9px">' +
+      '<button id="smPrev" style="cursor:pointer;background:#22344e;color:#fff;border:2px solid #000;padding:6px 11px;font-size:14px">⏮</button>' +
+      '<button id="smPlay" style="cursor:pointer;background:#43a047;color:#fff;border:2px solid #000;padding:6px 15px;font-size:15px;font-weight:bold">' + (Site._mu.playing ? '⏸' : '▶') + '</button>' +
+      '<button id="smNext" style="cursor:pointer;background:#22344e;color:#fff;border:2px solid #000;padding:6px 11px;font-size:14px">⏭</button>' +
+      '<button id="smMode" title="循环模式" style="cursor:pointer;background:#22344e;color:#ffd700;border:2px solid #000;padding:6px 9px;font-size:11px">' + (Site._mu.pref.mode === 'one' ? '单曲' : '列表') + '</button>' +
+      '<span style="font-size:12px;color:#9ab;margin-left:2px">🔊</span>' +
+      '<input id="smVol" type="range" min="0" max="100" value="' + Math.round(Site._mu.pref.vol * 100) + '" style="flex:1;min-width:50px;height:14px"></div>' +
+      '<div style="max-height:210px;overflow-y:auto">' + rows + '</div>' +
+      '<div style="font-size:10px;color:#546e7a;margin-top:6px">📦 = 你在「音乐仓库」里存的歌，自动加入歌单</div></div>';
+    document.body.appendChild(m);
+    if (btn) btn.style.borderColor = '#ffd700';
+    muSync(Site._mu.playing);
+    m.querySelector('#smPlay').onclick = function () { Site.musicToggle(); var now = muList()[Site._mu.idx]; var el = document.getElementById('smNow'); if (el) el.textContent = '💿 ' + now.n; };
+    m.querySelector('#smPrev').onclick = function () { Site.musicPrev(); };
+    m.querySelector('#smNext').onclick = function () { Site.musicNext(); };
+    m.querySelector('#smMode').onclick = function () {
+      Site._mu.pref.mode = Site._mu.pref.mode === 'one' ? 'all' : 'one';
+      sset('site_music_v1', Site._mu.pref);
+      this.textContent = Site._mu.pref.mode === 'one' ? '单曲' : '列表';
+    };
+    m.querySelector('#smVol').oninput = function () {
+      Site._mu.pref.vol = +this.value / 100;
+      muAudio().volume = Site._mu.pref.vol;
+      sset('site_music_v1', Site._mu.pref);
+    };
+    Array.prototype.forEach.call(m.querySelectorAll('[data-mu]'), function (row) {
+      row.onclick = function () { Site.musicPlay(+row.getAttribute('data-mu')); };
+    });
+  };
+  function muAutoResume() {
+    if (!Site._mu.pref.on || Site._mu.started) return;
+    Site._mu.started = true;
+    Site.musicPlay(Site._mu.pref.idx || 0);
+    try { if (Site._mu.pref.time > 0) Site._mu.audio.currentTime = Site._mu.pref.time; } catch (e) { }
+    toast('🎵 继续播放：' + (muList()[Site._mu.idx] || {}).n);
+  }
+  function initMusicPlayer() {
+    if (document.getElementById('smBtn')) return;
+    try { // 放歌时游戏 chiptune BGM 让位
+      if (window.AOXSound && AOXSound.startBGM && !AOXSound.__muHook) {
+        var _b = AOXSound.startBGM;
+        AOXSound.startBGM = function (t) { if (Site._mu && Site._mu.playing) return; return _b.call(AOXSound, t); };
+        AOXSound.__muHook = true;
+      }
+    } catch (e) { }
+    var btn = document.createElement('div');
+    btn.id = 'smBtn';
+    btn.textContent = '🎵';
+    btn.title = '站点音乐';
+    btn.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9996;width:44px;height:44px;background:#0d1b2acc;border:2px solid #000;box-shadow:0 3px 0 #000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;user-select:none';
+    btn.onclick = function () { AOXSound.ensure ? AOXSound.ensure() : 0; Site.musicPanel(); };
+    document.body.appendChild(btn);
+    document.addEventListener('click', function once() { // 首次交互后恢复上次播放(浏览器自动播放策略)
+      document.removeEventListener('click', once);
+      if (Site._mu.pref.on) setTimeout(muAutoResume, 400);
+    });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) muSaveState(); });
   }
 
   function initSiteSystem() {
     Site.hud();
+    initMusicPlayer();
     initPetLikes();
     initHiddenZone();
     try { Site.visitLog(); } catch (e) {}
+    try { Site.checkAch(); } catch (e) { } // 🏆 每次进页重估成就(签到/隐藏时段等都能补发)
     var petLater = false; try { petLater = !!localStorage.getItem('aox_pet_later'); } catch (e) { } // 隐私模式等存储被禁时不抛错
     if (!Site.pet() && !petLater && (function () { var p = location.pathname.replace(/index\.html?$/, ''); return p === '' || p === '/'; })()) {
       setTimeout(function () { Site.petChooseModal(); }, 1200);

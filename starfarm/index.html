@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>星露小镇 · 种田RPG · AoXuan</title>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  #gc{background:#58a447;display:block;width:min(480px,100%);height:auto;border:3px solid #000;border-radius:8px;image-rendering:pixelated;touch-action:none;box-shadow:0 8px 0 rgba(0,0,0,.4);}
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="../index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="../index.html">首页</a>
+    <a href="../farm.html">农场丰收(小游戏)</a>
+    <a href="index.html">星露小镇</a>
+  </nav>
+</div>
+
+<div class="container center" style="position:relative;z-index:1;">
+  <h1 class="title-3d" style="font-size:30px;">🚜 星露小镇</h1>
+  <p class="subtitle">种田 · 打怪 · 钓鱼 · 四季物语 —— 星露谷式大型RPG</p>
+
+  <div class="hud" style="margin-top:14px;flex-wrap:wrap;">
+    <div class="hud-item"><span class="label">日期</span><span id="sfDay">1</span>天 · <span id="sfSeason">🌸 春</span></div>
+    <div class="hud-item"><span class="label">时间</span><span id="sfTime">06:00</span></div>
+    <div class="hud-item"><span class="label">天气/矿层</span><span id="sfMine">☀️晴</span></div>
+    <div class="hud-item"><span class="label">金币</span><span id="sfGold">500</span>💰</div>
+    <div class="hud-item"><span class="label">体力</span><div class="sf-bar"><div id="sfEnergyBar" style="width:100%;background:#8bc34a"></div></div></div>
+    <div class="hud-item"><span class="label">生命</span><div class="sf-bar"><div id="sfHpBar" style="width:100%;background:#e53935"></div></div></div>
+  </div>
+
+  <div class="game-stage" style="margin-top:10px;">
+    <canvas id="gc" width="480" height="448"></canvas>
+  </div>
+
+  <div id="sfHotbar" class="sf-hotbar"></div>
+
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <a href="../index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#cfd8dc;text-shadow:2px 2px 0 #000;font-size:13px;margin-top:10px;">
+    WASD/方向键移动 · <b>E/空格</b>=用工具/互动 · <b>1-0</b>换快捷栏 · <b>B</b>=背包 · 手机有虚拟按键
+  </p>
+</div>
+
+<div id="sfPanel" class="sf-panel"></div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+
+<script src="../sound.js?v=20261017a"></script>
+<script src="../mobile.js?v=20261017a"></script>
+<script src="../shared.js?v=20261018a"></script>
+<script src="data.js?v=20261029a"></script>
+<script src="game.js?v=20261029a"></script>
+</body>
+</html>
