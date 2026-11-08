@@ -57,6 +57,12 @@
    {id:'lisa',n:'丽莎',i:'📚',el:'elec',hp:98,mhp:98,atk:18,e:'苍雷(雷伤)',q:'蔷薇雷光(全体雷伤)'},
    {id:'barbara',n:'芭芭拉',i:'🎵',el:'water',hp:100,mhp:100,atk:11,e:'水环(回血20)',q:'奇迹之泉(全体回14)'}
   ];
+  var PULLABLE=[ // 抽卡五星: 出金后真实入队(看得见摸得着)
+   {id:'qiqi',n:'七七',i:'🧊',el:'ice',hp:105,mhp:105,atk:19,e:'仙法救苦(回血24)',q:'度厄金符(全体冰伤)'},
+   {id:'diluc',n:'迪卢克',i:'🔥',el:'fire',hp:108,mhp:108,atk:21,e:'逆焰之刃(火伤)',q:'黎明(全体火伤)'},
+   {id:'keqing',n:'刻晴',i:'⚡',el:'elec',hp:100,mhp:100,atk:22,e:'星斗归位(雷伤)',q:'天街巡游(全体雷伤)'},
+   {id:'mona',n:'莫娜',i:'🌊',el:'water',hp:96,mhp:96,atk:20,e:'水中幻愿(水伤)',q:'星命定轨(全体水伤)'}
+  ];
   var FLOORS=[
    [{n:'火史莱姆',i:'🔴',hp:60,atk:10,el:'fire'},{n:'水史莱姆',i:'🔵',hp:60,atk:10,el:'water'}],
    [{n:'丘丘人',i:'👹',hp:80,atk:13,el:'none'},{n:'雷史莱姆',i:'🟣',hp:55,atk:11,el:'elec'},{n:'冰史莱姆',i:'⚪',hp:55,atk:11,el:'ice'}],
@@ -101,7 +107,18 @@
    var golds=out.filter(Boolean).length;
    if(golds===0){logAdd('🎁 十连结果: <b style="color:#4fc3f7">全蓝!</b> 三星武器+蓝色角色...保底还剩'+(90-pity)+'抽');
     if(gachaCount>=30&&!free){logAdd('(内心os: 会不会玩啊这游戏)');SFX.error();}}
-   else{logAdd('🎁 十连出金! <b style="color:#ffd700">★'+golds+'个五星!</b> '+['七七','迪卢克','刻晴','莫娜'][Math.floor(Math.random()*4)]+'到碗里来!');SFX.levelUp();
+   else{logAdd('🎁 十连出金! <b style="color:#ffd700">★'+golds+'个五星!</b>');SFX.levelUp();
+    // 五星角色真实入队(最多10人, 重复五星转为命座攻击加成)
+    var added=[];
+    for(var gi=0;gi<golds&&team.length<10;gi++){
+     var cand=PULLABLE.filter(function(p){return !team.some(function(t){return t.id===p.id});});
+     if(!cand.length)break;
+     var nc=cand[Math.floor(Math.random()*cand.length)];
+     team.push(Object.assign({},nc,{alive:true,eCd:0,qReady:true}));
+     added.push(nc.n);
+    }
+    if(added.length)logAdd('💛 <b style="color:#ffd700">'+added.join('、')+'</b> 加入队伍! 点卡片或「🔄切人」上场!');
+    else{logAdd('⭐ 已全员入手, 转化命座: 全队攻击再+'+(golds*5)+'!');team.forEach(c=>{c.atk+=golds*5;});}
     team.forEach(c=>{c.atk+=golds*3;});logAdd('五星光环: 全队攻击+'+golds*3+'!');}
    updHud();
   }
@@ -138,6 +155,7 @@
     c.eCd=2;
     if(c.id==='paimon'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+28);});logAdd('🌭 派蒙(不情愿地)治疗全队28点!');SFX.levelUp();}
     else if(c.id==='barbara'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+20);});logAdd('🎵 芭芭拉治疗全队20点!');SFX.levelUp();}
+    else if(c.id==='qiqi'){team.forEach(x=>{x.hp=Math.min(x.mhp,x.hp+24);});logAdd('🧊 七七(面无表情地)治疗全队24点!');SFX.levelUp();}
     else{var t1=aliveF()[0];if(t1)applyDmg(t1,c.atk*1.6,c.el,'✨ '+c.n+c.e);}
    }else if(type==='q'){
     if(!c.qReady){logAdd('💢 爆发还在充能(普攻充能)');return;}
@@ -211,8 +229,8 @@
    });
    ctx.strokeStyle='#4fc3f744';ctx.setLineDash([6,10]);ctx.lineWidth=2;
    ctx.beginPath();ctx.moveTo(0,146);ctx.lineTo(W,146);ctx.stroke();ctx.setLineDash([]);
-   // 我方(显示全部4人,当前选中高亮)
-   var tw=110,tgap=(W-tw*4)/5;
+   // 我方(显示全部队员, 当前选中高亮; 人数自适应宽度)
+   var tn=team.length,tw=Math.min(110,Math.floor((W-30)/tn)),tgap=(W-tw*tn)/(tn+1);
    team.forEach(function(c,i){
     var x=tgap+i*(tw+tgap),y=205;
     ctx.save();ctx.globalAlpha=c.alive?1:.3;
@@ -220,10 +238,10 @@
     ctx.fillStyle='#1b4a6e';roundRect(x,y,tw,80,14);ctx.fill();ctx.shadowBlur=0;
     ctx.strokeStyle=i===sel?'#ffd700':'#000a';ctx.lineWidth=i===sel?3:2;
     roundRect(x,y,tw,80,14);ctx.stroke();
-    ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=(tw<80?18:22)+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(c.i,x+tw/2,y+30);
     if(c.el&&c.el!=='none'){ctx.font='13px serif';ctx.fillText(EL[c.el],x+tw-16,y+16);}
-    ctx.font='bold 12px monospace';ctx.fillStyle='#fff';
+    ctx.font='bold '+(tw<80?10:12)+'px monospace';ctx.fillStyle='#fff';
     ctx.fillText(c.n,x+tw/2,y+62);
     ctx.restore();
     ctx.fillStyle='#000';ctx.fillRect(x,y+86,tw,7);
@@ -254,7 +272,7 @@
    if(phase!=='cmd'||over)return;
    var r=canvas.getBoundingClientRect();
    var mx=(ev.clientX-r.left)*(W/r.width);
-   var tw=110,tgap=(W-tw*4)/5;
+   var tn=team.length,tw=Math.min(110,Math.floor((W-30)/tn)),tgap=(W-tw*tn)/(tn+1);
    for(var i=0;i<team.length;i++){
     var x=tgap+i*(tw+tgap);
     if(mx>=x&&mx<=x+tw&&team[i].alive){sel=i;SFX.select();updHud();break;}

@@ -120,8 +120,8 @@ var GUNS={
  mosin:  {name:'莫辛纳甘', cls:'sniper',dmg:999,mag:5, rel:2.6,rate:1.5,fov:26,sway:1.0,           cost:200,buy:5, icon:'🔫',col:'#c8a165',desc:'老兵栓动狙'},
  m700:   {name:'M700警狙', cls:'sniper',dmg:999,mag:5, rel:2.3,rate:1.25,fov:22,sway:0.8,          cost:260,buy:5, icon:'🎯',col:'#7ea6d9',desc:'警用高精狙'},
  svd:    {name:'SVD连狙',  cls:'sniper',dmg:999,mag:10,rel:3.0,rate:0.5, fov:20,sway:1.25,         cost:320,buy:10,icon:'⚡',col:'#d9a67e',desc:'半自动连发'},
- awm:    {name:'AWM重狙',  cls:'sniper',dmg:999,mag:5, rel:2.8,rate:1.7, fov:15,sway:0.6,pierce:1, cost:420,buy:5, icon:'❄',col:'#9fd9e8',desc:'穿一层掩体'},
- barrett:{name:'巴雷特',   cls:'sniper',dmg:999,mag:4, rel:3.4,rate:2.0, fov:16,sway:0.85,pierce:1,cost:520,buy:4, icon:'💥',col:'#8fb3d9',desc:'反器材巨炮'},
+ awm:    {name:'AWM重狙',  cls:'sniper',dmg:999,mag:5, rel:2.8,rate:1.7, fov:15,sway:0.6,pierce:1, cost:420,buy:5, icon:'❄',col:'#9fd9e8',desc:'穿一层掩体·穿甲后可隔墙'},
+ barrett:{name:'巴雷特',   cls:'sniper',dmg:999,mag:4, rel:3.4,rate:2.0, fov:16,sway:0.85,pierce:2,cost:520,buy:4, icon:'💥',col:'#8fb3d9',desc:'反器材巨炮·可隔墙射击'},
  vss:    {name:'VSS静音',  cls:'sniper',dmg:999,mag:10,rel:2.4,rate:0.55,fov:21,sway:0.9,  silent:1,cost:380,buy:10,icon:'🤫',col:'#9cd9a6',desc:'开枪不惊敌'},
  p226:   {name:'P226初始', cls:'pistol',dmg:22, mag:12,rel:1.6,rate:0.34,                       cost:50, buy:24,icon:'🔫',col:'#9aa5b5',desc:'5发一个'},
  viper:  {name:'蝰蛇双持', cls:'pistol',dmg:30, mag:16,rel:1.8,rate:0.22,                       cost:80, buy:24,icon:'🐍',col:'#a6d98f',desc:'4发·射速快'},
@@ -140,7 +140,7 @@ var SKILLS=[
  {id:'eagle',  name:'鹰眼',   cost:2, desc:'瞄准容差 +50% · 视野更放大'},
  {id:'scout',  name:'侦察',   cost:2, desc:'瞄准敌人时透视显示血条+距离'},
  {id:'tough',  name:'重生强化',cost:2, desc:'重生时生命 50→85'},
- {id:'pierce', name:'穿甲',   cost:3, desc:'子弹可穿 2 层掩体'},
+ {id:'pierce', name:'穿甲',   cost:3, desc:'穿透+1：穿2层掩体或隔1面墙'},
  {id:'mag',    name:'大弹匣', cost:3, desc:'所有弹匣容量 ×1.5'},
  {id:'rich',   name:'富甲',   cost:3, desc:'波次奖励 +60%'},
  {id:'owl',    name:'夜枭',   cost:2, desc:'夜视(夜晚不黑) · 夜袭击杀再+1点'}
@@ -207,7 +207,7 @@ var scopeImg={sniper:null,pistol:null};
  });
 })();
 
-// ===== 视线: 岩浆低矮不挡弹; 掩体挡(可穿pierce层); 空气墙不挡 =====
+// ===== 视线: 岩浆低矮不挡弹; 掩体挡(可穿pierce层); 墙厚按2层穿透计(穿甲≥2可隔墙); 空气墙不挡 =====
 function losClear(x0,y0,x1,y1,pierce){
  var dx=x1-x0,dy=y1-y0,dist=Math.sqrt(dx*dx+dy*dy);
  if(dist<0.01)return true;
@@ -215,18 +215,18 @@ function losClear(x0,y0,x1,y1,pierce){
  for(i=1;i<steps;i++){
   c=cell(x0+dx*i/steps,y0+dy*i/steps);
   if(c===CRATE){crossed++;if(pierce&&crossed<=pierce)continue;return false;}
-  if(c===WALL)return false;
+  if(c===WALL){crossed+=2;if(pierce&&crossed<=pierce)continue;return false;}
  }
  return true;
 }
-// 蹲伏判定: 掩体只挡"蹲伏目标"(站立可越掩体看到); 墙永远挡; pierce可穿掩体
+// 蹲伏判定: 掩体只挡"蹲伏目标"(站立可越掩体看到); 墙厚2层(穿甲≥2可隔墙打); pierce可穿掩体
 function shotBlocked(x0,y0,x1,y1,targetCrouch,pierce){
  var dx=x1-x0,dy=y1-y0,dist=Math.sqrt(dx*dx+dy*dy);
  if(dist<0.01)return false;
  var steps=Math.ceil(dist*3),i,c,crossed=0;
  for(i=1;i<steps;i++){
   c=cell(x0+dx*i/steps,y0+dy*i/steps);
-  if(c===WALL)return true;
+  if(c===WALL){crossed+=2;if(pierce&&crossed<=pierce)continue;return true;}
   if(c===CRATE&&targetCrouch){crossed++;if(pierce&&crossed<=pierce)continue;return true;}
  }
  return false;

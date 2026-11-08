@@ -104,6 +104,12 @@ T('蹲伏敌人躲掩体后(被挡)',g.shotBlocked(g.P.x,g.P.y,g.enemies[vis].x,
 g.enemies[vis].crouch=false;
 T('站立敌人可被越掩体击中',!g.shotBlocked(g.P.x,g.P.y,g.enemies[vis].x,g.enemies[vis].y,false,0));
 
+// 隔墙射击: 墙厚按2层穿透计(巴雷特pierce2/穿甲技能可隔墙; AWM单穿1层不行)
+T('墙后目标pierce0被挡(裸枪不可隔墙)',g.shotBlocked(16,21.5,16,26.5,false,0)===true);
+T('AWM单层穿透(pierce1)穿不过墙',g.shotBlocked(16,21.5,16,26.5,false,1)===true);
+T('巴雷特/穿甲(pierce2)可隔1面墙',g.shotBlocked(16,21.5,16,26.5,false,2)===false);
+T('巴雷特+穿甲(pierce3)可隔墙+掩体',g.shotBlocked(16,21.5,16,26.5,false,3)===false);
+
 // 夜袭: 夜晚击杀+2点
 g.timeOfDay=0.75;
 T('设置夜晚生效',g.isNight());
