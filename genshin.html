@@ -70,11 +70,11 @@
    [{n:'遗迹守卫',i:'🤖',hp:170,atk:19,el:'none'},{n:'雷萤术士',i:'🦋',hp:80,atk:15,el:'elec'}],
    [{n:'无相之风·Q',i:'💠',hp:280,atk:23,el:'wind',boss:1}]
   ];
-  var team,foes,floor,round,gems,phase,sel,log,floats,frame,over,pity,gachaCount,eleAura;
+  var team,foes,floor,round,gems,phase,sel,log,floats,frame,over,pity,gachaCount,eleAura,winFlag;
   function logAdd(t){var el=document.getElementById('log');el.innerHTML+='<div>'+t+'</div>';el.scrollTop=el.scrollHeight;}
   function init(){
    team=CHARS.slice(0,4).map(c=>Object.assign({},c,{alive:true,eCd:0,qReady:true}));
-   floor=1;round=1;gems=0;phase='cmd';sel=0;over=false;pity=0;gachaCount=0;eleAura={};
+   floor=1;round=1;gems=0;phase='cmd';sel=0;over=false;pity=0;gachaCount=0;eleAura={};winFlag=false;
    document.getElementById('log').innerHTML='';
    floats=[];frame=0;
    spawnFoes();
@@ -199,7 +199,7 @@
    SFX.unlock();updHud();phase='cmd';
   }
   function endGame(win){
-   over=true;phase='over';
+   over=true;phase='over';winFlag=win;
    if(win){Site.winGame(gems+'原石');localStorage.setItem('genshin_clear',Date.now());logAdd('🏆 <b style="color:#ffd700">满星通关爱丽丝深境! 原石'+gems+'</b>');SFX.win();}
    else{Site.loseGame();logAdd('💀 旅行团灭... 派蒙:下次一定!');SFX.lose();}
    updHud();
@@ -208,6 +208,7 @@
   function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
   function draw(){
    frame++;
+   if(!foes){requestAnimationFrame(draw);return;} // init(简报开始)前不绘制, rAF保活等开局
    ctx.clearRect(0,0,W,H);
    ctx.fillStyle='#0e2440';ctx.fillRect(0,0,W,H);
    for(var s=0;s<40;s++){var sx=(s*137+frame*.15*(1+s%3))%W,sy=(s*97)%150;ctx.fillStyle='rgba(180,220,255,'+(.1+(s%3)*.1)+')';ctx.fillRect(sx,sy,1.5,1.5);}
@@ -262,7 +263,7 @@
     ctx.fillStyle='rgba(8,18,36,.78)';ctx.fillRect(0,0,W,H);
     ctx.save();ctx.shadowColor='#4fc3f7';ctx.shadowBlur=22;
     ctx.fillStyle='#fff';ctx.font='bold 26px monospace';ctx.textAlign='center';
-    ctx.fillText(gems>=60?'🏆 满星通关!':'💥 远征失败',W/2,H/2-8);ctx.restore();
+    ctx.fillText(winFlag?'🏆 满星通关!':'💥 远征失败',W/2,H/2-8);ctx.restore();
     ctx.fillStyle='#b3e5fc';ctx.font='14px monospace';
     ctx.fillText('原石'+gems+' · 十连'+gachaCount+'抽 · 点「重新远征」',W/2,H/2+22);
    }
