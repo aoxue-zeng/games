@@ -232,6 +232,19 @@ function shotBlocked(x0,y0,x1,y1,targetCrouch,pierce){
  return false;
 }
 
+// 曳光弹止于第一面打不穿的墙(视觉与判定一致; 墙厚按2层穿透计)
+function rayStopDist(x0,y0,ang,pierce){
+ var dx=Math.cos(ang),dy=Math.sin(ang),budget=pierce||0,s=0.4,inWall=false;
+ for(;s<30;s+=0.3){
+  var c=cell(x0+dx*s,y0+dy*s);
+  if(c===WALL){
+   if(!inWall){budget-=2;inWall=true;} // 进入一段新墙才扣穿透(按tile状态, 不受浮点漂移影响)
+   if(budget<0)return s;
+  }else inWall=false;
+ }
+ return 30;
+}
+
 // ===== 波次 =====
 function spawnGround(n){
  var tries=0;
@@ -408,7 +421,8 @@ function shoot(){
   pt=(1.0-1.6)/d;
   if(Math.abs(ang)<tolA&&Math.abs(P.pitch-pt)<tolP&&d<hitD&&!shotBlocked(P.x,P.y,e.x,e.y,e.crouch&&e.st!=='aim',pierce)){hitI=i;hitD=d;}
  }
- var tx=P.x+Math.cos(P.a)*30,ty=P.y+Math.sin(P.a)*30;
+ var tx=P.x+Math.cos(P.a+swayAng)*(hitI>=0?hitD:rayStopDist(P.x,P.y,P.a+swayAng,pierce)),
+     ty=P.y+Math.sin(P.a+swayAng)*(hitI>=0?hitD:rayStopDist(P.x,P.y,P.a+swayAng,pierce));
  if(hitI>=0){
   var en=enemies[hitI];
   en.hp-=g.dmg;tx=en.x;ty=en.y;
@@ -452,8 +466,13 @@ function updEnemies(dt){
    var mdx=e.tx-e.x,mdy=e.ty-e.y,md=Math.hypot(mdx,mdy);
    if(md>0.15){var spd=e.rush?1.0:0.85;e.x+=mdx/md*spd*dt;e.y+=mdy/md*spd*dt;e.crouch=false;}
    if(e.t<=0){
-    // 冲锋敌人: 沿大桥南下接近玩家
-    if(e.rush&&e.y<14){e.tx=15.5+Math.random();e.ty=19.5;}
+    // 视线被墙挡住就不浪费瞄准(墙后不探头开火, 杜绝红线穿墙)
+    if(shotBlocked(e.x,e.y,P.x,P.y,P.crouch,0)){e.t=0.5+Math.random()*0.8;return;}
+    // 冲锋敌人: 先到北桥头, 再沿大桥南下接近玩家(不横穿岩浆)
+    if(e.rush&&e.y<14){
+     if(e.x>14.2&&e.x<17.3){e.tx=15.5+(Math.random()-0.5)*0.8;e.ty=19.5;}
+     else{e.tx=15.5+(Math.random()-0.5)*0.8;e.ty=13.4;}
+    }
     else if(e.rush&&Math.hypot(e.x-P.x,e.y-P.y)>4){e.tx=P.x+(Math.random()-0.5)*3;e.ty=Math.max(19.2,P.y-1.5+(Math.random()-0.5));}
     e.st='aim';e.aim=0;e.lockX=P.x;e.lockY=P.y;
    }
@@ -461,9 +480,9 @@ function updEnemies(dt){
    e.aim+=dt;e.peek=Math.min(1,e.peek+dt*3);
    if(e.aim>=e.aimNeed){
     e.st='fire';e.t=0.12;
-    tracers.push({x0:e.x,y0:e.y,x1:e.lockX,y1:e.lockY,t:0.12,c:'#ff3b3b'});
-    sfx('shoot');
     if(enemyFire(e)){
+     tracers.push({x0:e.x,y0:e.y,x1:e.lockX,y1:e.lockY,t:0.12,c:'#ff3b3b'});
+     sfx('shoot');
      P.hp-=e.dmg;hurtT=0.5;sfx('hurt');
      if(P.hp<=0&&state==='play'){P.hp=0;dieAndRespawn();return;}
     }else feed('💨 对方开枪落空！');

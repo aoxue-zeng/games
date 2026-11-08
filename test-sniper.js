@@ -8,7 +8,7 @@ function mkEl(id){
   appendChild(c){return c;},addEventListener(){},onclick:null,
   getContext(){return mkAny();},querySelectorAll(){return[]},querySelector(){return mkEl('q');},getBoundingClientRect(){return{left:0,top:0,width:960,height:540};}};
 }
-var EXPORTS='window.__T={restart:restart,startWave:startWave,nextWave:nextWave,shoot:shoot,reload:reload,swapGun:swapGun,dropGun:dropGun,tryPickup:tryPickup,buyAmmo:buyAmmo,buySkill:buySkill,bedAction:bedAction,respawn:respawn,dieAndRespawn:dieAndRespawn,shotBlocked:shotBlocked,pressKey:function(k,v){keys[k]=v;},aimAtEnemy:function(i){var e=enemies[i];P.a=Math.atan2(e.y-P.y,e.x-P.x);P.pitch=(1.0-1.6)/Math.hypot(e.x-P.x,e.y-P.y);},get state(){return state},get wave(){return wave},get money(){return money},get kills(){return kills},get skPts(){return skPts},get skills(){return skills},get deaths(){return deaths},get P(){return P},get slots(){return slots},get cur(){return cur},set cur(v){cur=v},get ammo(){return ammo},get enemies(){return enemies},get allies(){return allies},get groundGuns(){return groundGuns},get GUNS(){return GUNS},get timeOfDay(){return timeOfDay},set timeOfDay(v){timeOfDay=v},isNight:isNight,nearBed:nearBed};';
+var EXPORTS='window.__T={restart:restart,startWave:startWave,nextWave:nextWave,shoot:shoot,reload:reload,swapGun:swapGun,dropGun:dropGun,tryPickup:tryPickup,buyAmmo:buyAmmo,buySkill:buySkill,bedAction:bedAction,respawn:respawn,dieAndRespawn:dieAndRespawn,shotBlocked:shotBlocked,rayStopDist:rayStopDist,pressKey:function(k,v){keys[k]=v;},aimAtEnemy:function(i){var e=enemies[i];P.a=Math.atan2(e.y-P.y,e.x-P.x);P.pitch=(1.0-1.6)/Math.hypot(e.x-P.x,e.y-P.y);},get state(){return state},get wave(){return wave},get money(){return money},get kills(){return kills},get skPts(){return skPts},get skills(){return skills},get deaths(){return deaths},get P(){return P},get slots(){return slots},get cur(){return cur},set cur(v){cur=v},get ammo(){return ammo},get enemies(){return enemies},get allies(){return allies},get groundGuns(){return groundGuns},get GUNS(){return GUNS},get timeOfDay(){return timeOfDay},set timeOfDay(v){timeOfDay=v},isNight:isNight,nearBed:nearBed};';
 function loadGame(file){
  var html=fs.readFileSync(file,'utf8');
  var code=html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -109,6 +109,11 @@ T('墙后目标pierce0被挡(裸枪不可隔墙)',g.shotBlocked(16,21.5,16,26.5,
 T('AWM单层穿透(pierce1)穿不过墙',g.shotBlocked(16,21.5,16,26.5,false,1)===true);
 T('巴雷特/穿甲(pierce2)可隔1面墙',g.shotBlocked(16,21.5,16,26.5,false,2)===false);
 T('巴雷特+穿甲(pierce3)可隔墙+掩体',g.shotBlocked(16,21.5,16,26.5,false,3)===false);
+// 曳光弹视觉与判定一致: 止于第一面打不穿的墙(北侧墙在y5, 从y21.5向北约16格)
+var d0=g.rayStopDist(16,21.5,-Math.PI/2,0),d1=g.rayStopDist(16,21.5,-Math.PI/2,1),d2=g.rayStopDist(16,21.5,-Math.PI/2,2);
+T('曳光pierce0止于北墙(10~25格)',d0>10&&d0<25,'d0='+d0);
+T('曳光pierce1同样止于墙(墙厚2层)',d1>10&&d1<25,'d1='+d1);
+T('曳光pierce2穿墙飞满30格',d2===30,'d2='+d2);
 
 // 夜袭: 夜晚击杀+2点
 g.timeOfDay=0.75;
