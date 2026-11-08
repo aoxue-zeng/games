@@ -255,6 +255,19 @@ b { color: #fff; }
   .inspect-zone { max-width: none; min-width: 0; }
   .cust-scene { min-height: 260px; }
   #avatar { width: min(40vh, 220px); }
+  /* 避开 shared.js 固定层: siteHud胶囊(z-9997 右下~290px宽) + 音乐圆钮(z-9996 左下44px)
+     柜台垫高 ~72px + 手机安全区, 让出售/拒绝脱离底部HUD覆盖区 */
+  .counter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  .counter-left { min-width: 0; }
+  .counter-mid { justify-content: center; }
+  /* 出售/拒绝整行平分, 加大触控目标 */
+  .counter-right { display: flex; gap: 10px; }
+  .counter-right .btn { flex: 1; padding: 13px 0; font-size: 16px; text-align: center; }
 }
 
 /* ---------- 检查结果样式 ---------- */
