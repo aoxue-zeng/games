@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>归类大师 · AoXuan</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .sort-stage { position:relative; background:var(--mc-panel-dark); border:4px solid var(--mc-black); box-shadow: inset 4px 4px 0 0 #2a3f5f, inset -4px -4px 0 0 #000, 8px 8px 0 0 rgba(0,0,0,0.4); padding:20px; max-width:560px; margin:16px auto; overflow:hidden; }
+  .item-box { text-align:center; min-height:112px; }
+  .big-item { font-size:64px; line-height:1.15; filter:drop-shadow(3px 3px 0 rgba(0,0,0,0.5)); }
+  .big-item.pop { animation:pop 0.25s; }
+  @keyframes pop { 0%{transform:scale(0.3);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+  .item-name { font-family:'VT323',monospace; font-size:24px; color:#fff; text-shadow:1px 1px 0 #000; margin-top:4px; }
+  .bin-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .bin { position:relative; background:#1c2f4a; border:3px solid #000; box-shadow: inset 2px 2px 0 0 #2a3f5f, inset -2px -2px 0 0 #000; padding:10px 8px; display:flex; align-items:center; gap:8px; cursor:pointer; transition:transform 0.08s; user-select:none; }
+  .bin:hover { transform:translate(-2px,-2px); border-color:var(--mc-gold); }
+  .bin:active { transform:translate(1px,1px); }
+  .bin-icon { font-size:26px; line-height:1; }
+  .bin-name { font-family:'VT323',monospace; font-size:21px; color:#fff; text-shadow:1px 1px 0 #000; flex:1; text-align:left; }
+  .bin-key { font-family:'Press Start 2P',monospace; font-size:8px; color:#90a4ae; border:1px solid #455a64; padding:3px 5px; }
+  .bin.good { background:#1b5e20; border-color:#4caf50; animation:shake 0.3s; }
+  .bin.bad { background:#b71c1c; border-color:#e53935; animation:shake 0.3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .float-layer { position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:none; z-index:4; }
+  .float-txt { position:absolute; top:28%; font-family:'Press Start 2P',monospace; font-size:14px; text-shadow:2px 2px 0 #000; animation:floatup 0.9s forwards; }
+  @keyframes floatup { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-46px);opacity:0} }
+  .over-panel { position:absolute; left:0; top:0; right:0; bottom:0; background:rgba(10,20,35,0.94); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:5; }
+  .over-title { font-family:'Press Start 2P',monospace; font-size:16px; color:var(--mc-gold); text-shadow:2px 2px 0 #000; }
+  .over-stats { font-family:'VT323',monospace; font-size:22px; color:#fff; text-shadow:1px 1px 0 #000; text-align:center; line-height:1.5; }
+  .over-stats b { color:var(--mc-gold); }
+  .timer-bar { width:100%; max-width:420px; height:14px; background:#1a1a2e; border:2px solid #000; margin:10px auto; }
+  .timer-fill { height:100%; background:linear-gradient(90deg,#4caf50,#ffd700,#e53935); transition:width 0.1s linear; }
+  .hearts-txt { color:#e53935; letter-spacing:2px; }
+</style>
+</head>
+<body>
+<div class="floating-blocks"></div>
+<div class="topbar">
+  <a href="index.html" class="logo">⛏ AoXuan.World</a>
+  <nav>
+    <a href="index.html">首页</a>
+    <a href="balance.html">天平</a>
+    <a href="thermometer.html">温度计</a>
+    <a href="24points.html">24点</a>
+    <a href="memory.html">记忆翻牌</a>
+    <a href="sorting.html">归类大师</a>
+  </nav>
+</div>
+<div class="container center">
+  <h1 class="title-3d" style="font-size:34px;">🧺 归类大师</h1>
+  <p class="subtitle">物品闪电归类！点对分类攒连击，3条命撑到最高分</p>
+  <div class="hud" style="margin-top:18px;">
+    <div class="hud-item"><span class="label">分数</span><span id="score">0</span></div>
+    <div class="hud-item"><span class="label">连击</span><span id="combo">—</span></div>
+    <div class="hud-item"><span class="label">等级</span><span id="level">1</span></div>
+    <div class="hud-item"><span class="label">生命</span><span id="hearts" class="hearts-txt">❤❤❤</span></div>
+    <div class="hud-item"><span class="label">最佳</span><span id="best">—</span></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+  <div class="sort-stage">
+    <div class="item-box"><div class="big-item" id="bigItem">🧺</div><div class="item-name" id="itemName">点开始游戏</div></div>
+    <div class="bin-grid" id="bins"></div>
+    <div class="float-layer" id="floatLayer"></div>
+    <div class="over-panel" id="overPanel" style="display:none;">
+      <div class="over-title">🏁 游戏结束</div>
+      <div class="over-stats" id="overStats"></div>
+      <button class="mc-btn green" id="againBtn">▶ 再来一局</button>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <button class="mc-btn green" id="startBtn">▶ 开始游戏</button>
+    <a href="index.html" class="mc-btn">← 返回大厅</a>
+  </div>
+  <p style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin-top:10px;">点击分类或按键盘 1-4 · 连击越高分越多 · 答错/超时扣❤ · 每10题升级加速</p>
+</div>
+<div class="ground" style="position:fixed;bottom:0;left:0;right:0;z-index:0;"></div>
+<script src="sound.js"></script>
+<script src="mobile.js"></script>
+<script src="shared.js"></script>
+<script>
+(function(){
+  // ===== 类目库: 8大类 × 10物品 =====
+  var CATS=[
+    {id:'animal',n:'动物',e:'🐾',items:[['🐱','小猫'],['🐶','小狗'],['🐘','大象'],['🐯','老虎'],['🐰','兔子'],['🐼','熊猫'],['🦁','狮子'],['🐵','猴子'],['🐮','奶牛'],['🐔','小鸡']]},
+    {id:'fruit',n:'水果',e:'🍎',items:[['🍎','苹果'],['🍌','香蕉'],['🍇','葡萄'],['🍉','西瓜'],['🍓','草莓'],['🍑','桃子'],['🍍','菠萝'],['🍊','橙子'],['🍋','柠檬'],['🍒','樱桃']]},
+    {id:'vehicle',n:'交通',e:'🚗',items:[['🚗','汽车'],['🚌','公交车'],['🚂','火车'],['✈️','飞机'],['🚲','自行车'],['🏍️','摩托车'],['🚢','轮船'],['🚀','火箭'],['🚕','出租车'],['🚁','直升机']]},
+    {id:'sky',n:'天空',e:'🌈',items:[['☀️','太阳'],['🌧️','下雨'],['❄️','下雪'],['⚡','雷电'],['🌈','彩虹'],['🌫️','大雾'],['🌪️','龙卷风'],['☁️','乌云'],['🌙','月亮'],['⭐','星星']]},
+    {id:'food',n:'食物',e:'🍔',items:[['🍞','面包'],['🍚','米饭'],['🍜','面条'],['🥟','饺子'],['🍔','汉堡'],['🍕','披萨'],['🎂','蛋糕'],['🥚','鸡蛋'],['🍲','火锅'],['🍣','寿司']]},
+    {id:'sport',n:'运动',e:'⚽',items:[['⚽','足球'],['🏀','篮球'],['🎾','网球'],['🏐','排球'],['🏓','乒乓球'],['⚾','棒球'],['🎳','保龄球'],['⛳','高尔夫'],['🏆','奖杯'],['🥇','金牌']]},
+    {id:'plant',n:'植物',e:'🌳',items:[['🌸','樱花'],['🌳','大树'],['🌵','仙人掌'],['🍀','四叶草'],['🍄','蘑菇'],['🍁','枫叶'],['🌹','玫瑰'],['🌻','向日葵'],['🎍','竹子'],['🌰','松果']]},
+    {id:'music',n:'乐器',e:'🎸',items:[['🎸','吉他'],['🎹','钢琴'],['🎻','小提琴'],['🥁','鼓'],['🎺','小号'],['🎷','萨克斯'],['🪗','手风琴'],['🎤','麦克风'],['🎵','音符'],['🪘','手鼓']]}
+  ];
+  var REVEAL_MS=800; // 答错后亮答案的停顿
+  var state, cur, bins, bag, binEls=[];
+  function el(id){return document.getElementById(id);}
+  function getBest(){return parseInt(localStorage.getItem('sorting_best')||'0',10);}
+  function setBest(v){localStorage.setItem('sorting_best',v);}
+  function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+  function init(){
+    state={mode:'idle',score:0,combo:0,maxCombo:0,level:1,hearts:3,correct:0,wrong:0,time:0,timeMax:5};
+    cur=null; bag=[];
+    el('score').textContent=0; el('combo').textContent='—'; el('level').textContent=1;
+    el('hearts').textContent='❤❤❤'; el('best').textContent=getBest()||'—';
+    el('timerFill').style.width='100%';
+    el('bigItem').textContent='🧺'; el('itemName').textContent='点开始游戏';
+    el('overPanel').style.display='none';
+    el('bins').innerHTML=''; binEls=[];
+  }
+  function levelTime(){ return Math.max(2.2, 5-(state.level-1)*0.25); }
+  function newBag(){
+    // 从本局4个类目收集全部物品洗牌
+    bag=[];
+    bins.forEach(function(b){
+      b.cat.items.forEach(function(it){ bag.push({cat:b.cat,e:it[0],n:it[1]}); });
+    });
+    bag=shuffle(bag);
+    // 避免重洗后第一张和上一张一样
+    if(cur && bag.length>1 && bag[bag.length-1].e===cur.e){
+      var swap=Math.floor(Math.random()*(bag.length-1));
+      var t=bag[swap]; bag[swap]=bag[bag.length-1]; bag[bag.length-1]=t;
+    }
+  }
+  function buildBins(){
+    var chosen=shuffle(CATS).slice(0,4);
+    bins=chosen.map(function(c){return {cat:c};});
+    var box=el('bins'); box.innerHTML=''; binEls=[];
+    bins.forEach(function(b,i){
+      var d=document.createElement('div');
+      d.className='bin';
+      d.innerHTML='<span class="bin-icon">'+b.cat.e+'</span><span class="bin-name">'+b.cat.n+'</span><span class="bin-key">'+(i+1)+'</span>';
+      function tap(ev){ if(ev&&ev.preventDefault)ev.preventDefault(); pickBin(i); }
+      d.addEventListener('click',tap);
+      d.addEventListener('touchstart',tap,{passive:false});
+      box.appendChild(d);
+      binEls.push(d);
+    });
+  }
+  function nextItem(){
+    if(!bag.length) newBag();
+    cur=bag.pop();
+    state.time=levelTime(); state.timeMax=state.time;
+    var big=el('bigItem');
+    big.textContent=cur.e; el('itemName').textContent=cur.n;
+    // 重新触发入场动画
+    big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop');
+    binEls.forEach(function(b){ b.classList.remove('good'); b.classList.remove('bad'); });
+  }
+  function updateHud(){
+    el('score').textContent=state.score;
+    el('combo').textContent=state.combo>0?('x'+state.combo+(state.combo>=5?' 🔥':'')):'—';
+    el('level').textContent=state.level;
+  }
+  function floatText(txt,color){
+    var f=document.createElement('div');
+    f.className='float-txt'; f.textContent=txt; f.style.color=color;
+    f.style.left=(28+Math.random()*44)+'%';
+    el('floatLayer').appendChild(f);
+    setTimeout(function(){ if(f&&f.remove)f.remove(); },900);
+  }
+  function pickBin(i){
+    if(!state||state.mode!=='playing'||!cur||!bins||!bins[i]) return;
+    AOXSound.ensure();
+    if(bins[i].cat===cur.cat){
+      // 答对
+      var gain=10+Math.ceil(state.time)+Math.min(state.combo,15);
+      state.score+=gain; state.combo++; state.correct++;
+      if(state.combo>state.maxCombo) state.maxCombo=state.combo;
+      var newLv=1+Math.floor(state.correct/10);
+      if(newLv>state.level){
+        state.level=newLv; SFX.levelUp(); toast('⬆ 等级 '+state.level+'！分类节奏加快');
+      }else{
+        SFX.combo(state.combo);
+      }
+      floatText('+'+gain,'#ffd700');
+      binEls[i].classList.add('good');
+      updateHud();
+      if(!getBest()||state.score>getBest()){ setBest(state.score); el('best').textContent=state.score; }
+      nextItem();
+    }else{
+      // 答错
+      SFX.error();
+      state.hearts--; state.combo=0; state.wrong++;
+      el('hearts').textContent='❤'.repeat(Math.max(0,state.hearts))+'🖤'.repeat(3-Math.max(0,state.hearts));
+      floatText('❌ 错','#ff8a80');
+      updateHud();
+      reveal(i);
+    }
+  }
+  function timeUp(){
+    SFX.hurt();
+    state.hearts--; state.combo=0; state.wrong++;
+    el('hearts').textContent='❤'.repeat(Math.max(0,state.hearts))+'🖤'.repeat(3-Math.max(0,state.hearts));
+    toast('⏰ 超时！这是「'+cur.n+'」');
+    reveal(-1);
+  }
+  function reveal(picked){
+    // 亮出正确分类，短暂停顿后继续
+    state.mode='reveal';
+    binEls.forEach(function(b,i){
+      if(bins[i].cat===cur.cat) b.classList.add('good');
+      else if(i===picked) b.classList.add('bad');
+    });
+    el('itemName').textContent=cur.n+' → '+cur.cat.n;
+    setTimeout(function(){
+      if(!state||state.mode!=='reveal') return;
+      if(state.hearts<=0){ gameOver(); return; }
+      state.mode='playing'; nextItem();
+    },REVEAL_MS);
+  }
+  function gameOver(){
+    state.mode='over'; cur=null;
+    AOXSound.stopBGM(); SFX.lose();
+    var isRecord=state.score>0&&state.score>=getBest();
+    var acc=Math.round(state.correct/(state.correct+state.wrong)*100);
+    el('overStats').innerHTML='最终得分 <b>'+state.score+'</b>'+(isRecord?' 🏆新纪录':'')+'<br>最大连击 x'+state.maxCombo+' · 正确率 '+acc+'% · 等级 '+state.level;
+    el('overPanel').style.display='flex';
+    el('startBtn').textContent='▶ 再来一局';
+    if(isRecord) toast('🏆 新纪录 '+state.score+' 分！');
+  }
+  function start(){
+    AOXSound.ensure(); AOXSound.startBGM('game');
+    init();
+    state.mode='playing';
+    buildBins(); newBag();
+    el('startBtn').textContent='⏸ 重新开始';
+    SFX.select();
+    nextItem();
+    updateHud();
+  }
+  function tick(dt){
+    if(!state||state.mode!=='playing') return;
+    state.time-=dt;
+    el('timerFill').style.width=Math.max(0,state.time/state.timeMax*100)+'%';
+    if(state.time<=0) timeUp();
+  }
+  function loop(ts){
+    var n=(typeof ts==='number')?ts:Date.now();
+    var dt=Math.min(0.1,Math.max(0,(n-(loop.last||n))/1000));
+    loop.last=n;
+    tick(dt);
+    requestAnimationFrame(loop);
+  }
+  // 键盘 1-4 选分类
+  document.addEventListener('keydown',function(e){
+    if(!state||state.mode!=='playing') return;
+    if(e.key>='1'&&e.key<='4') pickBin(+e.key-1);
+  });
+  el('startBtn').addEventListener('click',start);
+  el('againBtn').addEventListener('click',start);
+  init(); requestAnimationFrame(loop);
+  // 测试钩子
+  window.__T={CATS:CATS,init:init,start:start,pickBin:pickBin,
+    get state(){return state;},get cur(){return cur;},get bins(){return bins;},
+    set timeLeft(v){if(state)state.time=v;},set revealMs(v){REVEAL_MS=v;}};
+})();
+</script>
+</body>
+</html>

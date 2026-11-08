@@ -71,7 +71,7 @@
     </div>
 
     <div class="hero-content">
-      <div class="hero-badge">⛏️ 188 个游戏 · 11 大分类</div>
+      <div class="hero-badge">⛏️ 189 个游戏 · 11 大分类</div>
       <h1 class="title-3d">AoXuan</h1>
       <p class="hero-tagline">欢迎来到我的像素世界 ⛏🌲💎</p>
       <p class="hero-desc">玩家 · 创造者 · 游戏爱好者</p>
@@ -92,7 +92,7 @@
     <p style="font-size:20px; line-height:1.6;">
       嗨！我是 <strong style="color:var(--mc-grass-dark);">AoXuan</strong>。这是一个用像素方块搭建的个人网站，
       灵感来自 <strong style="color:var(--mc-diamond);">Minecraft</strong>。
-      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">182 个小游戏</strong> ——
+      在这里你可以玩到我亲手做的 <strong style="color:var(--mc-gold);">189 个小游戏</strong> ——
       涵盖马里奥、我的世界、动作射击、益智逻辑、经典街机、博弈竞猜、策略对战、体育运动、赛车竞速等 11 大分类，
       电脑手机平板都能玩。拿上你的键盘，开始挖掘吧！⛏️
     </p>
@@ -169,11 +169,11 @@
     <div class="filter-bar">
       <input type="text" id="gameSearch" class="search-box" placeholder="🔍 搜索游戏名..." autocomplete="off">
       <div class="cat-bar" id="catBar">
-        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">188</span></button>
+        <button class="cat-btn active" data-cat="全部">全部 <span class="cat-cnt" id="cnt-全部">189</span></button>
         <button class="cat-btn" data-cat="马里奥">🍄 马里奥 <span class="cat-cnt" id="cnt-马里奥">17</span></button>
         <button class="cat-btn" data-cat="我的世界">⛏ 我的世界 <span class="cat-cnt" id="cnt-我的世界">20</span></button>
         <button class="cat-btn" data-cat="动作射击">🎮 动作射击 <span class="cat-cnt" id="cnt-动作射击">58</span></button>
-        <button class="cat-btn" data-cat="益智逻辑">🧠 益智逻辑 <span class="cat-cnt" id="cnt-益智逻辑">24</span></button>
+        <button class="cat-btn" data-cat="益智逻辑">🧠 益智逻辑 <span class="cat-cnt" id="cnt-益智逻辑">25</span></button>
         <button class="cat-btn" data-cat="经典街机">🕹️ 经典街机 <span class="cat-cnt" id="cnt-经典街机">24</span></button>
         <button class="cat-btn" data-cat="博弈竞猜">🎲 博弈竞猜 <span class="cat-cnt" id="cnt-博弈竞猜">8</span></button>
         <button class="cat-btn" data-cat="策略对战">♟️ 策略对战 <span class="cat-cnt" id="cnt-策略对战">11</span></button>
@@ -183,7 +183,7 @@
         <button class="cat-btn" data-cat="赛车竞速">🏁 赛车竞速 <span class="cat-cnt" id="cnt-赛车竞速">3</span></button>
       </div>
     </div>
-    <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 188 个游戏</p>
+    <p class="center" id="filterInfo" style="color:#fff;text-shadow:2px 2px 0 #000;font-size:14px;margin:8px 0 0;">显示全部 189 个游戏</p>
 
     <div class="game-grid" id="gameGrid">
       <a href="practice.html" class="game-card" data-cat="文字">
@@ -730,6 +730,11 @@
         <div class="thumb" style="background:linear-gradient(135deg,#4caf50,#1b5e20);">🃏</div>
         <div class="info"><h3>算24点</h3><p>四张牌加减乘除算出24！点牌选运算符，保证有解，跳过/计时挑战。</p></div>
       </a>
+      <a href="sorting.html" class="game-card" data-cat="益智逻辑">
+        <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
+        <div class="thumb" style="background:linear-gradient(135deg,#7e57c2,#512da8);">🧺</div>
+        <div class="info"><h3>归类大师</h3><p>物品闪电归类！动物/水果/交通/天空等8大类，点对分类攒连击，3条命限时挑战。</p></div>
+      </a>
       <a href="gomoku.html" class="game-card" data-cat="策略对战">
         <span class="play-tag" style="background:var(--mc-diamond);">NEW</span>
         <div class="thumb" style="background:linear-gradient(135deg,#d4a373,#8b5a2b);">⚫</div>
@@ -983,7 +988,7 @@
 
 <script src="sound.js?v=20260906"></script>
 <script src="mobile.js?v=20260906"></script>
-<script src="shared.js?v=20261018a"></script>
+<script src="shared.js?v=20261108a"></script>
 <script>
   // ===== 分类筛选 + 搜索 + 主题背景切换 =====
   var currentCat = '全部';
@@ -1148,7 +1153,8 @@
     'ludo.html':         {icon:'✈️',bg:'linear-gradient(135deg,#f5e9d0,#ffb74d)',cat:'博弈竞猜',desc:'飞行棋，掷6起飞撞机回家'},
     'snakes.html':       {icon:'🐍',bg:'linear-gradient(135deg,#43a047,#2e7d32)',cat:'博弈竞猜',desc:'蛇梯棋，爬梯滑蛇精确到100'},
     'troll.html':        {icon:'😤',bg:'linear-gradient(135deg,#1c1c2e,#444)',cat:'经典街机',desc:'永远差一点，整蛊通关心态大师'},
-    'starfarm/index.html':{icon:'🚜',bg:'linear-gradient(135deg,#5fb53f,#8d5524,#4dd0e1)',cat:'我的世界',desc:'星露谷式种田RPG·四季/矿洞打怪/钓鱼/商店'}
+    'starfarm/index.html':{icon:'🚜',bg:'linear-gradient(135deg,#5fb53f,#8d5524,#4dd0e1)',cat:'我的世界',desc:'星露谷式种田RPG·四季/矿洞打怪/钓鱼/商店'},
+    'sorting.html':      {icon:'🧺',bg:'linear-gradient(135deg,#7e57c2,#512da8)',cat:'益智逻辑',desc:'归类大师·8大类目闪电分类连击挑战'}
   };
   // 默认 meta（不在映射里的）
   function metaFor(file){
@@ -1208,6 +1214,7 @@
   });
   // 更新列表
   var UPDATES=[
+    {date:'11-07',text:'🧺新增归类大师：动物/水果/交通等8大类闪电分类，连击越高分越多，3条命限时挑战',isNew:true},
     {date:'10-29',text:'🚜星露小镇地图大扩建：农场44×32+栅栏小院+双池塘钓点，矿洞32×22怪更多，修复继续游戏不读档',isNew:true},
     {date:'10-18',text:'🏆全站成就系统上线：33枚徽章+每日签到，破纪录/升级/探索/通关都能解锁赢经验',isNew:false},
     {date:'10-17',text:'🎵全站音乐播放器上线：5首新歌+自动合并音乐仓库歌曲，左下角🎵按钮',isNew:false},
