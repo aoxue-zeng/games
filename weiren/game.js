@@ -392,7 +392,7 @@ function resetGame() {
 }
 
 function buildQueue(day) {
-  const count = Math.min(4 + Math.floor(day / 2), 8);
+  const count = Math.max(3, Math.min(10, Math.min(4 + Math.floor(day / 2), 8) + buffSum("more") - buffSum("fewer")));
   const q = [];
   for (let i = 0; i < count; i++) q.push(genCustomer(day));
   // ---- 剧情特殊客人 ----
@@ -464,7 +464,12 @@ function startDay() {
   G.qIndex = 0;
   const weather = choice(WEATHERS);
   const fakeN = G.queue.filter(c => c.isFake).length;
-  const intel = G.buffs.intel ? `<div class="news">📋 线人密报：今日排队的人里，混着 <b>${fakeN}</b> 个伪人。</div>` : "";
+  const bribe = buffSum("bribe");
+  if (bribe) G.money += bribe;
+  const repUp = buffSum("repUp");
+  if (repUp) G.rep = clamp(G.rep + repUp, 0, 100);
+  const intel = buffOn("intel") ? `<div class="news">📋 情报到手：今日排队的人里，混着 <b>${fakeN}</b> 个伪人。</div>` : "";
+  const peek = buffOn("peek") ? `<div class="news">👁 门镜里的预兆：排头那位——<b>${G.queue[0].isFake ? "不是人" : "是人"}</b>。</div>` : "";
   const buffLine = Object.keys(G.buffs).filter(k => G.buffs[k]).length
     ? `<div class="stage-stats">今日生效：${activeBuffText()}</div>` : "";
   stageScreen(`
@@ -472,32 +477,180 @@ function startDay() {
     <div class="stage-title">第 ${G.day} 天</div>
     <div class="stage-desc">${dayFlavor(G.day)}</div>
     ${intel}
+    ${peek}
     ${buffLine}
+    ${bribe ? `<div class="news">🏺 开张进账：昨晚收的杂货出手了，+$${bribe}。</div>` : ""}
+    ${repUp ? `<div class="news">🕊 开张纳福：今日信誉 +${repUp}。</div>` : ""}
     ${NEWS[G.day] ? `<div class="news">${NEWS[G.day]}</div>` : ""}
     <div class="stage-buttons"><button class="btn btn-big btn-green" id="btn-day-go">开店营业</button></div>
   `, () => { AudioSys.bell(); nextCustomer(); });
 }
 
-/* ========================= 夜市每日特供 ========================= */
+/* ========================= 夜市每日特供 =========================
+   商品总库 111 = 一次性杂货 108 + 永久装备 3 (PERM_GOODS)
+   每晚以天数做种子随机上架 20 件一次性杂货(次日生效), 永久装备常驻 */
 const CONSUMABLES = [
-  { key: "coffee", n: "☕ 浓咖啡", p: 15, d: "明日每位客人可多问 1 个问题", i: "☕" },
-  { key: "candle", n: "🕯 驱邪蜡烛", p: 18, d: "明日第一次卖给伪人，不扣信誉", i: "🕯" },
-  { key: "lucky", n: "🍀 幸运符", p: 12, d: "明日所有货款 +50%", i: "🍀" },
-  { key: "stone", n: "🧿 镇店石", p: 20, d: "明日所有信誉损失减半", i: "🧿" },
-  { key: "intel", n: "📋 线人情报", p: 25, d: "开店时得知今日伪人数量", i: "📋" },
-  { key: "eye", n: "🔎 鹰眼药水", p: 22, d: "明日外貌检查干净时，提示破绽藏在哪类检查", i: "🔎" }
+  // ---- 追问 ask: 明日每位客人可多问 N 个问题 ----
+  { key: "coffee", n: "☕ 浓咖啡", p: 15, d: "明日每位客人可多问 1 个问题", i: "☕", eff: ["ask", 1] },
+  { key: "tobacco", n: "🚬 老烟枪的烟丝", p: 13, d: "明日每位客人可多问 1 个问题。客人抽一口,就多聊一句", i: "🚬", eff: ["ask", 1] },
+  { key: "liquor", n: "🍶 烧刀子", p: 16, d: "明日每位客人可多问 1 个问题。一口下肚,话匣子关不上", i: "🍶", eff: ["ask", 1] },
+  { key: "gossip", n: "💬 巷口闲话", p: 12, d: "明日每位客人可多问 1 个问题。先聊八卦,再谈买卖", i: "💬", eff: ["ask", 1] },
+  { key: "teaPot", n: "🍵 高末一壶", p: 11, d: "明日每位客人可多问 1 个问题。茶水管够,话就管够", i: "🍵", eff: ["ask", 1] },
+  { key: "riddle", n: "🃏 纸牌戏法", p: 17, d: "明日每位客人可多问 1 个问题。一局牌,套出半辈子", i: "🃏", eff: ["ask", 1] },
+  { key: "candy", n: "🍬 麦芽糖", p: 12, d: "明日每位客人可多问 1 个问题。小客人吃了糖,什么都肯说", i: "🍬", eff: ["ask", 1] },
+  { key: "storyBook", n: "📖 睡前故事集", p: 27, d: "明日每位客人可多问 2 个问题。故事讲得好,人就放松", i: "📖", eff: ["ask", 2] },
+  { key: "photoCam", n: "📷 旧拍立得", p: 29, d: "明日每位客人可多问 2 个问题。拍照的功夫,足够多聊两句", i: "📷", eff: ["ask", 2] },
+  { key: "gramophone", n: "📻 手摇留声机", p: 30, d: "明日每位客人可多问 2 个问题。音乐一响,戒心就散了", i: "📻", eff: ["ask", 2] },
+  { key: "miGang", n: "🀄 麻将一副", p: 28, d: "明日每位客人可多问 2 个问题。三圈下来,家里几口都摸清", i: "🀄", eff: ["ask", 2] },
+  { key: "puppy", n: "🐕 摇尾小奶狗", p: 31, d: "明日每位客人可多问 2 个问题。没人能一边摸狗一边撒谎", i: "🐕", eff: ["ask", 2] },
+  // ---- 货款 income: 明日所有货款 +N% ----
+  { key: "lucky", n: "🍀 幸运符", p: 12, d: "明日所有货款 +50%", i: "🍀", eff: ["income", 50] },
+  { key: "catBless", n: "🐈‍⬛ 黑猫洗脸", p: 18, d: "明日所有货款 +20%。黑猫在你门口洗脸,是招财的兆头", i: "🐈‍⬛", eff: ["income", 20] },
+  { key: "coinRope", n: "🪙 铜钱红绳", p: 22, d: "明日所有货款 +30%。拴在柜台腿上,钱进不出", i: "🪙", eff: ["income", 30] },
+  { key: "goldTooth", n: "🦷 金牙一颗", p: 20, d: "明日所有货款 +30%。笑的时候露出来,财气跟着来", i: "🦷", eff: ["income", 30] },
+  { key: "silkCord", n: "🧵 五色线", p: 19, d: "明日所有货款 +20%。缠在钱箱提手上", i: "🧵", eff: ["income", 20] },
+  { key: "richPaint", n: "🖼 年画:财神", p: 26, d: "明日所有货款 +50%。贴一年,富三年——先富明天", i: "🖼", eff: ["income", 50] },
+  { key: "redPaper", n: "🧧 开张红纸", p: 25, d: "明日所有货款 +40%。贴在门框上,账面看涨", i: "🧧", eff: ["income", 40] },
+  { key: "windChime", n: "🎐 铜铃一串", p: 27, d: "明日所有货款 +40%。风响一声,钱近一声", i: "🎐", eff: ["income", 40] },
+  { key: "fengShui", n: "🧭 罗盘", p: 33, d: "明日所有货款 +60%。针一偏,财位就在你柜台", i: "🧭", eff: ["income", 60] },
+  { key: "godown", n: "🏮 招财灯笼", p: 32, d: "明日所有货款 +60%。挂一晚,明日账面好看", i: "🏮", eff: ["income", 60] },
+  { key: "luckyCat", n: "🐱 招手电动猫", p: 38, d: "明日所有货款 +80%。手臂永远停在「欢迎光临」", i: "🐱", eff: ["income", 80] },
+  { key: "goldPig", n: "🐷 瓷储蓄罐", p: 36, d: "明日所有货款 +70%。投进去的是分,吐出来的是元", i: "🐷", eff: ["income", 70] },
+  { key: "juBao", n: "🔴 聚宝盆残片", p: 42, d: "明日所有货款 +90%。盆是假的,运气是真的", i: "🔴", eff: ["income", 90] },
+  { key: "abacus", n: "🧮 老掌柜算盘", p: 45, d: "明日所有货款 +100%。拨一颗珠,进三笔钱", i: "🧮", eff: ["income", 100] },
+  // ---- 免誉盾 shield: 明日前 N 次卖给伪人, 不扣信誉(一次性) ----
+  { key: "candle", n: "🕯 驱邪蜡烛", p: 18, d: "明日第一次卖给伪人，不扣信誉", i: "🕯", eff: ["shield", 1] },
+  { key: "saltPack", n: "🧂 粗盐包", p: 21, d: "明日前 1 次卖给伪人不扣信誉。撒在门槛上,坏名声也进不来", i: "🧂", eff: ["shield", 1] },
+  { key: "redString", n: "🧶 红绳缠腕", p: 24, d: "明日前 1 次卖给伪人不扣信誉。错事记不到你头上", i: "🧶", eff: ["shield", 1] },
+  { key: "twinEgg", n: "🥚 双黄蛋", p: 23, d: "明日前 1 次卖给伪人不扣信誉。吉兆,替你圆一次场", i: "🥚", eff: ["shield", 1] },
+  { key: "silenceBell", n: "🔔 哑铃铛", p: 26, d: "明日前 1 次卖给伪人不扣信誉。铃不响,事就传不开", i: "🔔", eff: ["shield", 1] },
+  { key: "jadeChip", n: "🪢 平安扣", p: 28, d: "明日前 1 次卖给伪人不扣信誉。裂了,就是替你挡了", i: "🪢", eff: ["shield", 1] },
+  { key: "paperMan", n: "📄 纸剪小人", p: 33, d: "明日前 2 次卖给伪人不扣信誉。烧给谁,谁替你受过", i: "📄", eff: ["shield", 2] },
+  { key: "dollEff", n: "🎎 替身木偶", p: 36, d: "明日前 2 次卖给伪人不扣信誉。它替你挨两次骂", i: "🎎", eff: ["shield", 2] },
+  // ---- 信誉减损 repCut: 明日所有信誉损失 -N%(上限90%) ----
+  { key: "stone", n: "🧿 镇店石", p: 20, d: "明日所有信誉损失减半", i: "🧿", eff: ["repCut", 50] },
+  { key: "saltLine", n: "〰 门槛盐线", p: 14, d: "明日所有信誉损失 -30%。一道盐线,闲话进不来", i: "〰", eff: ["repCut", 30] },
+  { key: "cinnabar", n: "🟥 朱砂一点", p: 17, d: "明日所有信誉损失 -30%。点在门楣,邪祟绕行,闲话也是", i: "🟥", eff: ["repCut", 30] },
+  { key: "incenseAsh", n: "🪔 香灰一圈", p: 21, d: "明日所有信誉损失 -40%。灶王像前刮的,辟谣", i: "🪔", eff: ["repCut", 40] },
+  { key: "oldFace", n: "👴 老主顾情面", p: 24, d: "明日所有信誉损失 -50%。镇上人给你三分情面", i: "👴", eff: ["repCut", 50] },
+  { key: "templeSign", n: "🛕 庙里求的签", p: 27, d: "明日所有信誉损失 -50%。上上签压在玻璃板下", i: "🛕", eff: ["repCut", 50] },
+  { key: "landlordWord", n: "🗝 房东打包票", p: 29, d: "明日所有信誉损失 -50%。「这家人,我担保」", i: "🗝", eff: ["repCut", 50] },
+  { key: "witnessMan", n: "🧑‍🌾 老农作证", p: 30, d: "明日所有信誉损失 -60%。「这店我买了三十年,我信」", i: "🧑‍🌾", eff: ["repCut", 60] },
+  { key: "pressCut", n: "📰 报社熟人", p: 35, d: "明日所有信誉损失 -60%。明天报纸上没有你的坏话", i: "📰", eff: ["repCut", 60] },
+  { key: "sealBox", n: "🪣 公章木盒", p: 40, d: "明日所有信誉损失 -70%。盖过章的话,份量重三分", i: "🪣", eff: ["repCut", 70] },
+  // ---- 情报 intel: 开店时得知今日伪人数量 ----
+  { key: "intel", n: "📋 线人情报", p: 25, d: "开店时得知今日伪人数量", i: "📋", eff: ["intel", 1] },
+  { key: "crowLetter", n: "🐦‍⬛ 乌鸦传信", p: 22, d: "开店时得知今日伪人数量。乌鸦落在谁头上,它记着呢", i: "🐦‍⬛", eff: ["intel", 1] },
+  { key: "teaLeaves", n: "🫖 茶叶渣占卜", p: 24, d: "开店时得知今日伪人数量。渣的形状从不说谎", i: "🫖", eff: ["intel", 1] },
+  { key: "beggarInfo", n: "🥣 乞儿密语", p: 23, d: "开店时得知今日伪人数量。讨饭孩子数过排队的人头", i: "🥣", eff: ["intel", 1] },
+  { key: "nightPaper", n: "📰 夜班号外", p: 26, d: "开店时得知今日伪人数量。排版工半夜塞给你的", i: "🗞", eff: ["intel", 1] },
+  // ---- 鹰眼 eye: 外貌检查干净时, 提示破绽藏在哪类检查 ----
+  { key: "eye", n: "🔎 鹰眼药水", p: 22, d: "明日外貌检查干净时，提示破绽藏在哪类检查", i: "🔎", eff: ["eye", 1] },
+  { key: "dogNose", n: "👃 猎犬鼻烟壶", p: 20, d: "明日外貌检查干净时，提示破绽藏在哪类检查。鼻子比眼睛诚实", i: "👃", eff: ["eye", 1] },
+  { key: "owlEye", n: "🦉 猫头鹰之瞳", p: 26, d: "明日外貌检查干净时，提示破绽藏在哪类检查。夜里的眼睛更毒", i: "🦉", eff: ["eye", 1] },
+  { key: "glassBead", n: "🔮 琉璃珠", p: 24, d: "明日外貌检查干净时，提示破绽藏在哪类检查。对着光看人,皮下的藏不住", i: "🔮", eff: ["eye", 1] },
+  { key: "deadGlasses", n: "👓 亡妻的老花镜", p: 28, d: "明日外貌检查干净时，提示破绽藏在哪类检查。「她总说,她看得见不一样的人」", i: "👓", eff: ["eye", 1] },
+  // ---- 租金 rentCut: 明日经营成本 -$N ----
+  { key: "landlordBeer", n: "🍺 房东的酒", p: 10, d: "明日经营成本 -$10。陪房东喝一杯,房租好说", i: "🍺", eff: ["rentCut", 10] },
+  { key: "diceWin", n: "🎲 一局牌赢的", p: 14, d: "明日经营成本 -$15。昨晚替房东输了钱,今晚他还你", i: "🎲", eff: ["rentCut", 15] },
+  { key: "fakeReceipt", n: "🧾 模糊收据", p: 18, d: "明日经营成本 -$20。数字被水泡过,怎么算都对", i: "🧾", eff: ["rentCut", 20] },
+  { key: "rentNote", n: "📝 房东字条", p: 24, d: "明日经营成本 -$30。「本月免一半。别问。」", i: "📝", eff: ["rentCut", 30] },
+  { key: "templeRent", n: "🛖 庙祝的招呼", p: 29, d: "明日经营成本 -$45。庙产的铺面,这月不收钱", i: "🛖", eff: ["rentCut", 45] },
+  { key: "rentFree", n: "📜 泛黄地契", p: 34, d: "明日经营成本 -$60。地契边角写着你的名字……吧?", i: "📜", eff: ["rentCut", 60] },
+  // ---- 客流 more: 明日多 N 位客人(收入机会与风险同增) ----
+  { key: "horn", n: "📣 铜皮喇叭", p: 8, d: "明日多 1 位客人。吆喝一嗓子,多引来一个", i: "📣", eff: ["more", 1] },
+  { key: "banner", n: "🎏 老字号幌子", p: 12, d: "明日多 1 位客人。布幌子一挑,老招牌就有人认", i: "🎏", eff: ["more", 1] },
+  { key: "wetPaint", n: "🖌 油漆未干", p: 9, d: "明日少 1 位客人。木牌立在门口,真的管用", i: "🖌", eff: ["fewer", 1] },
+  { key: "saltDoor", n: "🧹 门槛撒盐", p: 6, d: "明日少 1 位客人。求个清净", i: "🧹", eff: ["fewer", 1] },
+  { key: "blackCloth", n: "⬛ 门挂黑布", p: 9, d: "明日少 1 位客人。像办丧事,闲人绕道", i: "⬛", eff: ["fewer", 1] },
+  { key: "closeSign", n: "🌫 闭门符", p: 12, d: "明日少 2 位客人。「今日谢客半天,清净」", i: "🌫", eff: ["fewer", 2] },
+  { key: "howlDog", n: "🐺 邻村狗吠", p: 14, d: "明日少 2 位客人。一叫一整夜,人就不来了", i: "🐺", eff: ["fewer", 2] },
+  { key: "firecrack", n: "🧨 残炮一支", p: 16, d: "明日多 2 位客人。响声传两条街", i: "🧨", eff: ["more", 2] },
+  { key: "samplePlate", n: "🍩 试吃瓷盘", p: 18, d: "明日多 2 位客人。摆出来,路人就想进来看看", i: "🍩", eff: ["more", 2] },
+  { key: "trotLamp", n: "🎡 走马灯", p: 22, d: "明日多 2 位客人。灯一转,半条街都来看", i: "🎡", eff: ["more", 2] },
+  { key: "puppetShow", n: "🪆 提线小戏", p: 26, d: "明日多 3 位客人。开演前,门口先排队", i: "🪆", eff: ["more", 3] },
+  // ---- 装备折扣 discount: 今晚永久装备立减 $N(不超过六成) ----
+  { key: "toolbox", n: "🧰 旧工具箱", p: 10, d: "今晚永久装备立减 $30。给老铁匠修家伙,收你人情价", i: "🧰", eff: ["discount", 30] },
+  { key: "grease", n: "🛢 润滑油脂", p: 12, d: "今晚永久装备立减 $40。「手顺,价就顺」", i: "🛢", eff: ["discount", 40] },
+  { key: "barter", n: "🔄 以物易物", p: 16, d: "今晚永久装备立减 $50。你不要的,正好是别人要的", i: "🔄", eff: ["discount", 50] },
+  { key: "forgeGift", n: "⚒ 炉火炭包", p: 20, d: "今晚永久装备立减 $60。铁匠家的炭,永远是好炭", i: "⚒", eff: ["discount", 60] },
+  { key: "vipCard", n: "🎟 黑市老票", p: 26, d: "今晚永久装备立减 $90。磨得发亮的旧票,老板认", i: "🎟", eff: ["discount", 90] },
+  { key: "marketFace", n: "🎭 黑市面子", p: 30, d: "今晚永久装备立减 $100。老板算你半个自己人", i: "🎭", eff: ["discount", 100] },
+  // ---- 开张进账 bribe: 明日开店时 +$N ----
+  { key: "jarCoins", n: "🏺 罐底私房钱", p: 10, d: "明日开店时 +$15。埋在罐底,压箱底的体己", i: "🏺", eff: ["bribe", 15] },
+  { key: "eggBasket", n: "🍳 篮底鸡蛋", p: 12, d: "明日开店时 +$20。后院母鸡争气", i: "🍳", eff: ["bribe", 20] },
+  { key: "fishCatch", n: "🐟 夜网收鱼", p: 14, d: "明日开店时 +$25。后半夜下的网,清晨就卖", i: "🐟", eff: ["bribe", 25] },
+  { key: "oldCoin", n: "🥇 民国银毫", p: 18, d: "明日开店时 +$30。银毫子,收老货的都认", i: "🥇", eff: ["bribe", 30] },
+  { key: "foundWallet", n: "👛 捡到的钱夹", p: 24, d: "明日开店时 +$45。失主?雾里找去吧", i: "👛", eff: ["bribe", 45] },
+  { key: "pawnTicket", n: "🎫 死当金条", p: 26, d: "明日开店时 +$50。死当不赎,明早进账", i: "🎫", eff: ["bribe", 50] },
+  // ---- 无良货 fakePay: 明日卖给伪人的货款 +N% ----
+  { key: "blindEye", n: "🪙 蒙眼铜钱", p: 10, d: "明日卖给伪人的货款 +50%。有些钱,睁只眼闭只眼才赚得多", i: "🪙", eff: ["fakePay", 50] },
+  { key: "coldLamp", n: "💡 绿罩灯", p: 14, d: "明日卖给伪人的货款 +60%。灯是绿的,账是热的", i: "💡", eff: ["fakePay", 60] },
+  { key: "darkDeal", n: "🕳 地下秤", p: 16, d: "明日卖给伪人的货款 +80%。称什么都是八两,多出的二两是它们的", i: "🕳", eff: ["fakePay", 80] },
+  { key: "hollowBook", n: "📕 掏空的书", p: 18, d: "明日卖给伪人的货款 +90%。夹层里全是它们爱听的话", i: "📕", eff: ["fakePay", 90] },
+  { key: "foxMask", n: "🦊 狐狸面具", p: 20, d: "明日卖给伪人的货款 +100%。戴上它,你和它们算同行", i: "🦊", eff: ["fakePay", 100] },
+  // ---- 纳福 repUp: 明日开局信誉 +N ----
+  { key: "peaceIncense", n: "🕊 和平安香", p: 8, d: "明日开局信誉 +10。给灶王上柱香,也给镇上一个好脸色", i: "🕊", eff: ["repUp", 10] },
+  { key: "flagFix", n: "🚩 修旗杆", p: 18, d: "明日开局信誉 +20。把歪了半年的旗杆扶正", i: "🚩", eff: ["repUp", 20] },
+  { key: "donateBoard", n: "🪧 义捐木匾", p: 20, d: "明日开局信誉 +25。「乐善好施」四个字挂在门口", i: "🪧", eff: ["repUp", 25] },
+  { key: "freeBread", n: "🍞 施粥一锅", p: 22, d: "明日开局信誉 +25。明早门口一锅粥,全镇说你好", i: "🍞", eff: ["repUp", 25] },
+  { key: "stoveCandy", n: "🍯 灶王糖", p: 16, d: "明日开局信誉 +20。甜住灶王的嘴,也甜住镇上的嘴", i: "🍯", eff: ["repUp", 20] },
+  { key: "returnHead", n: "🐂 还愿猪首", p: 24, d: "明日开局信誉 +30。还了愿,人人夸你讲信义", i: "🐂", eff: ["repUp", 30] },
+  // ---- 套话 chat: 明日伪人盘问时更容易说漏嘴 ----
+  { key: "hookWord", n: "🎣 钓话的饵", p: 18, d: "明日伪人盘问时更容易说漏嘴。抛个话头,它们自己咬钩", i: "🎣", eff: ["chat", 25] },
+  { key: "threadIncense", n: "🪡 引线香", p: 26, d: "明日伪人盘问时更容易说漏嘴。点一支,话顺着烟走", i: "🪡", eff: ["chat", 50] },
+  { key: "wineLantern", n: "🍷 醉仙壶", p: 30, d: "明日伪人盘问时更容易说漏嘴。不是人,也贪杯", i: "🍷", eff: ["chat", 60] },
+  { key: "lullaby", n: "🎵 催眠八音盒", p: 34, d: "明日伪人盘问时更容易说漏嘴。听着听着,就忘了该编什么", i: "🎵", eff: ["chat", 75] },
+  // ---- 预兆 peek: 开店前得知排头客人是否伪人 ----
+  { key: "doorLens", n: "👁 猫眼门镜", p: 21, d: "开店前得知排头客人是否伪人。门镜不骗人,骗人的在门外", i: "👁", eff: ["peek", 1] },
+  { key: "morningBird", n: "🐦 报晓鸟", p: 24, d: "开店前得知排头客人是否伪人。它对「不是人」的东西会炸毛", i: "🐦", eff: ["peek", 1] },
+  { key: "dreamRead", n: "🌙 梦境解读", p: 27, d: "开店前得知排头客人是否伪人。昨晚的梦,就是明天的预告", i: "🌙", eff: ["peek", 1] },
+  // ---- 场面 pardon: 明日前 N 次冤枉真人, 不扣信誉(一次性) ----
+  { key: "sorryCandy", n: "🍡 赔礼点心", p: 17, d: "明日前 1 次冤枉真人不扣信誉。「误会误会,这点心是赔罪」", i: "🍡", eff: ["pardon", 1] },
+  { key: "sceneWords", n: "🗒 场面话手册", p: 19, d: "明日前 1 次冤枉真人不扣信誉。说错一句,有人替你圆场", i: "🗒", eff: ["pardon", 1] },
+  { key: "guestCup", n: "🥃 待客酒杯", p: 20, d: "明日前 1 次冤枉真人不扣信誉。先递一杯,气就消一半", i: "🥃", eff: ["pardon", 1] },
+  { key: "smileTeach", n: "😊 笑脸面具", p: 21, d: "明日前 1 次冤枉真人不扣信誉。挂在柜台后,火气就小", i: "😊", eff: ["pardon", 1] },
+  { key: "oldLetter", n: "✉ 旧道歉信", p: 23, d: "明日前 1 次冤枉真人不扣信誉。照着念,比真诚还管用", i: "✉", eff: ["pardon", 1] },
+  { key: "neighborMed", n: "🩹 邻里和好膏", p: 25, d: "明日前 1 次冤枉真人不扣信誉。膏药治外伤,也治口角", i: "🩹", eff: ["pardon", 1] },
+  { key: "kidFlower", n: "💐 孩子的野花", p: 28, d: "明日前 2 次冤枉真人不扣信誉。一束花,两个台阶下", i: "💐", eff: ["pardon", 2] }
 ];
-function dailySpecials(nextDay) { // 以天数做种子 → 每晚固定刷新 2 件
+const PERM_GOODS = [ // 永久装备 3 件(买断制), 与一次性杂货合计 111 件
+  { key: "mirror", n: "🪞 穿衣柜镜", d: "伪人往往在镜中没有倒影。（永久）", p: 80 },
+  { key: "uv", n: "🔦 紫外灯", d: "照出皮肤下的黑色纹路。（永久）", p: 150 },
+  { key: "lie", n: "📈 掌上测谎仪", d: "对任何伪人必定报警——没有心跳。（永久）", p: 260 }
+];
+const BUFF_MAP = {};
+CONSUMABLES.forEach(g => { BUFF_MAP[g.key] = g; });
+function buffSum(kind) { // 汇总今晚所购杂货的某类效果值
+  let v = 0;
+  for (const k in G.buffs) {
+    const g = BUFF_MAP[k];
+    if (G.buffs[k] && g && g.eff && g.eff[0] === kind) v += g.eff[1];
+  }
+  return v;
+}
+function buffOn(kind) { return buffSum(kind) > 0; }
+function consumeBuff(kind) { // 用掉一件 shield/pardon 类, 返回该商品
+  for (const k in G.buffs) {
+    const g = BUFF_MAP[k];
+    if (G.buffs[k] && g && g.eff && g.eff[0] === kind) { G.buffs[k] = 0; return g; }
+  }
+  return null;
+}
+function chatP() { // 盘问说漏嘴概率(基础50%, 套话类加成, 封顶95%)
+  return Math.min(0.95, 0.5 + buffSum("chat") / 100);
+}
+function dailySpecials(nextDay) { // 以天数做种子 → 每晚固定上架 20 件
   let s = (nextDay * 9301 + 49297) % 233280;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   const pool = CONSUMABLES.slice();
   const out = [];
-  out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-  out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+  for (let i = 0; i < 20 && pool.length; i++) out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
   return out;
 }
 function activeBuffText() {
-  return CONSUMABLES.filter(c => G.buffs[c.key]).map(c => c.i + c.n.slice(2)).join("　");
+  return Object.keys(G.buffs).filter(k => G.buffs[k] && BUFF_MAP[k])
+    .map(k => BUFF_MAP[k].i + BUFF_MAP[k].n.slice(2)).join("　");
 }
 
 function dayFlavor(day) {
@@ -572,7 +725,7 @@ function answerFor(c, key) {
   const t = c.tells;
   if (key === "name") {
     if (c.isFake && t.interview) {
-      return Math.random() < 0.5
+      return Math.random() < chatP()
         ? "我叫" + randomName() + "。（和证件完全不同）"
         : "名字？……名字不重要。叫我什么都行，人类。";
     }
@@ -594,7 +747,7 @@ function answerFor(c, key) {
     return "当然是，不然呢？（皱眉）";
   }
   if (key === "purpose") {
-    if (c.isFake && t.interview && Math.random() < 0.5) {
+    if (c.isFake && t.interview && Math.random() < chatP()) {
       return choice([
         "蜡烛的光……能看清「食物」的脸。",
         "镜子？镜子里的东西和我无关。",
@@ -672,7 +825,7 @@ function doInspect() {
   let html = "";
   if (t.appearance.length === 0) {
     html = "<div>瞳孔：圆而湿润。</div><div>皮肤：健康的血色。</div><div>嘴部：正常。</div><div>额头：正常。</div><div>眨眼：频率正常。</div><div class='dim'>※ " + G.cur.quirk + "</div>";
-    if (G.buffs.eye) html += "<div class='ok'>🔎 鹰眼药水：外貌完全干净——破绽藏在<b>证件、盘问或工具</b>里。</div>";
+    if (buffOn("eye")) html += "<div class='ok'>🔎 鹰眼之物在发热：外貌完全干净——破绽藏在<b>证件、盘问或工具</b>里。</div>";
   } else {
     const seen = shuffle(t.appearance);
     html += "<div>仔细看——</div>";
@@ -778,18 +931,21 @@ function decide(sell) {
   }
 
   // 常规判定（夜市特供增益在此生效）
-  const priceMult = G.buffs.lucky ? 1.5 : 1;
-  const repLoss = (n) => G.buffs.stone ? Math.ceil(n / 2) : n;
+  const priceMult = 1 + buffSum("income") / 100;
+  const fakeMult = priceMult * (1 + buffSum("fakePay") / 100);
+  const repCut = Math.min(90, buffSum("repCut"));
+  const repLoss = (n) => Math.max(1, Math.round(n * (1 - repCut / 100)));
   if (sell && isFake) {
-    const gain = Math.round(c.wants.p * priceMult);
+    const gain = Math.round(c.wants.p * fakeMult);
     G.money += gain; G.stats.income += gain; G.dayStats.income += gain;
-    let loss = repLoss(25), candleNote = "";
-    if (G.buffs.candle) { loss = 0; G.buffs.candle = 0; candleNote = "<br><span class='ok'>🕯 驱邪蜡烛挡下了这一刀！信誉无损（一次性）。</span>"; }
+    const shieldG = consumeBuff("shield");
+    let loss = repLoss(25), shieldNote = "";
+    if (shieldG) { loss = 0; shieldNote = "<br><span class='ok'>" + shieldG.i + " " + shieldG.n.slice(2) + "挡下了这一刀！信誉无损（一次性）。</span>"; }
     G.rep = clamp(G.rep - loss, 0, 100);
     G.stats.soldFake++; G.dayStats.mistakes++;
     AudioSys.buzz();
     return finishDecision("你把东西卖给了一个伪人", "err",
-      "它接过货品的手指，比人类多 bend 了一个关节。<br>信誉 -" + loss + "，收入 +$" + gain + (priceMult > 1 ? "（🍀幸运符 +50%）" : "") + "。<br><span class='warn'>它离开时回头看了你一眼——像在记住你。</span>" + candleNote,
+      "它接过货品的手指，比人类多 bend 了一个关节。<br>信誉 -" + loss + "，收入 +$" + gain + (fakeMult > 1 ? "（今日加成 +" + Math.round((fakeMult - 1) * 100) + "%）" : "") + "。<br><span class='warn'>它离开时回头看了你一眼——像在记住你。</span>" + shieldNote,
       choice(["「谢谢。我们会再来。」", "「你分不出来呢。」", "（它笑的时候，嘴角咧到了耳根）"]));
   }
   if (sell && !isFake) {
@@ -797,7 +953,7 @@ function decide(sell) {
     G.money += gain; G.stats.income += gain; G.dayStats.income += gain; G.dayStats.sold++;
     G.rep = clamp(G.rep + 2, 0, 100); G.stats.correct++;
     AudioSys.chime(); setTimeout(() => AudioSys.coin(), 250);
-    return finishDecision("交易完成", "ok", "客人满意地离开了。<br>收入 +$" + gain + (priceMult > 1 ? "（🍀幸运符 +50%）" : "") + "，信誉 +2。", choice(["「谢了，老板。」", "「下次还来。」", "「天黑了，早点关门吧。」"]));
+    return finishDecision("交易完成", "ok", "客人满意地离开了。<br>收入 +$" + gain + (priceMult > 1 ? "（今日货款 +" + Math.round((priceMult - 1) * 100) + "%）" : "") + "，信誉 +2。", choice(["「谢了，老板。」", "「下次还来。」", "「天黑了，早点关门吧。」"]));
   }
   if (!sell && isFake) {
     G.rep = clamp(G.rep + 2, 0, 100); G.stats.correct++;
@@ -805,10 +961,14 @@ function decide(sell) {
     return finishDecision("识破成功", "ok", "「它」的笑脸凝固了一瞬，随后一言不发地退出店门，融进雾里。<br>你守住了柜台。信誉 +2。", choice(["「……可惜。」", "（门外传来指甲刮擦木门的声音）", "「下次，我会更像一点。」"]));
   }
   if (!sell && !isFake) {
-    const loss = repLoss(10);
+    const pardonG = consumeBuff("pardon");
+    const loss = pardonG ? 0 : repLoss(10);
     G.rep = clamp(G.rep - loss, 0, 100); G.stats.rejectedReal++; G.dayStats.mistakes++;
     AudioSys.buzz();
-    return finishDecision("你冤枉了一个真人", "err", "「我？我是伪人？！你疯了！」<br>他摔门而去，说明天全镇都会知道这件事。<br>信誉 -" + loss + (G.buffs.stone ? "（🧿镇店石减半）" : "") + "。", "「伪人的是你！」");
+    const pardonNote = pardonG
+      ? "<br><span class='ok'>" + pardonG.i + " " + pardonG.n.slice(2) + "替你圆了场！信誉无损（一次性）。</span>"
+      : (repCut > 0 && loss < 10 ? "（信誉减损生效）" : "");
+    return finishDecision("你冤枉了一个真人", "err", "「我？我是伪人？！你疯了！」<br>他摔门而去，说明天全镇都会知道这件事。<br>信誉 -" + loss + pardonNote + "。", "「伪人的是你！」");
   }
 }
 
@@ -838,7 +998,7 @@ function afterDecision() {
 
 /* ========================= 日结 & 夜市 ========================= */
 function endDay() {
-  const rent = 20 + G.day * 5;
+  const rent = Math.max(0, (20 + G.day * 5) - buffSum("rentCut"));
   G.money -= rent;
   persist();
   if (G.day === 1) unlockAch("first_day");
@@ -872,17 +1032,13 @@ function endDay() {
 }
 
 function nightShop() {
-  const tools = [
-    { key: "mirror", n: "🪞 穿衣柜镜", d: "伪人往往在镜中没有倒影。（永久）", p: 80 },
-    { key: "uv", n: "🔦 紫外灯", d: "照出皮肤下的黑色纹路。（永久）", p: 150 },
-    { key: "lie", n: "📈 掌上测谎仪", d: "对任何伪人必定报警——没有心跳。（永久）", p: 260 }
-  ];
-  const specials = dailySpecials(G.day + 1); // 明日生效, 每晚刷新
+  const specials = dailySpecials(G.day + 1); // 明日生效, 每晚换 20 件
+  const disc = buffSum("discount");
   let html = `
     <div class="stage-date">深夜 · 镇西黑市</div>
     <div class="stage-title">夜 市</div>
-    <div class="stage-desc dim">黑市老板压低声音：「今晚到了两件稀罕货——只卖一晚，明晚就换新批了。」</div>
-    <div class="panel-head" style="padding:6px 2px">🌙 每日特供 · 第 ${G.day + 1} 天上架（明晚自动换新）</div>
+    <div class="stage-desc dim">黑市老板压低声音：「货架上共有 ${CONSUMABLES.length + PERM_GOODS.length} 件——今晚挑 ${specials.length} 件上桌，明晚再换一批。永久家什在下面，看好再买。」</div>
+    <div class="panel-head" style="padding:6px 2px">🌙 每日特供 · 第 ${G.day + 1} 天上架（今晚 ${specials.length}/${CONSUMABLES.length} 件，明晚自动换新）</div>
     <div class="shop-goods">`;
   specials.forEach(g => {
     const owned = G.buffs[g.key];
@@ -894,15 +1050,17 @@ function nightShop() {
       </div>`;
   });
   html += `</div>
-    <div class="panel-head" style="padding:6px 2px">🔧 常规装备 · 买断制</div>
+    <div class="panel-head" style="padding:6px 2px">🔧 永久装备 · 买断制${disc ? `（🧰 折扣中：立减 $${Math.min(disc, 100)}）` : ""}</div>
     <div class="shop-goods">`;
-  tools.forEach(g => {
+  PERM_GOODS.forEach(g => {
     const owned = G.tools[g.key];
+    const cut = Math.min(Math.round(g.p * 0.6), disc);
+    const price = g.p - cut;
     html += `
       <div class="goods-item ${owned ? "owned" : ""}">
         <div class="goods-info"><b>${g.n}</b><span>${g.d}</span></div>
         ${owned ? "<div class='goods-price'>已购入</div>"
-        : `<button class="btn goods-buy" data-type="tool" data-key="${g.key}" data-p="${g.p}" ${G.money < g.p ? "disabled" : ""}>购买 $${g.p}</button>`}
+        : `<button class="btn goods-buy" data-type="tool" data-key="${g.key}" data-p="${price}" ${G.money < price ? "disabled" : ""}>购买 $${price}${cut ? `（↓$${cut}）` : ""}</button>`}
       </div>`;
   });
   html += `</div>

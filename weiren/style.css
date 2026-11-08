@@ -191,7 +191,9 @@ b { color: #fff; }
 /* ---------- 阶段画面 ---------- */
 #screen-stage { align-items: center; justify-content: center; background: var(--bg); }
 .stage-wrap { max-width: 640px; width: 92%; }
-#stage-box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 34px 38px; }
+#stage-box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 34px 38px; max-height: calc(100dvh - 150px); overflow-y: auto; }
+#stage-box::-webkit-scrollbar { width: 8px; }
+#stage-box::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
 
 .stage-date { text-align: center; color: var(--ink-dim); letter-spacing: .3em; font-size: 13px; }
 .stage-title { text-align: center; font-size: 34px; margin: 12px 0 4px; color: #9fdca5; letter-spacing: .2em; text-shadow: 0 0 16px rgba(121,192,127,.4); }

@@ -388,7 +388,8 @@
     {n:'记忆翻牌进化版',f:'memory-evo.html',c:'益智逻辑',k:'进化 记忆 翻牌 万能牌 炸弹 时钟 偷看 洗牌 星级'},
     {n:'星露小镇·种田RPG',f:'starfarm/index.html',c:'我的世界',k:'星露谷 星露小镇 种田 农场 经营 牧场 种地 浇水 收获 打怪 矿洞 史莱姆 钓鱼 背包 锄头 镐 剑 商店 四季 体力 存档 大型 RPG stardew farm'},
     {n:'成就殿堂',f:'achievements.html',c:'创造休闲',k:'成就 徽章 勋章 签到 每日 经验 等级 奖励 殿堂 收集 achv achievement'},
-    {n:'归类大师',f:'sorting.html',c:'益智逻辑',k:'归类 分类 sorting 分拣 益智 反应 动物 水果 交通 天空 食物 运动 植物 乐器 连击 限时'}
+    {n:'归类大师',f:'sorting.html',c:'益智逻辑',k:'归类 分类 sorting 分拣 益智 反应 动物 水果 交通 天空 食物 运动 植物 乐器 连击 限时'},
+    {n:'伟人商店',f:'weiren/index.html',c:'益智逻辑',k:'伟人 伪人 商店 weiren 甄别 夜市 证件 盘问 放大镜 紫外灯 测谎仪 镜子 情报 恐怖 解谜 经营 多结局'}
   ];
 
   function initAssistant() {
